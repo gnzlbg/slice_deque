@@ -9,36 +9,57 @@ use mach::vm_inherit::VM_INHERIT_COPY;
 
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
     unsafe {
-    let mut addr: mach_vm_address_t = 0;
-    let r: kern_return_t
-        = mach_vm_allocate(mach_task_self(), &mut addr as *mut mach_vm_address_t,
-                           size as u64, VM_FLAGS_ANYWHERE);
-    if r != KERN_SUCCESS {
-        // If the first allocation fails, there is nothing to
-        // deallocate and we can just fail to allocate:
-        return Err(());
-    }
+        let mut addr: mach_vm_address_t = 0;
+        let r: kern_return_t = mach_vm_allocate(
+            mach_task_self(),
+            &mut addr as *mut mach_vm_address_t,
+            size as u64,
+            VM_FLAGS_ANYWHERE,
+        );
+        if r != KERN_SUCCESS {
+            // If the first allocation fails, there is nothing to
+            // deallocate and we can just fail to allocate:
+            return Err(());
+        }
         Ok(addr as *mut u8)
     }
 }
 
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     unsafe {
-    let addr = ptr as mach_vm_address_t;
-    let r: kern_return_t = mach_vm_deallocate(mach_task_self(), addr, size as u64);
-        if r == KERN_SUCCESS { Ok(()) } else { Err(()) }
+        let addr = ptr as mach_vm_address_t;
+        let r: kern_return_t = mach_vm_deallocate(mach_task_self(), addr, size as u64);
+        if r == KERN_SUCCESS {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
 
-pub fn remap(from: *mut u8, mut to: *mut u8, size: usize) -> Result<(), ()> {
+pub fn remap(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
     unsafe {
         let mut cur_protection: vm_prot_t = 0;
         let mut max_protection: vm_prot_t = 0;
         let mut to = to as mach_vm_address_t;
-        let r: kern_return_t = mach_vm_remap(mach_task_self(), &mut to, size as u64, /* mask: */ 0, /* anywhere: */ 0,
-                                             mach_task_self(), from as u64, /* copy */ 0, &mut cur_protection, &mut max_protection,
-                                             VM_INHERIT_COPY);
-        if r == KERN_SUCCESS { Ok(()) } else { Err(()) }
+        let r: kern_return_t = mach_vm_remap(
+            mach_task_self(),
+            &mut to,
+            size as u64,
+            /* mask: */ 0,
+            /* anywhere: */ 0,
+            mach_task_self(),
+            from as u64,
+            /* copy */ 0,
+            &mut cur_protection,
+            &mut max_protection,
+            VM_INHERIT_COPY,
+        );
+        if r == KERN_SUCCESS {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 }
 

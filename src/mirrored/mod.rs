@@ -1,4 +1,5 @@
-mod bytes;
+//! Mirrored memory buffer.
+mod buffer;
 
 #[cfg(target_os = "macos")]
 mod darwin;
@@ -6,4 +7,4 @@ mod darwin;
 #[cfg(target_os = "macos")]
 use self::darwin::*;
 
-pub use self::bytes::Bytes;
+pub use self::buffer::Buffer;

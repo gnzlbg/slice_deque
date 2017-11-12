@@ -4,4 +4,4 @@
 extern crate mach;
 
 mod mirrored;
-pub use mirrored::Bytes;
+pub use mirrored::Buffer;
