@@ -46,6 +46,13 @@ impl<T> Buffer<T> {
         &mut self.as_mut_slice()[i]
     }
 
+    pub fn new() -> Buffer<T> {
+        Buffer {
+            ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
+            size: 0
+        }
+    }
+
     /// Create a mirrored buffer containing `size` `T`s where the first half of
     /// the buffer is mirrored into the second half.
     pub unsafe fn uninitialized(size: usize) -> Result<Buffer<T>, ()> {
@@ -67,14 +74,9 @@ impl<T> Buffer<T> {
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror something.
         if size == 0 {
-            return Ok(Buffer {
-                ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
-                size: 0 });
+            return Ok(Self::new());
         }
-
         assert!(size % 2 == 0);
-
-
 
         // How much memory we need:
         let alloc_size = no_required_pages(size * ::std::mem::size_of::<T>()) * page_size();
@@ -137,6 +139,8 @@ impl<T> Buffer<T> {
 
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
+        if self.size == 0 { return; }
+
         // FIXME ? On "darwin" we can deallocate the non-mirrored and mirrored
         // parts of the buffer at once:
         let buffer_size_in_bytes = self.size() * ::std::mem::size_of::<T>();
@@ -163,11 +167,21 @@ where
     }
 }
 
-
+impl<T> Default for Buffer<T> {
+    fn default() -> Self {
+        Buffer::new()
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_new() {
+        let mut a = Buffer::<u64>::new();
+        assert!(a.size() == 0);
+    }
 
     #[test]
     fn test_alloc() {
