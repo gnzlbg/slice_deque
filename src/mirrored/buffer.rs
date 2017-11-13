@@ -1,5 +1,7 @@
 use super::*;
 
+use core::nonzero::NonZero;
+
 /// Number of required memory pages to hold `bytes`.
 fn no_required_pages(bytes: usize) -> usize {
     let r = (bytes / page_size()).min(1);
@@ -12,7 +14,7 @@ fn no_required_pages(bytes: usize) -> usize {
 
 /// Mirrored Buffer
 pub struct Buffer<T> {
-    ptr: *mut T,
+    ptr: NonZero<*mut T>,
     size: usize,
 }
 
@@ -25,13 +27,13 @@ impl<T> Buffer<T> {
     /// Reinterpret contents as a slice.
     pub unsafe fn as_slice(&self) -> &[T] {
         debug_assert!(::std::mem::size_of::<T>() > 0);
-        ::std::slice::from_raw_parts(self.ptr, self.size())
+        ::std::slice::from_raw_parts(self.ptr.get(), self.size())
     }
 
     /// Reinterpret contents as a mut slice.
     pub unsafe fn as_mut_slice(&mut self) -> &mut [T] {
         debug_assert!(::std::mem::size_of::<T>() > 0);
-        ::std::slice::from_raw_parts_mut(self.ptr, self.size())
+        ::std::slice::from_raw_parts_mut(self.ptr.get(), self.size())
     }
 
     /// Reinterpret content as a slice and access the `i`-th element.
@@ -64,8 +66,15 @@ impl<T> Buffer<T> {
         assert!(page_size() % ::std::mem::size_of::<T>() == 0);
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror something.
+        if size == 0 {
+            return Ok(Buffer {
+                ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
+                size: 0 });
+        }
+
         assert!(size % 2 == 0);
-        assert!(size > 0);
+
+
 
         // How much memory we need:
         let alloc_size = no_required_pages(size * ::std::mem::size_of::<T>()) * page_size();
@@ -120,7 +129,7 @@ impl<T> Buffer<T> {
             println!("  - dealloc succeded, retrying...");
         };
         Ok(Buffer {
-            ptr: ptr as *mut T,
+            ptr: NonZero::new_unchecked(ptr as *mut T),
             size: alloc_size / ::std::mem::size_of::<T>(),
         })
     }
@@ -131,7 +140,7 @@ impl<T> Drop for Buffer<T> {
         // FIXME ? On "darwin" we can deallocate the non-mirrored and mirrored
         // parts of the buffer at once:
         let buffer_size_in_bytes = self.size() * ::std::mem::size_of::<T>();
-        let ptr_first_half = self.ptr as *mut u8;
+        let ptr_first_half = self.ptr.get() as *mut u8;
         // If deallocation fails while calling drop we just panic:
         dealloc(ptr_first_half, buffer_size_in_bytes).unwrap()
     }
