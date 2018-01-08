@@ -1,6 +1,7 @@
 language: rust
 rust: nightly
 sudo: false
+os: osx
 
 addons:
   apt:
@@ -13,20 +14,18 @@ addons:
     sources:
       - kalakris-cmake
 
-before_script:
-  - |
-      cargo install --force cargo-travis &&
-      export PATH=$HOME/.cargo/bin:$PATH
-
 script:
+  - cargo build
+  - cargo test
+  - cargo test --release
+  - cargo bench
+  - cargo doc
   - |
-      cargo build &&
-      cargo test &&
-      cargo bench &&
-      cargo doc
-
-after_success:
-  - cargo coveralls
+    if [ "$TRAVIS_PULL_REQUEST" = "false" ] && [ "$TRAVIS_BRANCH" = "master" ]; then
+      pip install ghp_import --install-option="--prefix=$HOME/.local"
+      $HOME/.local/bin/ghp-import -n target/doc
+      git push -qf https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+    fi
 
 env:
   global:
