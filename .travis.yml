@@ -1,0 +1,33 @@
+language: rust
+rust: nightly
+sudo: false
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+      - cmake
+    sources:
+      - kalakris-cmake
+
+before_script:
+  - |
+      cargo install --force cargo-travis &&
+      export PATH=$HOME/.cargo/bin:$PATH
+
+script:
+  - |
+      cargo build &&
+      cargo test &&
+      cargo bench &&
+      cargo doc
+
+after_success:
+  - cargo coveralls
+
+env:
+  global:
+  - secure: CBkbWUVQ1pvKRYqgbpqmNnvpOXgmlyNoeprMhIQjNIDfKh/CW0EPeso2IvbgfwJFGPWwcmmwdl1K8NXR0J9oIGY0VD449p4K4ZAHV9W0TMoTfth5LNrls7NNQxMEABl7U/3mAEFpK1SxwS/CWCtHhGrOnZlLsbabTERJkHYK+ui9RFb8NYhwxm5me3GSEdTc3JNQ/4DfNaBEIcus67xY3FQU0VphkTDxhDOHnGzgj4+fU9UWldvdkWru9in2D4mmT82FZSPOKBQpRTe5twaTxPDvAU4uFanIw3G1Hxl5/m9EYkMx1ppwOLswp4DZxzVdcJbk/k7ZKcz5FSZVckoRx3C6O8ItHe0prNRp2YUbVY2P+1TOyuKISq5P1cEtGQW+K4cNtBD/sg68HUzJpcemG/5CYJpsHK2yLPV0F/oJLpdP7kqlatYFCg/mpoO/sgjUD6ChhghMm/JR/Ifcfdfic8t8gLm9tRxL4axek2sNNXMi7GDlnM8rIfOCdr8SIFDu53hyovZb7MDzLleeV66CIKpMqluDFThkb4dvuzeGyIDXnJRd9bRaMCGSw2qPX+Iyhm4vnPhYfHmcV9/C0nlqrTJTuDnrNGvjv6umIHK92mTaasjwIpnCaJ6kGAZq/COgz/bHU8XB4/Z3DPe7pnq+9qR4GwdybgeCp2raKey/WZI=
