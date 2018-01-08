@@ -1,7 +1,11 @@
 language: rust
 rust: nightly
 sudo: false
-os: osx
+
+matrix:
+  include:
+    - env: LINUX
+    - os: osx
 
 addons:
   apt:

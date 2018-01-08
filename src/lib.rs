@@ -118,6 +118,9 @@ use core::intrinsics::unlikely;
 #[cfg(target_os = "macos")]
 extern crate mach;
 
+#[cfg(target_os = "linux")]
+extern crate libc;
+
 mod mirrored;
 pub use mirrored::Buffer;
 

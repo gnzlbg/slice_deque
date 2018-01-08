@@ -3,7 +3,10 @@ name = "virtual-deque"
 version = "0.1.0"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 
-[dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
 mach = "0.1.*"
 
 [profile.bench]
