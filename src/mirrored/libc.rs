@@ -4,8 +4,13 @@ use libc::{c_int, c_void, mmap, mremap, munmap, off_t, size_t, sysconf, MAP_ANON
            MAP_NORESERVE, MAP_SHARED, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_READ, PROT_WRITE,
            _SC_PAGESIZE};
 
-/// Allocates enough memory to store `size` bytes.
+/// Tries to allocates `size` bytes of memory.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let r: *mut c_void = mmap(
             /*addr: */ 0 as *mut c_void,
@@ -22,8 +27,13 @@ pub fn alloc(size: usize) -> Result<*mut u8, ()> {
     }
 }
 
-/// Deallocates memory to store `size` bytes.
+/// Tries to deallocates `size` bytes of memory starting at `ptr`.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let r: c_int = munmap(ptr as *mut c_void, size as size_t);
         if r == 0 as c_int {
@@ -34,7 +44,14 @@ pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
-pub fn remap(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
+/// Mirrors `size` bytes of memory starting at `from` to a memory region
+/// starting at `to`.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
+pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let r: *mut c_void = mremap(
             /*addr: */ from as *mut c_void,
@@ -51,6 +68,7 @@ pub fn remap(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
+/// Returns the size of a memory page in bytes.
 pub fn page_size() -> usize {
     unsafe { sysconf(_SC_PAGESIZE) as usize }
 }

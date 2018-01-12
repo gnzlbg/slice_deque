@@ -1,4 +1,5 @@
 #![feature(test)]
+#![cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
 
 extern crate slice_deque;
 extern crate test;

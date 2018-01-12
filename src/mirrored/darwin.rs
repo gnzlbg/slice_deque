@@ -9,7 +9,13 @@ use mach::traps::mach_task_self;
 use mach::vm_statistics::VM_FLAGS_ANYWHERE;
 use mach::vm_inherit::VM_INHERIT_COPY;
 
+/// Tries to allocates `size` bytes of memory.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let mut addr: mach_vm_address_t = 0;
         let r: kern_return_t = mach_vm_allocate(
@@ -27,7 +33,13 @@ pub fn alloc(size: usize) -> Result<*mut u8, ()> {
     }
 }
 
+/// Tries to deallocates `size` bytes of memory starting at `ptr`.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let addr = ptr as mach_vm_address_t;
         let r: kern_return_t = mach_vm_deallocate(mach_task_self(), addr, size as u64);
@@ -39,7 +51,14 @@ pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
-pub fn remap(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
+/// Mirrors `size` bytes of memory starting at `from` to a memory region
+/// starting at `to`.
+///
+/// # Panics
+///
+/// If `size` is not a multiple of the `page_size`.
+pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
+    assert!(size % page_size() == 0);
     unsafe {
         let mut cur_protection: vm_prot_t = 0;
         let mut max_protection: vm_prot_t = 0;
@@ -65,6 +84,7 @@ pub fn remap(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
+/// Returns the size of a memory page in bytes.
 pub fn page_size() -> usize {
     unsafe { mach::vm_page_size::vm_page_size as usize }
 }

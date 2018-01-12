@@ -118,7 +118,8 @@
 #![feature(nonzero, slice_get_slice, fused, core_intrinsics, shared, exact_size_is_empty,
            collections_range)]
 #![cfg_attr(test, feature(conservative_impl_trait, const_atomic_usize_new))]
-#![cfg_attr(feature = "cargo-clippy", allow(len_without_is_empty))]
+#![cfg_attr(feature = "cargo-clippy",
+            allow(len_without_is_empty, shadow_reuse, cast_possible_wrap, cast_sign_loss))]
 
 extern crate core;
 
@@ -133,10 +134,15 @@ extern crate libc;
 mod mirrored;
 pub use mirrored::Buffer;
 
-/// A double-ended queue implemented with a growable virtual ring buffer.
+/// A double-ended queue that derefs into a slice.
+///
+/// It is implemented with a growable virtual ring buffer.
 pub struct SliceDeque<T> {
+    /// Index of the first element in the queue.
     head: usize,
+    /// Index of one past the last element in the queue.
     tail: usize,
+    /// Mirrored memory buffer.
     buf: Buffer<T>,
 }
 
@@ -151,8 +157,8 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
-    pub fn new() -> SliceDeque<T> {
-        SliceDeque {
+    pub fn new() -> Self {
+        Self {
             head: 0,
             tail: 0,
             buf: Buffer::new(),
@@ -169,12 +175,12 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
-    pub fn with_capacity(n: usize) -> SliceDeque<T> {
+    pub fn with_capacity(n: usize) -> Self {
         unsafe {
-            SliceDeque {
+            Self {
                 head: 0,
                 tail: 0,
-                buf: Buffer::uninitialized(2 * n).unwrap(),
+                buf: Buffer::uninitialized(2 * n).expect("failed to allocate a buffer"),
             }
         }
     }
@@ -191,7 +197,7 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.buf.size() / 2
+        self.buf.len() / 2
     }
 
     /// Number of elements in the ring buffer.
@@ -278,7 +284,7 @@ impl<T> SliceDeque<T> {
             }
 
             let mut new_buffer = match Buffer::uninitialized(2 * new_capacity) {
-                Err(_) => panic!("oom"),
+                Err(()) => panic!("oom"),
                 Ok(new_buffer) => new_buffer,
             };
 
@@ -589,7 +595,7 @@ impl<T> SliceDeque<T> {
             return;
         }
 
-        let mut new_vd = SliceDeque::<T>::with_capacity(self.len());
+        let mut new_vd = Self::with_capacity(self.len());
         unsafe {
             ::core::ptr::copy_nonoverlapping(self.as_mut_ptr(), new_vd.as_mut_ptr(), self.len());
         }
@@ -878,7 +884,7 @@ impl<T> SliceDeque<T> {
         assert!(at <= self.len(), "`at` out of bounds");
 
         let other_len = self.len() - at;
-        let mut other = SliceDeque::with_capacity(other_len);
+        let mut other = Self::with_capacity(other_len);
 
         unsafe {
             self.move_tail(-(other_len as isize));
@@ -940,6 +946,26 @@ impl<T> SliceDeque<T>
 where
     T: Clone,
 {
+    /// Modifies the `SliceDeque` in-place so that `len()` is equal to
+    /// `new_len`, either by removing excess elements or by appending clones of
+    /// `value` to the back.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
+    /// deq.push_back(5);
+    /// deq.push_back(10);
+    /// deq.push_back(15);
+    /// assert_eq!(deq, [5, 10, 15]);
+    ///
+    /// deq.resize(2, 0);
+    /// assert_eq!(deq, [5, 10]);
+    ///
+    /// deq.resize(5, 20);
+    /// assert_eq!(deq, [5, 10, 20, 20, 20]);
+    /// ```
     pub fn resize(&mut self, new_len: usize, value: T) {
         let len = self.len();
 
@@ -1007,6 +1033,7 @@ pub struct Drain<'a, T: 'a> {
     tail_len: usize,
     /// Current remaining range to remove
     iter: ::std::slice::Iter<'a, T>,
+    /// A shared mutable pointer to the deque (with shared ownership).
     deq: ::std::ptr::Shared<SliceDeque<T>>,
 }
 
@@ -1108,14 +1135,14 @@ array_impls! {
 impl<T: Eq> Eq for SliceDeque<T> {}
 
 impl<T: Clone> Clone for SliceDeque<T> {
-    fn clone(&self) -> SliceDeque<T> {
-        let mut new = SliceDeque::with_capacity(self.len());
+    fn clone(&self) -> Self {
+        let mut new = Self::with_capacity(self.len());
         for i in self.iter() {
             new.push_back(i.clone());
         }
         new
     }
-    fn clone_from(&mut self, other: &SliceDeque<T>) {
+    fn clone_from(&mut self, other: &Self) {
         self.clear();
         for i in other.iter() {
             self.push_back(i.clone());
@@ -1124,8 +1151,8 @@ impl<T: Clone> Clone for SliceDeque<T> {
 }
 
 impl<'a, T: Clone> From<&'a [T]> for SliceDeque<T> {
-    fn from(s: &'a [T]) -> SliceDeque<T> {
-        let mut new = SliceDeque::with_capacity(s.len());
+    fn from(s: &'a [T]) -> Self {
+        let mut new = Self::with_capacity(s.len());
         for i in s {
             new.push_back(i.clone());
         }
@@ -1134,8 +1161,8 @@ impl<'a, T: Clone> From<&'a [T]> for SliceDeque<T> {
 }
 
 impl<'a, T: Clone> From<&'a mut [T]> for SliceDeque<T> {
-    fn from(s: &'a mut [T]) -> SliceDeque<T> {
-        let mut new = SliceDeque::with_capacity(s.len());
+    fn from(s: &'a mut [T]) -> Self {
+        let mut new = Self::with_capacity(s.len());
         for i in s {
             new.push_back(i.clone());
         }
@@ -1429,15 +1456,15 @@ mod tests {
 
     #[test]
     fn iter_mut() {
-        let mut buf = SliceDeque::new();
-        buf.push_back(5);
-        buf.push_back(3);
-        buf.push_back(4);
-        for num in buf.iter_mut() {
+        let mut deq = SliceDeque::new();
+        deq.push_back(5);
+        deq.push_back(3);
+        deq.push_back(4);
+        for num in deq.iter_mut() {
             *num = *num - 2;
         }
         let b: &[_] = &[&mut 3, &mut 1, &mut 2];
-        assert_eq!(&buf.iter_mut().collect::<Vec<&mut i32>>()[..], b);
+        assert_eq!(&deq.iter_mut().collect::<Vec<&mut i32>>()[..], b);
     }
 
     #[test]
@@ -1453,340 +1480,3 @@ mod tests {
         assert_eq!(hm.get(&b), None);
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use test;
-
-    use super::VecDeque;
-
-
-    #[bench]
-    fn bench_pop_back_100(b: &mut test::Bencher) {
-        let mut deq = VecDeque::<i32>::with_capacity(101);
-
-        b.iter(|| {
-            deq.head = 100;
-            deq.tail = 0;
-            while !deq.is_empty() {
-                test::black_box(deq.pop_back());
-            }
-        })
-    }
-
-    #[bench]
-    fn bench_pop_front_100(b: &mut test::Bencher) {
-        let mut deq = VecDeque::<i32>::with_capacity(101);
-
-        b.iter(|| {
-            deq.head = 100;
-            deq.tail = 0;
-            while !deq.is_empty() {
-                test::black_box(deq.pop_front());
-            }
-        })
-    }
-
-    #[test]
-    fn test_swap_front_back_remove() {
-        fn test(back: bool) {
-            // This test checks that every single combination of tail position and length is tested.
-            // Capacity 15 should be large enough to cover every case.
-            let mut tester = VecDeque::with_capacity(15);
-            let usable_cap = tester.capacity();
-            let final_len = usable_cap / 2;
-
-            for len in 0..final_len {
-                let expected: VecDeque<_> = if back {
-                    (0..len).collect()
-                } else {
-                    (0..len).rev().collect()
-                };
-                for tail_pos in 0..usable_cap {
-                    tester.tail = tail_pos;
-                    tester.head = tail_pos;
-                    if back {
-                        for i in 0..len * 2 {
-                            tester.push_front(i);
-                        }
-                        for i in 0..len {
-                            assert_eq!(tester.swap_remove_back(i), Some(len * 2 - 1 - i));
-                        }
-                    } else {
-                        for i in 0..len * 2 {
-                            tester.push_back(i);
-                        }
-                        for i in 0..len {
-                            let idx = tester.len() - 1 - i;
-                            assert_eq!(tester.swap_remove_front(idx), Some(len * 2 - 1 - i));
-                        }
-                    }
-                    assert!(tester.tail < tester.cap());
-                    assert!(tester.head < tester.cap());
-                    assert_eq!(tester, expected);
-                }
-            }
-        }
-        test(true);
-        test(false);
-    }
-
-    #[test]
-    fn test_insert() {
-        // This test checks that every single combination of tail position, length, and
-        // insertion position is tested. Capacity 15 should be large enough to cover every case.
-
-        let mut tester = VecDeque::with_capacity(15);
-        // can't guarantee we got 15, so have to get what we got.
-        // 15 would be great, but we will definitely get 2^k - 1, for k >= 4, or else
-        // this test isn't covering what it wants to
-        let cap = tester.capacity();
-
-
-        // len is the length *after* insertion
-        for len in 1..cap {
-            // 0, 1, 2, .., len - 1
-            let expected = (0..).take(len).collect::<VecDeque<_>>();
-            for tail_pos in 0..cap {
-                for to_insert in 0..len {
-                    tester.tail = tail_pos;
-                    tester.head = tail_pos;
-                    for i in 0..len {
-                        if i != to_insert {
-                            tester.push_back(i);
-                        }
-                    }
-                    tester.insert(to_insert, to_insert);
-                    assert!(tester.tail < tester.cap());
-                    assert!(tester.head < tester.cap());
-                    assert_eq!(tester, expected);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_remove() {
-        // This test checks that every single combination of tail position, length, and
-        // removal position is tested. Capacity 15 should be large enough to cover every case.
-
-        let mut tester = VecDeque::with_capacity(15);
-        // can't guarantee we got 15, so have to get what we got.
-        // 15 would be great, but we will definitely get 2^k - 1, for k >= 4, or else
-        // this test isn't covering what it wants to
-        let cap = tester.capacity();
-
-        // len is the length *after* removal
-        for len in 0..cap - 1 {
-            // 0, 1, 2, .., len - 1
-            let expected = (0..).take(len).collect::<VecDeque<_>>();
-            for tail_pos in 0..cap {
-                for to_remove in 0..len + 1 {
-                    tester.tail = tail_pos;
-                    tester.head = tail_pos;
-                    for i in 0..len {
-                        if i == to_remove {
-                            tester.push_back(1234);
-                        }
-                        tester.push_back(i);
-                    }
-                    if to_remove == len {
-                        tester.push_back(1234);
-                    }
-                    tester.remove(to_remove);
-                    assert!(tester.tail < tester.cap());
-                    assert!(tester.head < tester.cap());
-                    assert_eq!(tester, expected);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_drain() {
-        let mut tester: VecDeque<usize> = VecDeque::with_capacity(7);
-
-        let cap = tester.capacity();
-        for len in 0..cap + 1 {
-            for tail in 0..cap + 1 {
-                for drain_start in 0..len + 1 {
-                    for drain_end in drain_start..len + 1 {
-                        tester.tail = tail;
-                        tester.head = tail;
-                        for i in 0..len {
-                            tester.push_back(i);
-                        }
-
-                        // Check that we drain the correct values
-                        let drained: VecDeque<_> = tester.drain(drain_start..drain_end).collect();
-                        let drained_expected: VecDeque<_> = (drain_start..drain_end).collect();
-                        assert_eq!(drained, drained_expected);
-
-                        // We shouldn't have changed the capacity or made the
-                        // head or tail out of bounds
-                        assert_eq!(tester.capacity(), cap);
-                        assert!(tester.tail < tester.cap());
-                        assert!(tester.head < tester.cap());
-
-                        // We should see the correct values in the VecDeque
-                        let expected: VecDeque<_> = (0..drain_start)
-                            .chain(drain_end..len)
-                            .collect();
-                        assert_eq!(expected, tester);
-                    }
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_shrink_to_fit() {
-        // This test checks that every single combination of head and tail position,
-        // is tested. Capacity 15 should be large enough to cover every case.
-
-        let mut tester = VecDeque::with_capacity(15);
-        // can't guarantee we got 15, so have to get what we got.
-        // 15 would be great, but we will definitely get 2^k - 1, for k >= 4, or else
-        // this test isn't covering what it wants to
-        let cap = tester.capacity();
-        tester.reserve(63);
-        let max_cap = tester.capacity();
-
-        for len in 0..cap + 1 {
-            // 0, 1, 2, .., len - 1
-            let expected = (0..).take(len).collect::<VecDeque<_>>();
-            for tail_pos in 0..max_cap + 1 {
-                tester.tail = tail_pos;
-                tester.head = tail_pos;
-                tester.reserve(63);
-                for i in 0..len {
-                    tester.push_back(i);
-                }
-                tester.shrink_to_fit();
-                assert!(tester.capacity() <= cap);
-                assert!(tester.tail < tester.cap());
-                assert!(tester.head < tester.cap());
-                assert_eq!(tester, expected);
-            }
-        }
-    }
-
-    #[test]
-    fn test_split_off() {
-        // This test checks that every single combination of tail position, length, and
-        // split position is tested. Capacity 15 should be large enough to cover every case.
-
-        let mut tester = VecDeque::with_capacity(15);
-        // can't guarantee we got 15, so have to get what we got.
-        // 15 would be great, but we will definitely get 2^k - 1, for k >= 4, or else
-        // this test isn't covering what it wants to
-        let cap = tester.capacity();
-
-        // len is the length *before* splitting
-        for len in 0..cap {
-            // index to split at
-            for at in 0..len + 1 {
-                // 0, 1, 2, .., at - 1 (may be empty)
-                let expected_self = (0..).take(at).collect::<VecDeque<_>>();
-                // at, at + 1, .., len - 1 (may be empty)
-                let expected_other = (at..).take(len - at).collect::<VecDeque<_>>();
-
-                for tail_pos in 0..cap {
-                    tester.tail = tail_pos;
-                    tester.head = tail_pos;
-                    for i in 0..len {
-                        tester.push_back(i);
-                    }
-                    let result = tester.split_off(at);
-                    assert!(tester.tail < tester.cap());
-                    assert!(tester.head < tester.cap());
-                    assert!(result.tail < result.cap());
-                    assert!(result.head < result.cap());
-                    assert_eq!(tester, expected_self);
-                    assert_eq!(result, expected_other);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_from_vec() {
-        use super::super::vec::Vec;
-        for cap in 0..35 {
-            for len in 0..cap + 1 {
-                let mut vec = Vec::with_capacity(cap);
-                vec.extend(0..len);
-
-                let vd = VecDeque::from(vec.clone());
-                assert!(vd.cap().is_power_of_two());
-                assert_eq!(vd.len(), vec.len());
-                assert!(vd.into_iter().eq(vec));
-            }
-        }
-    }
-
-    #[test]
-    fn test_vec_from_vecdeque() {
-        use super::super::vec::Vec;
-
-        fn create_vec_and_test_convert(cap: usize, offset: usize, len: usize) {
-            let mut vd = VecDeque::with_capacity(cap);
-            for _ in 0..offset {
-                vd.push_back(0);
-                vd.pop_front();
-            }
-            vd.extend(0..len);
-
-            let vec: Vec<_> = Vec::from(vd.clone());
-            assert_eq!(vec.len(), vd.len());
-            assert!(vec.into_iter().eq(vd));
-        }
-
-        for cap_pwr in 0..7 {
-            // Make capacity as a (2^x)-1, so that the ring size is 2^x
-            let cap = (2i32.pow(cap_pwr) - 1) as usize;
-
-            // In these cases there is enough free space to solve it with copies
-            for len in 0..((cap + 1) / 2) {
-                // Test contiguous cases
-                for offset in 0..(cap - len) {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-
-                // Test cases where block at end of buffer is bigger than block at start
-                for offset in (cap - len)..(cap - (len / 2)) {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-
-                // Test cases where block at start of buffer is bigger than block at end
-                for offset in (cap - (len / 2))..cap {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-            }
-
-            // Now there's not (necessarily) space to straighten the ring with simple copies,
-            // the ring will use swapping when:
-            // (cap + 1 - offset) > (cap + 1 - len) && (len - (cap + 1 - offset)) > (cap + 1 - len))
-            //  right block size  >   free space    &&      left block size       >    free space
-            for len in ((cap + 1) / 2)..cap {
-                // Test contiguous cases
-                for offset in 0..(cap - len) {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-
-                // Test cases where block at end of buffer is bigger than block at start
-                for offset in (cap - len)..(cap - (len / 2)) {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-
-                // Test cases where block at start of buffer is bigger than block at end
-                for offset in (cap - (len / 2))..cap {
-                    create_vec_and_test_convert(cap, offset, len)
-                }
-            }
-        }
-    }
-
-}
-*/
