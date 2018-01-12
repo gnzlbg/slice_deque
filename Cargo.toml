@@ -1,7 +1,15 @@
 [package]
-name = "virtual-deque"
+name = "slice-deque"
 version = "0.1.0"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
+description = "A double-ended queue that Deref's into a slice."
+documentation = "https://docs.rs/slice_deque"
+homepage = "https://github.com/gnzlbg/slice_deque"
+repository = "https://github.com/gnzlbg/slice_deque"
+readme = "readme.md"
+keywords = ["collection", "deque"]
+categories = ["data-structures"]
+license = "MIT/Apache-2.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"

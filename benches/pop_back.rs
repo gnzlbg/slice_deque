@@ -1,7 +1,7 @@
 #![feature(test)]
 
 extern crate test;
-extern crate virtual_deque;
+extern crate slice_deque;
 
 use std::collections::VecDeque;
 
@@ -17,8 +17,8 @@ fn pop_back_std_vecdeque(b: &mut test::Bencher) {
 }
 
 #[bench]
-fn pop_back_virtual_deque(b: &mut test::Bencher) {
-    let mut deq = virtual_deque::VirtualDeque::<u8>::with_capacity(MAX_NO_ITERS);
+fn pop_back_slice_deque(b: &mut test::Bencher) {
+    let mut deq = slice_deque::SliceDeque::<u8>::with_capacity(MAX_NO_ITERS);
     deq.resize(MAX_NO_ITERS, 3);
     b.iter(|| {
         test::black_box(deq.pop_back().unwrap());

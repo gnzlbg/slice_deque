@@ -1,4 +1,4 @@
-//! A double-ended queue implemented with a growable virtual ring buffer.
+//! A double-ended queue that `Deref`s into a slice.
 //!
 //! The double-ended queue in the standard library ([`VecDeque`]) is implemented
 //! using a growable ring buffer (`0` represents uninitialized memory, and `T`
@@ -24,7 +24,7 @@
 //! negative performance consequences (e.g. need to account for wrap around
 //! while iterating over the elements).
 //!
-//! This crates provides [`VirtualDeque`], a double-ended queue implemented with
+//! This crates provides [`SliceDeque`], a double-ended queue implemented with
 //! a growable *virtual* ring-buffer.
 //!
 //! A virtual ring-buffer implementation is very similar to the one used in
@@ -62,35 +62,35 @@
 //! //       ^:tail  ^:head
 //! ```
 //!
-//! As a consequence, [`VirtualDeque`] `Deref`s into a slice, simplifying its
+//! As a consequence, [`SliceDeque`] `Deref`s into a slice, simplifying its
 //! API and implementation, and leading to better performance in some situations.
 //!
-//! The main drawbacks of [`VirtualDeque`] are:
+//! The main drawbacks of [`SliceDeque`] are:
 //!
-//! * constrained platform support: by necessity [`VirtualDeque`] must use the
+//! * constrained platform support: by necessity [`SliceDeque`] must use the
 //! platform-specific virtual memory facilities of the underlying operating
-//! system. While [`VirtualDeque`] can work on all major operating systems,
+//! system. While [`SliceDeque`] can work on all major operating systems,
 //! currently only `MacOS X` is supported.
 //!
 //! * no global allocator support: since the `Alloc`ator API does not support
 //! virtual memory, to use platform-specific virtual memory support
-//! [`VirtualDeque`] must bypass the global allocator and talk directly to the
+//! [`SliceDeque`] must bypass the global allocator and talk directly to the
 //! operating system. This can have negative performance consequences since
-//! growing [`VirtualDeque`] is always going to incur the cost of some system
+//! growing [`SliceDeque`] is always going to incur the cost of some system
 //! calls.
 //!
-//! * capacity constrained by virtual memory facilities: [`VirtualDeque`] must
+//! * capacity constrained by virtual memory facilities: [`SliceDeque`] must
 //! allocate two adjacent memory regions that map to the same region of physical
 //! memory. Most operating systems allow this operation to be performed
 //! exclusively on memory pages (or memory allocations that are multiples of a
-//! memory page). As a consequence, the smalles [`VirtualDeque`] that can be
+//! memory page). As a consequence, the smalles [`SliceDeque`] that can be
 //! created has typically a capacity of 2 memory pages, and it can grow only to
 //! capacities that are a multiple of a memory page.
 //!
-//! The main advantages of [`VirtualDeque`] are:
+//! The main advantages of [`SliceDeque`] are:
 //!
 //! * nicer API: since it `Deref`s to a slice, all operations that work on
-//! slices are available for `VirtualDeque`.
+//! slices are available for `SliceDeque`.
 //!
 //! * efficient iteration: as efficient as for slices.
 //!
@@ -98,13 +98,13 @@
 //!
 //! All in all, if your double-ended queues are small (smaller than a memory
 //! page) or they get resized very often, `VecDeque` can perform better than
-//! [`VirtualDeque`]. Otherwise, [`VirtualDeque`] typically performs better (see
+//! [`SliceDeque`]. Otherwise, [`SliceDeque`] typically performs better (see
 //! the benchmarks), but platform support and global allocator bypass are two
 //! reasons to weight in against its usage.
 //!
 //! [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 //! [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
-//! [`VirtualDeque`]: struct.VirtualDeque.html
+//! [`SliceDeque`]: struct.SliceDeque.html
 
 #![feature(nonzero, slice_get_slice, fused, core_intrinsics, shared, exact_size_is_empty,
            collections_range)]
@@ -125,25 +125,25 @@ mod mirrored;
 pub use mirrored::Buffer;
 
 /// A double-ended queue implemented with a growable virtual ring buffer.
-pub struct VirtualDeque<T> {
+pub struct SliceDeque<T> {
     head: usize,
     tail: usize,
     buf: Buffer<T>,
 }
 
-impl<T> VirtualDeque<T> {
+impl<T> SliceDeque<T> {
     /// Creates a new empty deque.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let deq = VirtualDeque::new();
-    /// # let o: VirtualDeque<u32> = deq;
+    /// # use slice_deque::SliceDeque;
+    /// let deq = SliceDeque::new();
+    /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
-    pub fn new() -> VirtualDeque<T> {
-        VirtualDeque {
+    pub fn new() -> SliceDeque<T> {
+        SliceDeque {
             head: 0,
             tail: 0,
             buf: Buffer::new(),
@@ -155,14 +155,14 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let deq = VirtualDeque::with_capacity(10);
-    /// # let o: VirtualDeque<u32> = deq;
+    /// # use slice_deque::SliceDeque;
+    /// let deq = SliceDeque::with_capacity(10);
+    /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
-    pub fn with_capacity(n: usize) -> VirtualDeque<T> {
+    pub fn with_capacity(n: usize) -> SliceDeque<T> {
         unsafe {
-            VirtualDeque {
+            SliceDeque {
                 head: 0,
                 tail: 0,
                 buf: Buffer::uninitialized(2 * n).unwrap(),
@@ -175,10 +175,10 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let deq = VirtualDeque::with_capacity(10);
+    /// # use slice_deque::SliceDeque;
+    /// let deq = SliceDeque::with_capacity(10);
     /// assert!(deq.capacity() >= 10);
-    /// # let o: VirtualDeque<u32> = deq;
+    /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
@@ -190,8 +190,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::with_capacity(10);
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::with_capacity(10);
     /// assert!(deq.len() == 0);
     /// deq.push_back(3);
     /// assert!(deq.len() == 1);
@@ -209,10 +209,10 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::with_capacity(10);
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::with_capacity(10);
     /// assert!(!deq.is_full());
-    /// # let o: VirtualDeque<u32> = deq;
+    /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
     pub fn is_full(&self) -> bool {
@@ -367,8 +367,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.front(), None);
     ///
     /// deq.push_back(1);
@@ -388,8 +388,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.front(), None);
     ///
     /// deq.push_back(1);
@@ -409,8 +409,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.back(), None);
     ///
     /// deq.push_back(1);
@@ -431,8 +431,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.front(), None);
     ///
     /// deq.push_back(1);
@@ -452,8 +452,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_front(1);
     /// deq.push_front(2);
     /// assert_eq!(deq.front(), Some(&2));
@@ -475,8 +475,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(3);
     /// assert_eq!(deq.back(), Some(&3));
@@ -499,8 +499,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(2);
     ///
@@ -530,8 +530,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.pop_back(), None);
     /// deq.push_back(1);
     /// deq.push_back(3);
@@ -559,20 +559,20 @@ impl<T> VirtualDeque<T> {
     /// Shrinks the capacity of the deque as much as possible.
     ///
     /// It will drop down as close as possible to the length, but because
-    /// `VirtualDeque` allocates memory in multiples of the page size the deque
+    /// `SliceDeque` allocates memory in multiples of the page size the deque
     /// might still have capacity for inserting new elements without
     /// reallocating.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::with_capacity(15);
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::with_capacity(15);
     /// // deq.extend(0..4); // TODO: extend
     /// assert!(deq.capacity() >= 15);
     /// deq.shrink_to_fit();
     /// assert!(deq.capacity() >= 4);
-    /// # let o: VirtualDeque<u32> = deq;
+    /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
@@ -580,7 +580,7 @@ impl<T> VirtualDeque<T> {
             return;
         }
 
-        let mut new_vd = VirtualDeque::<T>::with_capacity(self.len());
+        let mut new_vd = SliceDeque::<T>::with_capacity(self.len());
         unsafe {
             ::core::ptr::copy_nonoverlapping(self.as_mut_ptr(), new_vd.as_mut_ptr(), self.len());
         }
@@ -596,9 +596,9 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
+    /// # use slice_deque::SliceDeque;
     ///
-    /// let mut deq = VirtualDeque::new();
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(5);
     /// deq.push_back(10);
     /// deq.push_back(15);
@@ -636,8 +636,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(2);
     /// deq.push_back(3);
@@ -702,8 +702,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.clear();
     /// assert!(deq.is_empty());
@@ -719,8 +719,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.swap_remove_back(0), None);
     /// deq.push_back(1);
     /// deq.push_back(2);
@@ -747,8 +747,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.swap_remove_front(0), None);
     /// deq.push_back(1);
     /// deq.push_back(2);
@@ -780,8 +780,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back('a');
     /// deq.push_back('b');
     /// deq.push_back('c');
@@ -817,8 +817,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(2);
     /// deq.push_back(3);
@@ -855,8 +855,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(2);
     /// deq.push_back(3);
@@ -869,7 +869,7 @@ impl<T> VirtualDeque<T> {
         assert!(at <= self.len(), "`at` out of bounds");
 
         let other_len = self.len() - at;
-        let mut other = VirtualDeque::with_capacity(other_len);
+        let mut other = SliceDeque::with_capacity(other_len);
 
         unsafe {
             self.move_tail(-(other_len as isize));
@@ -893,8 +893,8 @@ impl<T> VirtualDeque<T> {
     /// # Examples
     ///
     /// ```
-    /// # use virtual_deque::VirtualDeque;
-    /// let mut deq = VirtualDeque::new();
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
     /// deq.push_back(1);
     /// deq.push_back(2);
     /// deq.push_back(3);
@@ -927,7 +927,7 @@ impl<T> VirtualDeque<T> {
     // fn place_front(&mut self) -> PlaceFront<T>
 }
 
-impl<T> VirtualDeque<T>
+impl<T> SliceDeque<T>
 where
     T: Clone,
 {
@@ -946,7 +946,7 @@ where
     }
 }
 
-impl<T: ::std::fmt::Debug> std::fmt::Debug for VirtualDeque<T> {
+impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
         write!(
             f,
@@ -960,37 +960,37 @@ impl<T: ::std::fmt::Debug> std::fmt::Debug for VirtualDeque<T> {
     }
 }
 
-impl<T> Drop for VirtualDeque<T> {
+impl<T> Drop for SliceDeque<T> {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
-impl<T> core::ops::Deref for VirtualDeque<T> {
+impl<T> core::ops::Deref for SliceDeque<T> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
-impl<T> core::ops::DerefMut for VirtualDeque<T> {
+impl<T> core::ops::DerefMut for SliceDeque<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<T> Default for VirtualDeque<T> {
+impl<T> Default for SliceDeque<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// A draining iterator for `VirtualDeque<T>`.
+/// A draining iterator for `SliceDeque<T>`.
 ///
-/// This `struct` is created by the [`drain`] method on [`VirtualDeque`].
+/// This `struct` is created by the [`drain`] method on [`SliceDeque`].
 ///
-/// [`drain`]: struct.VirtualDeque.html#method.drain
-/// [`VirtualDeque`]: struct.VirtualDeque.html
+/// [`drain`]: struct.SliceDeque.html#method.drain
+/// [`SliceDeque`]: struct.SliceDeque.html
 pub struct Drain<'a, T: 'a> {
     /// Index of tail to preserve
     tail_start: usize,
@@ -998,7 +998,7 @@ pub struct Drain<'a, T: 'a> {
     tail_len: usize,
     /// Current remaining range to remove
     iter: ::std::slice::Iter<'a, T>,
-    deq: ::std::ptr::Shared<VirtualDeque<T>>,
+    deq: ::std::ptr::Shared<SliceDeque<T>>,
 }
 
 impl<'a, T: 'a + ::std::fmt::Debug> ::std::fmt::Debug for Drain<'a, T> {
@@ -1074,17 +1074,17 @@ macro_rules! __impl_slice_eq1 {
     }
 }
 
-__impl_slice_eq1! { VirtualDeque<A>, VirtualDeque<B> }
-__impl_slice_eq1! { VirtualDeque<A>, &'b [B] }
-__impl_slice_eq1! { VirtualDeque<A>, &'b mut [B] }
-__impl_slice_eq1! { VirtualDeque<A>, Vec<B> }
+__impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
+__impl_slice_eq1! { SliceDeque<A>, &'b [B] }
+__impl_slice_eq1! { SliceDeque<A>, &'b mut [B] }
+__impl_slice_eq1! { SliceDeque<A>, Vec<B> }
 
 macro_rules! array_impls {
     ($($N: expr)+) => {
         $(
             // NOTE: some less important impls are omitted to reduce code bloat
-            __impl_slice_eq1! { VirtualDeque<A>, [B; $N] }
-            __impl_slice_eq1! { VirtualDeque<A>, &'b [B; $N] }
+            __impl_slice_eq1! { SliceDeque<A>, [B; $N] }
+            __impl_slice_eq1! { SliceDeque<A>, &'b [B; $N] }
         )+
     }
 }
@@ -1096,17 +1096,17 @@ array_impls! {
         30 31 32
 }
 
-impl<T: Eq> Eq for VirtualDeque<T> {}
+impl<T: Eq> Eq for SliceDeque<T> {}
 
-impl<T: Clone> Clone for VirtualDeque<T> {
-    fn clone(&self) -> VirtualDeque<T> {
-        let mut new = VirtualDeque::with_capacity(self.len());
+impl<T: Clone> Clone for SliceDeque<T> {
+    fn clone(&self) -> SliceDeque<T> {
+        let mut new = SliceDeque::with_capacity(self.len());
         for i in self.iter() {
             new.push_back(i.clone());
         }
         new
     }
-    fn clone_from(&mut self, other: &VirtualDeque<T>) {
+    fn clone_from(&mut self, other: &SliceDeque<T>) {
         self.clear();
         for i in other.iter() {
             self.push_back(i.clone());
@@ -1114,9 +1114,9 @@ impl<T: Clone> Clone for VirtualDeque<T> {
     }
 }
 
-impl<'a, T: Clone> From<&'a [T]> for VirtualDeque<T> {
-    fn from(s: &'a [T]) -> VirtualDeque<T> {
-        let mut new = VirtualDeque::with_capacity(s.len());
+impl<'a, T: Clone> From<&'a [T]> for SliceDeque<T> {
+    fn from(s: &'a [T]) -> SliceDeque<T> {
+        let mut new = SliceDeque::with_capacity(s.len());
         for i in s {
             new.push_back(i.clone());
         }
@@ -1124,9 +1124,9 @@ impl<'a, T: Clone> From<&'a [T]> for VirtualDeque<T> {
     }
 }
 
-impl<'a, T: Clone> From<&'a mut [T]> for VirtualDeque<T> {
-    fn from(s: &'a mut [T]) -> VirtualDeque<T> {
-        let mut new = VirtualDeque::with_capacity(s.len());
+impl<'a, T: Clone> From<&'a mut [T]> for SliceDeque<T> {
+    fn from(s: &'a mut [T]) -> SliceDeque<T> {
+        let mut new = SliceDeque::with_capacity(s.len());
         for i in s {
             new.push_back(i.clone());
         }
@@ -1140,7 +1140,7 @@ impl<'a, T: Clone> From<&'a mut [T]> for VirtualDeque<T> {
 // FromIterator
 // Ord
 
-impl<T: ::std::hash::Hash> ::std::hash::Hash for VirtualDeque<T> {
+impl<T: ::std::hash::Hash> ::std::hash::Hash for SliceDeque<T> {
     #[inline]
     fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
         ::std::hash::Hash::hash(&**self, state)
@@ -1149,7 +1149,7 @@ impl<T: ::std::hash::Hash> ::std::hash::Hash for VirtualDeque<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::VirtualDeque;
+    use super::SliceDeque;
     use std::rc::Rc;
     use std::cell::RefCell;
 
@@ -1192,8 +1192,8 @@ mod tests {
         sample.into_iter()
     }
 
-    fn linear_usize_deque(size: usize) -> VirtualDeque<usize> {
-        let mut v: VirtualDeque<usize> = VirtualDeque::new();
+    fn linear_usize_deque(size: usize) -> SliceDeque<usize> {
+        let mut v: SliceDeque<usize> = SliceDeque::new();
         for i in 0..size {
             v.push_back(i);
             assert_eq!(v.len(), i + 1);
@@ -1208,8 +1208,8 @@ mod tests {
         v
     }
 
-    fn constant_deque<T: Clone + ::std::fmt::Debug>(size: usize, val: &T) -> VirtualDeque<T> {
-        let mut v: VirtualDeque<T> = VirtualDeque::with_capacity(size);
+    fn constant_deque<T: Clone + ::std::fmt::Debug>(size: usize, val: &T) -> SliceDeque<T> {
+        let mut v: SliceDeque<T> = SliceDeque::with_capacity(size);
         for i in 0..size {
             let copy = val.clone();
             v.push_back(copy);
@@ -1221,7 +1221,7 @@ mod tests {
 
     #[test]
     fn get() {
-        let mut deq = VirtualDeque::new();
+        let mut deq = SliceDeque::new();
         deq.push_back(3);
         deq.push_back(4);
         deq.push_back(5);
@@ -1230,7 +1230,7 @@ mod tests {
 
     #[test]
     fn get_mut() {
-        let mut deq = VirtualDeque::new();
+        let mut deq = SliceDeque::new();
         deq.push_back(3);
         deq.push_back(4);
         deq.push_back(5);
@@ -1243,7 +1243,7 @@ mod tests {
 
     #[test]
     fn is_empty() {
-        let mut deq = VirtualDeque::new();
+        let mut deq = SliceDeque::new();
         assert!(deq.is_empty());
         deq.push_back(4);
         assert!(!deq.is_empty());
@@ -1254,7 +1254,7 @@ mod tests {
     #[test]
     fn push_pop_front() {
         for size in sizes_to_test() {
-            let mut v: VirtualDeque<usize> = VirtualDeque::new();
+            let mut v: SliceDeque<usize> = SliceDeque::new();
             for i in 0..size {
                 v.push_front(i);
                 assert_eq!(v.len(), i + 1);
@@ -1386,8 +1386,8 @@ mod tests {
 
     #[test]
     fn default() {
-        let d = VirtualDeque::<u8>::default();
-        let r = VirtualDeque::<u8>::new();
+        let d = SliceDeque::<u8>::default();
+        let r = SliceDeque::<u8>::new();
         assert_eq!(d.as_slice(), r.as_slice());
     }
 
@@ -1409,7 +1409,7 @@ mod tests {
 
     #[test]
     fn iter() {
-        let mut deq = VirtualDeque::new();
+        let mut deq = SliceDeque::new();
         deq.push_back(5);
         deq.push_back(3);
         deq.push_back(4);
@@ -1420,7 +1420,7 @@ mod tests {
 
     #[test]
     fn iter_mut() {
-        let mut buf = VirtualDeque::new();
+        let mut buf = SliceDeque::new();
         buf.push_back(5);
         buf.push_back(3);
         buf.push_back(4);
@@ -1434,12 +1434,12 @@ mod tests {
     #[test]
     fn hash() {
         use std::collections::HashMap;
-        let mut hm: HashMap<VirtualDeque<u32>, u32> = HashMap::new();
-        let mut a = VirtualDeque::new();
+        let mut hm: HashMap<SliceDeque<u32>, u32> = HashMap::new();
+        let mut a = SliceDeque::new();
         a.push_back(1);
         a.push_back(2);
         hm.insert(a.clone(), 3);
-        let b = VirtualDeque::new();
+        let b = SliceDeque::new();
         assert_eq!(hm.get(&a), Some(&3));
         assert_eq!(hm.get(&b), None);
     }
