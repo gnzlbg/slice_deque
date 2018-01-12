@@ -120,7 +120,7 @@ impl<T> Buffer<T> {
         // and the page-size must be a multiple of `T` (to be able to mirror
         // the buffer without wholes).
         assert!(::std::mem::align_of::<T>() <= page_size());
-        assert!(page_size() % ::std::mem::size_of::<T>() == 0);
+        // TODO: assert!(page_size() % ::std::mem::size_of::<T>() == 0);
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror
         // something.
@@ -194,7 +194,9 @@ impl<T> Drop for Buffer<T> {
         // On "darwin" and "linux" we can deallocate the non-mirrored and
         // mirrored parts of the buffer at once:
         // TODO: Does this hold on Windows?
-        let buffer_size_in_bytes = self.len() * ::std::mem::size_of::<T>();
+        let buffer_size_in_bytes = no_required_pages(
+            self.len() * ::std::mem::size_of::<T>(),
+        ) * page_size();
         let ptr_first_half = self.ptr.get() as *mut u8;
         // If deallocation fails while calling drop we just panic:
         dealloc(ptr_first_half, buffer_size_in_bytes)
