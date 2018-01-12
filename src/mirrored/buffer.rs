@@ -113,6 +113,11 @@ impl<T> Buffer<T> {
         }
     }
 
+    /// Total number of bytes in the buffer (including mirrored memory).
+    fn size_in_bytes(len: usize) -> usize {
+        no_required_pages(len * ::std::mem::size_of::<T>()) * page_size()
+    }
+
     /// Create a mirrored buffer containing `len` `T`s where the first half of
     /// the buffer is mirrored into the second half.
     pub unsafe fn uninitialized(len: usize) -> Result<Self, ()> {
@@ -130,8 +135,7 @@ impl<T> Buffer<T> {
         assert!(len % 2 == 0);
 
         // How much memory we need:
-        let alloc_size =
-            no_required_pages(len * ::std::mem::size_of::<T>()) * page_size();
+        let alloc_size = Self::size_in_bytes(len);
         debug_assert!(alloc_size > 0);
         debug_assert!(alloc_size % 2 == 0);
         debug_assert!(alloc_size % page_size() == 0);
@@ -194,9 +198,7 @@ impl<T> Drop for Buffer<T> {
         // On "darwin" and "linux" we can deallocate the non-mirrored and
         // mirrored parts of the buffer at once:
         // TODO: Does this hold on Windows?
-        let buffer_size_in_bytes = no_required_pages(
-            self.len() * ::std::mem::size_of::<T>(),
-        ) * page_size();
+        let buffer_size_in_bytes = Self::size_in_bytes(self.len());
         let ptr_first_half = self.ptr.get() as *mut u8;
         // If deallocation fails while calling drop we just panic:
         dealloc(ptr_first_half, buffer_size_in_bytes)
@@ -246,8 +248,7 @@ mod tests {
             assert!(sz >= size);
             assert_eq!(
                 sz,
-                no_required_pages(size * ::std::mem::size_of::<u64>())
-                    * page_size()
+                Buffer::<u64>::size_in_bytes(size)
                     / ::std::mem::size_of::<u64>()
             );
 
