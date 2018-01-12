@@ -1,3 +1,5 @@
+//! Implements the allocator hooks on top of mach.
+
 use mach;
 use mach::kern_return::{kern_return_t, KERN_SUCCESS};
 use mach::vm_types::mach_vm_address_t;
