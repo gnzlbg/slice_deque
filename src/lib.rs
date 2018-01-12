@@ -44,10 +44,12 @@
 //! //               ^:head  ^:tail
 //! ```
 //!
-//! That is, both the virtual memory regions `0` and `1` above (top) map to the
-//! same physical memory (bottom). Such that when the queue grows beyond the end
-//! of the allocated buffer growing into the adjacent virtual memory region is
-//! equivalent to wrapping around the physical memory:
+//! That is, both the virtual memory regions `0` and `1` above (top) map to the same
+//! physical memory (bottom). Just like `VecDeque`, when the queue grows beyond the
+//! end of the allocated physical memory region, the queue wraps around, and new
+//! elements continue to be appended at the beginning of the queue. However, because
+//! `SliceDeque` maps the physical memory to two adjacent memory regions, in virtual
+//! memory space the queue maintais the ilusion of a contiguous memory layout:
 //!
 //! ```rust
 //! // Virtual memory:
@@ -62,8 +64,15 @@
 //! //       ^:tail  ^:head
 //! ```
 //!
-//! As a consequence, [`SliceDeque`] `Deref`s into a slice, simplifying its
-//! API and implementation, and leading to better performance in some situations.
+//! Since processes in many Operating Systems only deal with virtual memory
+//! addresses, leaving the mapping to physical memory to the CPU Memory Management
+//! Unit (MMU), [`SliceDeque`] is able to `Deref`s into a slice in those systems.
+//!
+//! This simplifies [`SliceDeque`]'s API and implementation, giving it a performance
+//! advantage over [`VecDeque`] in some situations.
+//!
+//! In general, you can think of [`SliceDeque`] as a `Vec` with `O(1)` `pop_front`
+//! and amortized `O(1)` `push_front` methods.
 //!
 //! The main drawbacks of [`SliceDeque`] are:
 //!
