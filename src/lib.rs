@@ -356,6 +356,34 @@ impl<T> SliceDeque<T> {
         }
     }
 
+    /// Returns a pair of slices, where the first slice contains the contents
+    /// of the deque and the second one is empty.
+    #[inline]
+    pub fn as_slices(&self) -> (&[T], &[T]) {
+        unsafe {
+            let left = self.as_slice();
+            let right = ::std::slice::from_raw_parts(
+                usize::max_value() as *const _,
+                0,
+            );
+            (left, right)
+        }
+    }
+
+    /// Returns a pair of slices, where the first slice contains the contents
+    /// of the deque and the second one is empty.
+    #[inline]
+    pub fn as_mut_slices(&mut self) -> (&mut [T], &mut [T]) {
+        unsafe {
+            let left = self.as_mut_slice();
+            let right = ::std::slice::from_raw_parts_mut(
+                usize::max_value() as *mut _,
+                0,
+            );
+            (left, right)
+        }
+    }
+
     /// Reserves capacity for inserting at least `additional` elements without
     /// reallocating. Does nothing if the capacity is already sufficient.
     ///
@@ -4704,63 +4732,61 @@ fn vec_placement() {
         assert_eq!(ring.front(), None);
     }
 
-    /* TODO: as_slice tests
-#[test]
-fn vecdeque_as_slices() {
-    let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
-    let cap = ring.capacity() as i32;
-    let first = cap / 2;
-    let last = cap - first;
-    for i in 0..first {
-        ring.push_back(i);
+    #[test]
+    fn vecdeque_as_slices() {
+        let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
+        let cap = ring.capacity() as i32;
+        let first = cap / 2;
+        let last = cap - first;
+        for i in 0..first {
+            ring.push_back(i);
 
-        let (left, right) = ring.as_slices();
-        let expected: Vec<_> = (0..i + 1).collect();
-        assert_eq!(left, &expected[..]);
-        assert_eq!(right, []);
+            let (left, right) = ring.as_slices();
+            let expected: Vec<_> = (0..i + 1).collect();
+            assert_eq!(left, &expected[..]);
+            assert_eq!(right, []);
+        }
+
+        for j in -last..0 {
+            ring.push_front(j);
+            let (left, right) = ring.as_slices();
+            let mut expected_left: Vec<_> = (-last..j + 1).rev().collect();
+            expected_left.extend(0..first);
+            assert_eq!(left, &expected_left[..]);
+            assert_eq!(right, []);
+        }
+
+        assert_eq!(ring.len() as i32, cap);
+        assert_eq!(ring.capacity() as i32, cap);
     }
 
-    for j in -last..0 {
-        ring.push_front(j);
-        let (left, right) = ring.as_slices();
-        let expected_left: Vec<_> = (-last..j + 1).rev().collect();
-        let expected_right: Vec<_> = (0..first).collect();
-        assert_eq!(left, &expected_left[..]);
-        assert_eq!(right, &expected_right[..]);
+    #[test]
+    fn vecdeque_as_mut_slices() {
+        let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
+        let cap = ring.capacity() as i32;
+        let first = cap / 2;
+        let last = cap - first;
+        for i in 0..first {
+            ring.push_back(i);
+
+            let (left, right) = ring.as_mut_slices();
+            let expected: Vec<_> = (0..i + 1).collect();
+            assert_eq!(left, &expected[..]);
+            assert_eq!(right, []);
+        }
+
+        for j in -last..0 {
+            ring.push_front(j);
+            let (left, right) = ring.as_mut_slices();
+            let mut expected_left: Vec<_> = (-last..j + 1).rev().collect();
+            expected_left.extend(0..first);
+            assert_eq!(left, &expected_left[..]);
+            assert_eq!(right, []);
+        }
+
+        assert_eq!(ring.len() as i32, cap);
+        assert_eq!(ring.capacity() as i32, cap);
     }
-
-    assert_eq!(ring.len() as i32, cap);
-    assert_eq!(ring.capacity() as i32, cap);
-}
-
-#[test]
-fn vecdeque_as_mut_slices() {
-    let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
-    let cap = ring.capacity() as i32;
-    let first = cap / 2;
-    let last = cap - first;
-    for i in 0..first {
-        ring.push_back(i);
-
-        let (left, right) = ring.as_mut_slices();
-        let expected: Vec<_> = (0..i + 1).collect();
-        assert_eq!(left, &expected[..]);
-        assert_eq!(right, []);
-    }
-
-    for j in -last..0 {
-        ring.push_front(j);
-        let (left, right) = ring.as_mut_slices();
-        let expected_left: Vec<_> = (-last..j + 1).rev().collect();
-        let expected_right: Vec<_> = (0..first).collect();
-        assert_eq!(left, &expected_left[..]);
-        assert_eq!(right, &expected_right[..]);
-    }
-
-    assert_eq!(ring.len() as i32, cap);
-    assert_eq!(ring.capacity() as i32, cap);
-}
-    */
 
     #[test]
     fn vecdeque_append() {
