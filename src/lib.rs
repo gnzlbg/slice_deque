@@ -1,8 +1,8 @@
 //! A double-ended queue that `Deref`s into a slice.
 //!
-//! The double-ended queue in the standard library ([`VecDeque`]) is implemented
-//! using a growable ring buffer (`0` represents uninitialized memory, and `T`
-//! represents one enelemnt in the queue):
+//! The double-ended queue in the standard library ([`VecDeque`]) is
+//! implemented using a growable ring buffer (`0` represents uninitialized
+//! memory, and `T` represents one enelemnt in the queue):
 //!
 //! ```rust
 //! // [ 0 | 0 | 0 | T | T | T | 0 ]
@@ -44,12 +44,13 @@
 //! //               ^:head  ^:tail
 //! ```
 //!
-//! That is, both the virtual memory regions `0` and `1` above (top) map to the same
-//! physical memory (bottom). Just like `VecDeque`, when the queue grows beyond the
-//! end of the allocated physical memory region, the queue wraps around, and new
-//! elements continue to be appended at the beginning of the queue. However, because
-//! `SliceDeque` maps the physical memory to two adjacent memory regions, in virtual
-//! memory space the queue maintais the ilusion of a contiguous memory layout:
+//! That is, both the virtual memory regions `0` and `1` above (top) map to
+//! the same physical memory (bottom). Just like `VecDeque`, when the queue
+//! grows beyond the end of the allocated physical memory region, the queue
+//! wraps around, and new elements continue to be appended at the beginning of
+//! the queue. However, because `SliceDeque` maps the physical memory to two
+//! adjacent memory regions, in virtual memory space the queue maintais the
+//! ilusion of a contiguous memory layout:
 //!
 //! ```rust
 //! // Virtual memory:
@@ -65,14 +66,15 @@
 //! ```
 //!
 //! Since processes in many Operating Systems only deal with virtual memory
-//! addresses, leaving the mapping to physical memory to the CPU Memory Management
-//! Unit (MMU), [`SliceDeque`] is able to `Deref`s into a slice in those systems.
+//! addresses, leaving the mapping to physical memory to the CPU Memory
+//! Management Unit (MMU), [`SliceDeque`] is able to `Deref`s into a slice in
+//! those systems.
 //!
-//! This simplifies [`SliceDeque`]'s API and implementation, giving it a performance
-//! advantage over [`VecDeque`] in some situations.
+//! This simplifies [`SliceDeque`]'s API and implementation, giving it a
+//! performance advantage over [`VecDeque`] in some situations.
 //!
-//! In general, you can think of [`SliceDeque`] as a `Vec` with `O(1)` `pop_front`
-//! and amortized `O(1)` `push_front` methods.
+//! In general, you can think of [`SliceDeque`] as a `Vec` with `O(1)`
+//! `pop_front` and amortized `O(1)` `push_front` methods.
 //!
 //! The main drawbacks of [`SliceDeque`] are:
 //!
@@ -89,12 +91,12 @@
 //! calls.
 //!
 //! * capacity constrained by virtual memory facilities: [`SliceDeque`] must
-//! allocate two adjacent memory regions that map to the same region of physical
-//! memory. Most operating systems allow this operation to be performed
-//! exclusively on memory pages (or memory allocations that are multiples of a
-//! memory page). As a consequence, the smalles [`SliceDeque`] that can be
-//! created has typically a capacity of 2 memory pages, and it can grow only to
-//! capacities that are a multiple of a memory page.
+//! allocate two adjacent memory regions that map to the same region of
+//! physical memory. Most operating systems allow this operation to be
+//! performed exclusively on memory pages (or memory allocations that are
+//! multiples of a memory page). As a consequence, the smalles [`SliceDeque`]
+//! that can be created has typically a capacity of 2 memory pages, and it can
+//! grow only to capacities that are a multiple of a memory page.
 //!
 //! The main advantages of [`SliceDeque`] are:
 //!
@@ -103,7 +105,8 @@
 //!
 //! * efficient iteration: as efficient as for slices.
 //!
-//! * simpler serialization: since one can just serialize/deserialize a single slice.
+//! * simpler serialization: since one can just serialize/deserialize a single
+//! slice.
 //!
 //! All in all, if your double-ended queues are small (smaller than a memory
 //! page) or they get resized very often, `VecDeque` can perform better than
@@ -115,11 +118,17 @@
 //! [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
 //! [`SliceDeque`]: struct.SliceDeque.html
 
-#![feature(nonzero, slice_get_slice, fused, core_intrinsics, shared, exact_size_is_empty,
-           collections_range)]
-#![cfg_attr(test, feature(conservative_impl_trait, const_atomic_usize_new))]
+#![feature(nonzero, slice_get_slice, fused, core_intrinsics, shared,
+           exact_size_is_empty, collections_range, dropck_eyepatch,
+           generic_param_attrs, trusted_len, offset_to, i128_type,
+           specialization)]
+#![cfg_attr(test,
+            feature(conservative_impl_trait, const_atomic_usize_new,
+                    box_syntax, placement_in_syntax, attr_literals,
+                    inclusive_range_syntax, repr_align, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
-            allow(len_without_is_empty, shadow_reuse, cast_possible_wrap, cast_sign_loss))]
+            allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
+                  cast_sign_loss))]
 
 extern crate core;
 
@@ -146,6 +155,82 @@ pub struct SliceDeque<T> {
     buf: Buffer<T>,
 }
 
+/// Creates a [`SliceDeque`] containing the arguments.
+///
+/// `sdeq!` allows `SliceDeque`s to be defined with the same syntax as array
+/// expressions. There are two forms of this macro:
+///
+/// - Create a [`SliceDeque`] containing a given list of elements:
+///
+/// ```
+/// # #[macro_use] extern crate slice_deque;
+/// # use slice_deque::SliceDeque;
+/// # fn main() {
+/// let v: SliceDeque<i32> = sdeq![1, 2, 3];
+/// assert_eq!(v[0], 1);
+/// assert_eq!(v[1], 2);
+/// assert_eq!(v[2], 3);
+/// # }
+/// ```
+///
+/// - Create a [`SliceDeque`] from a given element and size:
+///
+/// ```
+/// # #[macro_use] extern crate slice_deque;
+/// # use slice_deque::SliceDeque;
+/// # fn main() {
+/// let v = sdeq![7; 3];
+/// assert_eq!(v, [7, 7, 7]);
+/// # }
+/// ```
+///
+/// Note that unlike array expressions this syntax supports all elements
+/// which implement `Clone` and the number of elements doesn't have to be
+/// a constant.
+///
+/// This will use `clone` to duplicate an expression, so one should be careful
+/// using this with types having a nonstandard `Clone` implementation. For
+/// example, `sdeq![Rc::new(1); 5]` will create a deque of five references
+/// to the same boxed integer value, not five references pointing to
+/// independently boxed integers.
+///
+/// ```
+/// # #[macro_use] extern crate slice_deque;
+/// # use slice_deque::SliceDeque;
+/// # use std::rc::Rc;
+/// # fn main() {
+/// let v = sdeq![Rc::new(1_i32); 5];
+/// let ptr: *const i32 = &*v[0] as *const i32;
+/// for i in v.iter() {
+///    assert_eq!(&*i as *const i32, ptr);
+/// }
+/// # }
+/// ```
+///
+/// [`SliceDeque`]: struct.SliceDeque.html
+#[macro_export]
+macro_rules! sdeq {
+    ($elem:expr; $n:expr) => (
+        {
+            let mut deq = $crate::SliceDeque::with_capacity($n);
+            deq.resize($n, $elem);
+            deq
+        }
+    );
+    () => ( $crate::SliceDeque::new() );
+    ($($x:expr),*) => (
+        {
+            unsafe {
+          let slice = &[$($x),*];
+          let deq = $crate::SliceDeque::steal_from_slice(slice);
+          ::std::mem::forget(slice);
+                deq
+            }
+        }
+    );
+    ($($x:expr,)*) => (sdeq![$($x),*])
+}
+
 impl<T> SliceDeque<T> {
     /// Creates a new empty deque.
     ///
@@ -165,6 +250,21 @@ impl<T> SliceDeque<T> {
         }
     }
 
+    /// Creates a SliceDeque from its raw components.
+    ///
+    /// The `ptr` must be a pointer to the beginning of the memory buffer from
+    /// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.
+    #[inline]
+    pub unsafe fn from_raw_parts(
+        ptr: *mut T, capacity: usize, head: usize, tail: usize
+    ) -> Self {
+        Self {
+            head: head,
+            tail: tail,
+            buf: Buffer::from_raw_parts(ptr, capacity * 2),
+        }
+    }
+
     /// Create an empty deque with capacity to hold `n` elements.
     ///
     /// # Examples
@@ -180,12 +280,14 @@ impl<T> SliceDeque<T> {
             Self {
                 head: 0,
                 tail: 0,
-                buf: Buffer::uninitialized(2 * n).expect("failed to allocate a buffer"),
+                buf: Buffer::uninitialized(2 * n)
+                    .expect("failed to allocate a buffer"),
             }
         }
     }
 
-    /// Returns the number of elements that the deque can hold without reallocating.
+    /// Returns the number of elements that the deque can hold without
+    /// reallocating.
     ///
     /// # Examples
     ///
@@ -238,11 +340,8 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            let ptr = self.buf.ptr();
-            if unlikely(self.len() == 0) {
-                return ::std::slice::from_raw_parts(ptr.get(), 0);
-            }
-            let ptr = ptr.get().offset(self.head as isize);
+            let ptr = self.buf.ptr().get();
+            let ptr = ptr.offset(self.head as isize);
             ::std::slice::from_raw_parts(ptr, self.len())
         }
     }
@@ -252,9 +351,6 @@ impl<T> SliceDeque<T> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             let ptr = self.buf.ptr().get();
-            if unlikely(self.len() == 0) {
-                return ::std::slice::from_raw_parts_mut(ptr, 0);
-            }
             let ptr = ptr.offset(self.head as isize);
             ::std::slice::from_raw_parts_mut(ptr, self.len())
         }
@@ -270,20 +366,22 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.capacity().checked_add(additional).expect("overflow");
-
+        let new_cap =
+            self.capacity().checked_add(additional).expect("overflow");
         self.reserve_capacity(new_cap);
     }
 
     /// Reserves capacity for `new_capacity` elements. Does nothing if the
     /// capacity is already sufficient.
+    #[inline]
     fn reserve_capacity(&mut self, new_capacity: usize) {
         unsafe {
             if new_capacity <= self.capacity() {
                 return;
             }
 
-            let mut new_buffer = match Buffer::uninitialized(2 * new_capacity) {
+            let mut new_buffer = match Buffer::uninitialized(2 * new_capacity)
+            {
                 Err(()) => panic!("oom"),
                 Ok(new_buffer) => new_buffer,
             };
@@ -307,8 +405,34 @@ impl<T> SliceDeque<T> {
         }
     }
 
+    /// Reserves the minimum capacity for exactly `additional` more elements to
+    /// be inserted in the given `SliceDeq<T>`. After calling `reserve_exact`,
+    /// capacity will be greater than or equal to `self.len() + additional`.
+    /// Does nothing if the capacity is already sufficient.
+    ///
+    /// Note that the allocator may give the collection more space than it
+    /// requests. Therefore capacity can not be relied upon to be precisely
+    /// minimal. Prefer `reserve` if future insertions are expected.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut deq = sdeq![1];
+    /// deq.reserve_exact(10);
+    /// assert!(deq.capacity() >= 11);
+    /// ```
+    #[inline]
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.reserve(additional);
+    }
+
     /// Growth policy of the deque. The capacity is going to be a multiple of
     /// the page-size anyways, so we just double on growth.
+    #[inline]
     fn grow_policy(&self) -> usize {
         unsafe {
             if unlikely(self.capacity() == 0) {
@@ -320,6 +444,7 @@ impl<T> SliceDeque<T> {
     }
 
     /// Grows the deque.
+    #[inline]
     fn grow(&mut self) {
         debug_assert!(self.is_full());
 
@@ -330,6 +455,7 @@ impl<T> SliceDeque<T> {
     }
 
     /// Moves the deque head by `x`.
+    #[inline]
     unsafe fn move_head(&mut self, x: isize) {
         let head = self.head as isize;
         let mut new_head = head + x;
@@ -353,6 +479,7 @@ impl<T> SliceDeque<T> {
     }
 
     /// Moves the deque tail by `x`.
+    #[inline]
     unsafe fn move_tail(&mut self, x: isize) {
         let head = self.head as isize;
         let tail = self.tail as isize;
@@ -374,6 +501,56 @@ impl<T> SliceDeque<T> {
 
         self.tail = new_tail as usize;
         debug_assert!(self.len() as isize == (tail - head) + x);
+    }
+
+    /// Appends elements to `self` from `other`.
+    #[inline]
+    unsafe fn append_elements(&mut self, other: *const [T]) {
+        let count = (*other).len();
+        self.reserve(count);
+        let len = self.len();
+        ::std::ptr::copy_nonoverlapping(
+            other as *const T,
+            self.get_unchecked_mut(len),
+            count,
+        );
+        self.move_tail(count as isize);
+    }
+
+    /// Steal the elements from the slice `s`. You should `mem::forget` the
+    /// slice afterwards.
+    pub unsafe fn steal_from_slice(s: &[T]) -> Self {
+        let mut deq = Self::with_capacity(s.len());
+        deq.append_elements(s as *const _);
+        deq
+    }
+
+    /// Moves all the elements of `other` into `Self`, leaving `other` empty.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of elements in the deque overflows a `isize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
+    /// let mut deq2 = sdeq![4, 5, 6];
+    /// deq.append(&mut deq2);
+    /// assert_eq!(deq, [1, 2, 3, 4, 5, 6]);
+    /// assert_eq!(deq2, []);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn append(&mut self, other: &mut Self) {
+        unsafe {
+            self.append_elements(other.as_slice() as _);
+            other.head = 0;
+            other.tail = 0;
+        }
     }
 
     /// Provides a reference to the first element, or `None` if the deque is
@@ -516,6 +693,8 @@ impl<T> SliceDeque<T> {
     /// ```
     /// # use slice_deque::SliceDeque;
     /// let mut deq = SliceDeque::new();
+    /// assert_eq!(deq.pop_front(), None);
+    ///
     /// deq.push_back(1);
     /// deq.push_back(2);
     ///
@@ -548,8 +727,10 @@ impl<T> SliceDeque<T> {
     /// # use slice_deque::SliceDeque;
     /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.pop_back(), None);
+    ///
     /// deq.push_back(1);
     /// deq.push_back(3);
+    ///
     /// assert_eq!(deq.pop_back(), Some(3));
     /// assert_eq!(deq.pop_back(), Some(1));
     /// assert_eq!(deq.pop_back(), None);
@@ -583,7 +764,7 @@ impl<T> SliceDeque<T> {
     /// ```rust
     /// # use slice_deque::SliceDeque;
     /// let mut deq = SliceDeque::with_capacity(15);
-    /// // deq.extend(0..4); // TODO: extend
+    /// deq.extend(0..4);
     /// assert!(deq.capacity() >= 15);
     /// deq.shrink_to_fit();
     /// assert!(deq.capacity() >= 4);
@@ -591,13 +772,17 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if self.is_empty() {
+        if unsafe { unlikely(self.is_empty()) } {
             return;
         }
 
         let mut new_vd = Self::with_capacity(self.len());
         unsafe {
-            ::core::ptr::copy_nonoverlapping(self.as_mut_ptr(), new_vd.as_mut_ptr(), self.len());
+            ::core::ptr::copy_nonoverlapping(
+                self.as_mut_ptr(),
+                new_vd.as_mut_ptr(),
+                self.len(),
+            );
         }
         new_vd.tail = self.len();
         ::std::mem::swap(self, &mut new_vd);
@@ -605,28 +790,27 @@ impl<T> SliceDeque<T> {
 
     /// Shortens the deque by removing excess elements from the back.
     ///
-    /// If `len` is greater than the VecDeque's current length, this has no
+    /// If `len` is greater than the SliceDeque's current length, this has no
     /// effect.
     ///
     /// # Examples
     ///
     /// ```rust
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    ///
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(5);
-    /// deq.push_back(10);
-    /// deq.push_back(15);
+    /// # fn main() {
+    /// let mut deq = sdeq![5, 10, 15];
     /// assert_eq!(deq, [5, 10, 15]);
     /// deq.truncate(1);
     /// assert_eq!(deq, [5]);
+    /// # }
     /// ```
     #[inline]
     pub fn truncate(&mut self, len: usize) {
         unsafe {
             while len < self.len() {
-                // decrement tail before the drop_in_place(), so a panic on Drop
-                // doesn't re-drop the just-failed value.
+                // decrement tail before the drop_in_place(), so a panic on
+                // Drop doesn't re-drop the just-failed value.
                 self.tail -= 1;
                 let len = self.len();
                 core::ptr::drop_in_place(self.get_unchecked_mut(len));
@@ -634,28 +818,27 @@ impl<T> SliceDeque<T> {
         }
     }
 
-    /// Creates a draining iterator that removes the specified range in the deque
-    /// and yields the removed items.
+    /// Creates a draining iterator that removes the specified range in the
+    /// deque and yields the removed items.
     ///
     /// Note 1: The element range is removed even if the iterator is only
     /// partially consumed or not consumed at all.
     ///
-    /// Note 2: It is unspecified how many elements are removed from the vector
+    /// Note 2: It is unspecified how many elements are removed from the deque
     /// if the `Drain` value is leaked.
     ///
     /// # Panics
     ///
     /// Panics if the starting point is greater than the end point or if
-    /// the end point is greater than the length of the vector.
+    /// the end point is greater than the length of the deque.
     ///
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
     /// let u: Vec<_> = deq.drain(1..).collect();
     /// assert_eq!(deq, &[1]);
     /// assert_eq!(u, &[2, 3]);
@@ -663,6 +846,7 @@ impl<T> SliceDeque<T> {
     /// // A full range clears the deque
     /// deq.drain(..);
     /// assert_eq!(deq, &[]);
+    /// # }
     /// ```
     #[inline]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
@@ -673,12 +857,13 @@ impl<T> SliceDeque<T> {
         // Memory safety
         //
         // When the Drain is first created, it shortens the length of
-        // the source vector to make sure no uninitalized or moved-from elements
-        // are accessible at all if the Drain's destructor never gets to run.
+        // the source deque to make sure no uninitalized or moved-from
+        // elements are accessible at all if the Drain's destructor
+        // never gets to run.
         //
-        // Drain will ptr::read out the values to remove.
-        // When finished, remaining tail of the vec is copied back to cover
-        // the hole, and the vector length is restored to the new length.
+        // Drain will ::std::ptr::read out the values to remove.
+        // When finished, remaining tail of the deque is copied back to cover
+        // the hole, and the deque length is restored to the new length.
         //
         let len = self.len();
         let start = match range.start() {
@@ -695,10 +880,11 @@ impl<T> SliceDeque<T> {
         assert!(end <= len);
 
         unsafe {
-            // set self.deq length's to start, to be safe in case Drain is leaked
+            // set self.deq length's to start, to be safe in case Drain is
+            // leaked
             self.tail = self.head + start;;
-            // Use the borrow in the IterMut to indicate borrowing behavior of the
-            // whole Drain iterator (like &mut T).
+            // Use the borrow in the IterMut to indicate borrowing behavior of
+            // the whole Drain iterator (like &mut T).
             let range_slice = ::std::slice::from_raw_parts_mut(
                 self.as_mut_ptr().offset(start as isize),
                 end - start,
@@ -717,11 +903,14 @@ impl<T> SliceDeque<T> {
     /// # Examples
     ///
     /// ```rust
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(1);
+    /// # fn main() {
+    /// let mut deq = sdeq![1];
+    /// assert!(!deq.is_empty());
     /// deq.clear();
     /// assert!(deq.is_empty());
+    /// # }
     /// ```
     #[inline]
     pub fn clear(&mut self) {
@@ -737,9 +926,7 @@ impl<T> SliceDeque<T> {
     /// # use slice_deque::SliceDeque;
     /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.swap_remove_back(0), None);
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
+    /// deq.extend(1..4);
     /// assert_eq!(deq, [1, 2, 3]);
     ///
     /// assert_eq!(deq.swap_remove_back(0), Some(1));
@@ -765,9 +952,7 @@ impl<T> SliceDeque<T> {
     /// # use slice_deque::SliceDeque;
     /// let mut deq = SliceDeque::new();
     /// assert_eq!(deq.swap_remove_front(0), None);
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
+    /// deq.extend(1..4);
     /// assert_eq!(deq, [1, 2, 3]);
     ///
     /// assert_eq!(deq.swap_remove_front(2), Some(3));
@@ -795,15 +980,15 @@ impl<T> SliceDeque<T> {
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back('a');
-    /// deq.push_back('b');
-    /// deq.push_back('c');
+    /// # fn main() {
+    /// let mut deq = sdeq!['a', 'b', 'c'];
     /// assert_eq!(deq, &['a', 'b', 'c']);
     ///
     /// deq.insert(1, 'd');
     /// assert_eq!(deq, &['a', 'd', 'b', 'c']);
+    /// # }
     /// ```
     #[inline]
     pub fn insert(&mut self, index: usize, element: T) {
@@ -832,13 +1017,13 @@ impl<T> SliceDeque<T> {
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
     /// assert_eq!(deq.remove(1), 2);
     /// assert_eq!(deq, [1, 3]);
+    /// # }
     /// ```
     #[inline]
     pub fn remove(&mut self, index: usize) -> T {
@@ -870,14 +1055,14 @@ impl<T> SliceDeque<T> {
     /// # Examples
     ///
     /// ```rust
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
     /// let deq2 = deq.split_off(1);
     /// assert_eq!(deq, [1]);
     /// assert_eq!(deq2, [2, 3]);
+    /// # }
     /// ```
     #[inline]
     pub fn split_off(&mut self, at: usize) -> Self {
@@ -901,22 +1086,22 @@ impl<T> SliceDeque<T> {
 
     /// Retains only the elements specified by the predicate.
     ///
-    /// That is, remove all elements `e` such that `f(&e)` returns `false`. This
-    /// method operates in place and preserves the order of the retained
-    /// elements.
+    /// That is, remove all elements `e` such that `f(&e)` returns `false`.
+    /// This method operates in place and preserves the order of the
+    /// retained elements.
     ///
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(1);
-    /// deq.push_back(2);
-    /// deq.push_back(3);
-    /// deq.push_back(4);
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3, 4];
     /// deq.retain(|&x| x%2 == 0);
     /// assert_eq!(deq, [2, 4]);
+    /// # }
     /// ```
+    #[inline]
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&T) -> bool,
@@ -938,14 +1123,361 @@ impl<T> SliceDeque<T> {
             self.truncate(len - del);
         }
     }
-    // fn place_back(&mut self) -> PlaceBack<T>
-    // fn place_front(&mut self) -> PlaceFront<T>
+
+    /// Removes all but the first of consecutive elements in the deque that
+    /// resolve to the same key.
+    ///
+    /// If the deque is sorted, this removes all duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![10, 20, 21, 30, 20];
+    ///
+    /// deq.dedup_by_key(|i| *i / 10);
+    /// assert_eq!(deq, [10, 20, 30, 20]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn dedup_by_key<F, K>(&mut self, mut key: F)
+    where
+        F: FnMut(&mut T) -> K,
+        K: PartialEq,
+    {
+        self.dedup_by(|a, b| key(a) == key(b))
+    }
+
+    /// Removes all but the first of consecutive elements in the deque
+    /// satisfying a given equality relation.
+    ///
+    /// The `same_bucket` function is passed references to two elements from
+    /// the deque, and returns `true` if the elements compare equal, or
+    /// `false` if they do not. The elements are passed in opposite order
+    /// from their order in the deque, so if `same_bucket(a, b)` returns
+    /// `true`, `a` is removed.
+    ///
+    /// If the deque is sorted, this removes all duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq!["foo", "bar", "Bar", "baz", "bar"];
+    ///
+    /// deq.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    ///
+    /// assert_eq!(deq, ["foo", "bar", "baz", "bar"]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn dedup_by<F>(&mut self, mut same_bucket: F)
+    where
+        F: FnMut(&mut T, &mut T) -> bool,
+    {
+        unsafe {
+            // Although we have a mutable reference to `self`, we cannot make
+            // *arbitrary* changes. The `same_bucket` calls could panic, so we
+            // must ensure that the deque is in a valid state at all time.
+            //
+            // The way that we handle this is by using swaps; we iterate
+            // over all the elements, swapping as we go so that at the end
+            // the elements we wish to keep are in the front, and those we
+            // wish to reject are at the back. We can then truncate the
+            // deque. This operation is still O(n).
+            //
+            // Example: We start in this state, where `r` represents "next
+            // read" and `w` represents "next_write`.
+            //
+            //           r
+            //     +---+---+---+---+---+---+
+            //     | 0 | 1 | 1 | 2 | 3 | 3 |
+            //     +---+---+---+---+---+---+
+            //           w
+            //
+            // Comparing self[r] against self[w-1], this is not a duplicate, so
+            // we swap self[r] and self[w] (no effect as r==w) and then
+            // increment both r and w, leaving us with:
+            //
+            //               r
+            //     +---+---+---+---+---+---+
+            //     | 0 | 1 | 1 | 2 | 3 | 3 |
+            //     +---+---+---+---+---+---+
+            //               w
+            //
+            // Comparing self[r] against self[w-1], this value is a duplicate,
+            // so we increment `r` but leave everything else unchanged:
+            //
+            //                   r
+            //     +---+---+---+---+---+---+
+            //     | 0 | 1 | 1 | 2 | 3 | 3 |
+            //     +---+---+---+---+---+---+
+            //               w
+            //
+            // Comparing self[r] against self[w-1], this is not a duplicate,
+            // so swap self[r] and self[w] and advance r and w:
+            //
+            //                       r
+            //     +---+---+---+---+---+---+
+            //     | 0 | 1 | 2 | 1 | 3 | 3 |
+            //     +---+---+---+---+---+---+
+            //                   w
+            //
+            // Not a duplicate, repeat:
+            //
+            //                           r
+            //     +---+---+---+---+---+---+
+            //     | 0 | 1 | 2 | 3 | 1 | 3 |
+            //     +---+---+---+---+---+---+
+            //                       w
+            //
+            // Duplicate, advance r. End of deque. Truncate to w.
+
+            let ln = self.len();
+            if unlikely(ln <= 1) {
+                return;
+            }
+
+            // Avoid bounds checks by using raw pointers.
+            let p = self.as_mut_ptr();
+            let mut r: usize = 1;
+            let mut w: usize = 1;
+
+            while r < ln {
+                let p_r = p.offset(r as isize);
+                let p_wm1 = p.offset((w - 1) as isize);
+                if !same_bucket(&mut *p_r, &mut *p_wm1) {
+                    if r != w {
+                        let p_w = p_wm1.offset(1);
+                        ::std::mem::swap(&mut *p_r, &mut *p_w);
+                    }
+                    w += 1;
+                }
+                r += 1;
+            }
+
+            self.truncate(w);
+        }
+    }
+
+    /// Extend the `SliceDeque` by `n` values, using the given generator.
+    #[inline]
+    fn extend_with<E: ExtendWith<T>>(&mut self, n: usize, value: E) {
+        self.reserve(n);
+
+        unsafe {
+            let mut ptr = self.as_mut_ptr().offset(self.len() as isize);
+
+            // Write all elements except the last one
+            for _ in 1..n {
+                ::std::ptr::write(ptr, value.next());
+                ptr = ptr.offset(1);
+                // Increment the length in every step in case next() panics
+                self.move_tail(1);
+            }
+
+            if n > 0 {
+                // We can write the last element directly without cloning
+                // needlessly
+                ::std::ptr::write(ptr, value.last());
+                self.move_tail(1);
+            }
+
+            // len set by scope guard
+        }
+    }
+
+    /// Extend for a general iterator.
+    ///
+    /// This function should be the moral equivalent of:
+    ///
+    /// >  for item in iterator {
+    /// >      self.push(item);
+    /// >  }
+    #[inline]
+    fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
+        while let Some(element) = iterator.next() {
+            let len = self.len();
+            if len == self.capacity() {
+                let (lower, _) = iterator.size_hint();
+                self.reserve(lower.saturating_add(1));
+            }
+            unsafe {
+                ::std::ptr::write(self.get_unchecked_mut(len), element);
+                // NB can't overflow since we would have had to alloc the
+                // address space
+                self.move_tail(1);
+            }
+        }
+    }
+
+    /// Creates a splicing iterator that replaces the specified range in the
+    /// deque with the given `replace_with` iterator and yields the
+    /// removed items. `replace_with` does not need to be the same length
+    /// as `range`.
+    ///
+    /// Note 1: The element range is removed even if the iterator is not
+    /// consumed until the end.
+    ///
+    /// Note 2: It is unspecified how many elements are removed from the deque,
+    /// if the `Splice` value is leaked.
+    ///
+    /// Note 3: The input iterator `replace_with` is only consumed
+    /// when the `Splice` value is dropped.
+    ///
+    /// Note 4: This is optimal if:
+    ///
+    /// * The tail (elements in the deque after `range`) is empty,
+    /// * or `replace_with` yields fewer elements than `range`’s length
+    /// * or the lower bound of its `size_hint()` is exact.
+    ///
+    /// Otherwise, a temporary deque is allocated and the tail is moved twice.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the starting point is greater than the end point or if
+    /// the end point is greater than the length of the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
+    /// let new = [7, 8];
+    /// let u: SliceDeque<_> = deq.splice(..2, new.iter().cloned()).collect();
+    /// assert_eq!(deq, &[7, 8, 3]);
+    /// assert_eq!(u, &[1, 2]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn splice<R, I>(
+        &mut self, range: R, replace_with: I
+    ) -> Splice<I::IntoIter>
+    where
+        R: std::collections::range::RangeArgument<usize>,
+        I: IntoIterator<Item = T>,
+    {
+        Splice {
+            drain: self.drain(range),
+            replace_with: replace_with.into_iter(),
+        }
+    }
+
+    /// Creates an iterator which uses a closure to determine if an element
+    /// should be removed.
+    ///
+    /// If the closure returns `true`, then the element is removed and yielded.
+    /// If the closure returns `false`, it will try again, and call the closure
+    /// on the next element, seeing if it passes the test.
+    ///
+    /// Using this method is equivalent to the following code:
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// # let some_predicate = |x: &mut i32| { *x == 2 || *x == 3 || *x == 6 };
+    /// let mut deq = SliceDeque::new();
+    /// deq.extend(1..7);
+    /// let mut i = 0;
+    /// while i != deq.len() {
+    ///     if some_predicate(&mut deq[i]) {
+    ///         let val = deq.remove(i);
+    ///         // your code here
+    ///     } else {
+    ///         i += 1;
+    ///     }
+    /// }
+    /// # let mut expected = sdeq![1, 4, 5];
+    /// # assert_eq!(deq, expected);
+    /// # }
+    /// ```
+    ///
+    /// But `drain_filter` is easier to use. `drain_filter` is also more
+    /// efficient, because it can backshift the elements of the deque in
+    /// bulk.
+    ///
+    /// Note that `drain_filter` also lets you mutate every element in the
+    /// filter closure, regardless of whether you choose to keep or remove
+    /// it.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// Splitting a deque into evens and odds, reusing the original allocation:
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut numbers = sdeq![1, 2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15];
+    ///
+    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
+    /// let odds = numbers;
+    ///
+    /// assert_eq!(sdeq![2, 4, 6, 8, 14], evens);
+    /// assert_eq!(odds, sdeq![1, 3, 5, 9, 11, 13, 15]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<T, F>
+    where
+        F: FnMut(&mut T) -> bool,
+    {
+        let old_len = self.len();
+
+        // Guard against us getting leaked (leak amplification)
+        unsafe {
+            self.move_tail(-(old_len as isize));
+        }
+
+        DrainFilter {
+            deq: self,
+            idx: 0,
+            del: 0,
+            old_len,
+            pred: filter,
+        }
+    }
+
+    // TODO: fn place_back(&mut self) -> PlaceBack<T>
+    // TODO: fn place_front(&mut self) -> PlaceFront<T>
 }
 
 impl<T> SliceDeque<T>
 where
     T: Clone,
 {
+    /// Clones and appends all elements in a slice to the `SliceDeque`.
+    ///
+    /// Iterates over the slice `other`, clones each element, and then appends
+    /// it to this `SliceDeque`. The `other` slice is traversed in-order.
+    ///
+    /// Note that this function is same as `extend` except that it is
+    /// specialized to work with slices instead. If and when Rust gets
+    /// specialization this function will likely be deprecated (but still
+    /// available).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
+    /// deq.push_back(1);
+    /// deq.extend_from_slice(&[2, 3, 4]);
+    /// assert_eq!(deq, [1, 2, 3, 4]);
+    /// ```
+    #[inline]
+    pub fn extend_from_slice(&mut self, other: &[T]) {
+        self.spec_extend(other.iter())
+    }
+
     /// Modifies the `SliceDeque` in-place so that `len()` is equal to
     /// `new_len`, either by removing excess elements or by appending clones of
     /// `value` to the back.
@@ -953,11 +1485,10 @@ where
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
-    /// let mut deq = SliceDeque::new();
-    /// deq.push_back(5);
-    /// deq.push_back(10);
-    /// deq.push_back(15);
+    /// # fn main() {
+    /// let mut deq = sdeq![5, 10, 15];
     /// assert_eq!(deq, [5, 10, 15]);
     ///
     /// deq.resize(2, 0);
@@ -965,7 +1496,9 @@ where
     ///
     /// deq.resize(5, 20);
     /// assert_eq!(deq, [5, 10, 20, 20, 20]);
+    /// # }
     /// ```
+    #[inline]
     pub fn resize(&mut self, new_len: usize, value: T) {
         let len = self.len();
 
@@ -981,8 +1514,103 @@ where
     }
 }
 
+impl<T: Default> SliceDeque<T> {
+    /// Resizes the `SliceDeque` in-place so that `len` is equal to `new_len`.
+    ///
+    /// If `new_len` is greater than `len`, the `SliceDeque` is extended by the
+    /// difference, with each additional slot filled with `Default::default()`.
+    /// If `new_len` is less than `len`, the `SliceDeque` is simply truncated.
+    ///
+    /// This method uses `Default` to create new values on every push. If
+    /// you'd rather `Clone` a given value, use [`resize`].
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
+    /// deq.resize_default(5);
+    /// assert_eq!(deq, [1, 2, 3, 0, 0]);
+    ///
+    /// deq.resize_default(2);
+    /// assert_eq!(deq, [1, 2]);
+    /// # }
+    /// ```
+    ///
+    /// [`resize`]: #method.resize
+    #[inline]
+    pub fn resize_default(&mut self, new_len: usize) {
+        let len = self.len();
+
+        if new_len > len {
+            self.extend_with(new_len - len, ExtendDefault);
+        } else {
+            self.truncate(new_len);
+        }
+    }
+}
+
+impl<T: PartialEq> SliceDeque<T> {
+    /// Removes consecutive repeated elements in the deque.
+    ///
+    /// If the deque is sorted, this removes all duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 2, 3, 2];
+    ///
+    /// deq.dedup();
+    /// assert_eq!(deq, [1, 2, 3, 2]);
+    ///
+    /// deq.sort();
+    /// assert_eq!(deq, [1, 2, 2, 3]);
+    ///
+    /// deq.dedup();
+    /// assert_eq!(deq, [1, 2, 3]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn dedup(&mut self) {
+        self.dedup_by(|a, b| a == b)
+    }
+
+    /// Removes the first instance of `item` from the deque if the item exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3, 1];
+    ///
+    /// deq.remove_item(&1);
+    /// assert_eq!(deq, &[2, 3, 1]);
+    /// deq.remove_item(&1);
+    /// assert_eq!(deq, &[2, 3]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn remove_item(&mut self, item: &T) -> Option<T> {
+        let pos = match self.iter().position(|x| *x == *item) {
+            Some(x) => x,
+            None => return None,
+        };
+        Some(self.remove(pos))
+    }
+}
+
 impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+    fn fmt(
+        &self, f: &mut ::std::fmt::Formatter
+    ) -> Result<(), ::std::fmt::Error> {
         write!(
             f,
             "[ len: {}, cap: {}, head: {}, tail: {} | {:?} ]",
@@ -996,6 +1624,7 @@ impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
 }
 
 impl<T> Drop for SliceDeque<T> {
+    #[inline]
     fn drop(&mut self) {
         self.clear();
     }
@@ -1003,20 +1632,125 @@ impl<T> Drop for SliceDeque<T> {
 
 impl<T> core::ops::Deref for SliceDeque<T> {
     type Target = [T];
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
 impl<T> core::ops::DerefMut for SliceDeque<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
 impl<T> Default for SliceDeque<T> {
+    #[inline]
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: Clone> Clone for SliceDeque<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        let mut new = Self::with_capacity(self.len());
+        for i in self.iter() {
+            new.push_back(i.clone());
+        }
+        new
+    }
+    #[inline]
+    fn clone_from(&mut self, other: &Self) {
+        self.clear();
+        for i in other.iter() {
+            self.push_back(i.clone());
+        }
+    }
+}
+
+impl<'a, T: Clone> From<&'a [T]> for SliceDeque<T> {
+    #[inline]
+    fn from(s: &'a [T]) -> Self {
+        let mut new = Self::with_capacity(s.len());
+        for i in s {
+            new.push_back(i.clone());
+        }
+        new
+    }
+}
+
+impl<'a, T: Clone> From<&'a mut [T]> for SliceDeque<T> {
+    #[inline]
+    fn from(s: &'a mut [T]) -> Self {
+        let mut new = Self::with_capacity(s.len());
+        for i in s {
+            new.push_back(i.clone());
+        }
+        new
+    }
+}
+
+impl<T: ::std::hash::Hash> ::std::hash::Hash for SliceDeque<T> {
+    #[inline]
+    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+        ::std::hash::Hash::hash(&**self, state)
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// PartialEq implementations:
+
+macro_rules! __impl_slice_eq1 {
+    ($Lhs: ty, $Rhs: ty) => {
+        __impl_slice_eq1! { $Lhs, $Rhs, Sized }
+    };
+    ($Lhs: ty, $Rhs: ty, $Bound: ident) => {
+        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs where A: PartialEq<B> {
+            #[inline]
+            fn eq(&self, other: &$Rhs) -> bool { self[..] == other[..] }
+        }
+    }
+}
+
+__impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
+__impl_slice_eq1! { SliceDeque<A>, &'b [B] }
+__impl_slice_eq1! { SliceDeque<A>, &'b mut [B] }
+__impl_slice_eq1! { SliceDeque<A>, Vec<B> }
+
+macro_rules! array_impls {
+    ($($N: expr)+) => {
+        $(
+            // NOTE: some less important impls are omitted to reduce code bloat
+            __impl_slice_eq1! { SliceDeque<A>, [B; $N] }
+            __impl_slice_eq1! { SliceDeque<A>, &'b [B; $N] }
+        )+
+    }
+}
+
+array_impls! {
+    0  1  2  3  4  5  6  7  8  9
+        10 11 12 13 14 15 16 17 18 19
+        20 21 22 23 24 25 26 27 28 29
+        30 31 32
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+impl<T: Eq> Eq for SliceDeque<T> {}
+
+impl<T: PartialOrd> PartialOrd for SliceDeque<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<::std::cmp::Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+}
+
+impl<'a, T: PartialOrd> PartialOrd<&'a [T]> for SliceDeque<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &&'a [T]) -> Option<::std::cmp::Ordering> {
+        PartialOrd::partial_cmp(&**self, other)
     }
 }
 
@@ -1055,7 +1789,7 @@ impl<'a, T> Iterator for Drain<'a, T> {
             .next()
             .map(|elt| unsafe { ::std::ptr::read(elt as *const _) })
     }
-
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
@@ -1071,6 +1805,7 @@ impl<'a, T> DoubleEndedIterator for Drain<'a, T> {
 }
 
 impl<'a, T> Drop for Drain<'a, T> {
+    #[inline]
     fn drop(&mut self) {
         // exhaust self first
         while let Some(_) = self.next() {}
@@ -1091,6 +1826,7 @@ impl<'a, T> Drop for Drain<'a, T> {
 }
 
 impl<'a, T> ExactSizeIterator for Drain<'a, T> {
+    #[inline]
     fn is_empty(&self) -> bool {
         self.iter.is_empty()
     }
@@ -1098,88 +1834,699 @@ impl<'a, T> ExactSizeIterator for Drain<'a, T> {
 
 impl<'a, T> ::std::iter::FusedIterator for Drain<'a, T> {}
 
-macro_rules! __impl_slice_eq1 {
-    ($Lhs: ty, $Rhs: ty) => {
-        __impl_slice_eq1! { $Lhs, $Rhs, Sized }
-    };
-    ($Lhs: ty, $Rhs: ty, $Bound: ident) => {
-        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs where A: PartialEq<B> {
-            #[inline]
-            fn eq(&self, other: &$Rhs) -> bool { self[..] == other[..] }
-        }
+/// An iterator that moves out of a deque.
+///
+/// This `struct` is created by the `into_iter` method on
+/// [`SliceDeque`][`SliceDeque`] (provided by the [`IntoIterator`] trait).
+///
+/// [`SliceDeque`]: struct.SliceDeque.html
+/// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
+pub struct IntoIter<T> {
+    buf: ::std::ptr::Shared<T>,
+    cap: usize,
+    ptr: *const T,
+    end: *const T,
+}
+
+impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_tuple("IntoIter").field(&self.as_slice()).finish()
     }
 }
 
-__impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
-__impl_slice_eq1! { SliceDeque<A>, &'b [B] }
-__impl_slice_eq1! { SliceDeque<A>, &'b mut [B] }
-__impl_slice_eq1! { SliceDeque<A>, Vec<B> }
-
-macro_rules! array_impls {
-    ($($N: expr)+) => {
-        $(
-            // NOTE: some less important impls are omitted to reduce code bloat
-            __impl_slice_eq1! { SliceDeque<A>, [B; $N] }
-            __impl_slice_eq1! { SliceDeque<A>, &'b [B; $N] }
-        )+
-    }
-}
-
-array_impls! {
-    0  1  2  3  4  5  6  7  8  9
-        10 11 12 13 14 15 16 17 18 19
-        20 21 22 23 24 25 26 27 28 29
-        30 31 32
-}
-
-impl<T: Eq> Eq for SliceDeque<T> {}
-
-impl<T: Clone> Clone for SliceDeque<T> {
-    fn clone(&self) -> Self {
-        let mut new = Self::with_capacity(self.len());
-        for i in self.iter() {
-            new.push_back(i.clone());
-        }
-        new
-    }
-    fn clone_from(&mut self, other: &Self) {
-        self.clear();
-        for i in other.iter() {
-            self.push_back(i.clone());
-        }
-    }
-}
-
-impl<'a, T: Clone> From<&'a [T]> for SliceDeque<T> {
-    fn from(s: &'a [T]) -> Self {
-        let mut new = Self::with_capacity(s.len());
-        for i in s {
-            new.push_back(i.clone());
-        }
-        new
-    }
-}
-
-impl<'a, T: Clone> From<&'a mut [T]> for SliceDeque<T> {
-    fn from(s: &'a mut [T]) -> Self {
-        let mut new = Self::with_capacity(s.len());
-        for i in s {
-            new.push_back(i.clone());
-        }
-        new
-    }
-}
-
-// Extend<A>
-// Extend<&'a T>: T: 'a + Copy
-// IntoIterator
-// FromIterator
-// Ord
-
-impl<T: ::std::hash::Hash> ::std::hash::Hash for SliceDeque<T> {
+impl<T> IntoIter<T> {
+    /// Returns the index of the head with respect to the beginning of the
+    /// buffer.
     #[inline]
-    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-        ::std::hash::Hash::hash(&**self, state)
+    fn head(&self) -> usize {
+        self.ptr as usize - self.buf.as_ptr() as usize
+    }
+
+    /// Returns the index of the tail with respect to the beginning of the
+    /// buffer.
+    #[inline]
+    fn tail(&self) -> usize {
+        self.end as usize - self.buf.as_ptr() as usize
+    }
+
+    /// Returns the remaining items of this iterator as a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq!['a', 'b', 'c'];
+    /// let mut into_iter = deq.into_iter();
+    /// assert_eq!(into_iter.as_slice(), ['a', 'b', 'c']);
+    /// let _ = into_iter.next().unwrap();
+    /// assert_eq!(into_iter.as_slice(), ['b', 'c']);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn as_slice(&self) -> &[T] {
+        unsafe { ::std::slice::from_raw_parts(self.ptr, self.len()) }
+    }
+
+    /// Returns the remaining items of this iterator as a mutable slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq!['a', 'b', 'c'];
+    /// let mut into_iter = deq.into_iter();
+    /// assert_eq!(into_iter.as_slice(), ['a', 'b', 'c']);
+    /// into_iter.as_mut_slice()[2] = 'z';
+    /// assert_eq!(into_iter.next().unwrap(), 'a');
+    /// assert_eq!(into_iter.next().unwrap(), 'b');
+    /// assert_eq!(into_iter.next().unwrap(), 'z');
+    /// # }
+    /// ```
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        unsafe {
+            ::std::slice::from_raw_parts_mut(self.ptr as *mut T, self.len())
+        }
+    }
+}
+
+unsafe impl<T: Send> Send for IntoIter<T> {}
+unsafe impl<T: Sync> Sync for IntoIter<T> {}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    #[inline]
+    fn next(&mut self) -> Option<T> {
+        unsafe {
+            if self.ptr as *const _ == self.end {
+                None
+            } else {
+                if ::std::mem::size_of::<T>() == 0 {
+                    // purposefully don't use 'ptr.offset' because for
+                    // deques with 0-size elements this would return the
+                    // same pointer.
+                    self.ptr = ::std::intrinsics::arith_offset(
+                        self.ptr as *const i8,
+                        1,
+                    ) as *mut T;
+
+                    // Use a non-null pointer value
+                    // (self.ptr might be null because of wrapping)
+                    Some(::std::ptr::read(1 as *mut T))
+                } else {
+                    let old = self.ptr;
+                    self.ptr = self.ptr.offset(1);
+
+                    Some(::std::ptr::read(old))
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let exact = match self.ptr.offset_to(self.end) {
+            Some(x) => x as usize,
+            None => (self.end as usize).wrapping_sub(self.ptr as usize),
+        };
+        (exact, Some(exact))
+    }
+
+    #[inline]
+    fn count(self) -> usize {
+        self.len()
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    #[inline]
+    fn next_back(&mut self) -> Option<T> {
+        unsafe {
+            if self.end == self.ptr {
+                None
+            } else {
+                if ::std::mem::size_of::<T>() == 0 {
+                    // See above for why 'ptr.offset' isn't used
+                    self.end = ::std::intrinsics::arith_offset(
+                        self.end as *const i8,
+                        -1,
+                    ) as *mut T;
+
+                    // Use a non-null pointer value
+                    // (self.end might be null because of wrapping)
+                    Some(::std::ptr::read(1 as *mut T))
+                } else {
+                    self.end = self.end.offset(-1);
+
+                    Some(::std::ptr::read(self.end))
+                }
+            }
+        }
+    }
+}
+
+impl<T> ExactSizeIterator for IntoIter<T> {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.ptr == self.end
+    }
+}
+
+impl<T> ::std::iter::FusedIterator for IntoIter<T> {}
+
+unsafe impl<T> ::std::iter::TrustedLen for IntoIter<T> {}
+
+impl<T: Clone> Clone for IntoIter<T> {
+    #[inline]
+    fn clone(&self) -> IntoIter<T> {
+        let mut deq = SliceDeque::<T>::with_capacity(
+            self.end as usize - self.ptr as usize,
+        );
+        unsafe {
+            deq.append_elements(self.as_slice());
+        }
+        deq.into_iter()
+    }
+}
+
+unsafe impl<#[may_dangle] T> Drop for IntoIter<T> {
+    #[inline]
+    fn drop(&mut self) {
+        // destroy the remaining elements
+        for _x in self.by_ref() {}
+
+        // Buffer handles deallocation
+        let _ =
+            unsafe { Buffer::from_raw_parts(self.buf.as_ptr(), 2 * self.cap) };
+    }
+}
+
+impl<T> IntoIterator for SliceDeque<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    /// Creates a consuming iterator, that is, one that moves each value out of
+    /// the deque (from start to end). The deque cannot be used after calling
+    /// this.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq!["a".to_string(), "b".to_string()];
+    /// let expected = ["a".to_string(), "b".to_string()];
+    /// for (i, s) in deq.into_iter().enumerate() {
+    ///     // s has type String, not &String
+    ///     println!("{}", s);
+    ///     assert_eq!(s, expected[i]);
+    /// }
+    /// # }
+    /// ```
+    #[inline]
+    fn into_iter(mut self) -> IntoIter<T> {
+        unsafe {
+            let begin = self.as_mut_ptr();
+            ::std::intrinsics::assume(!begin.is_null());
+            let end = if ::std::mem::size_of::<T>() == 0 {
+                ::std::intrinsics::arith_offset(
+                    begin as *const i8,
+                    self.len() as isize,
+                ) as *const T
+            } else {
+                begin.offset(self.len() as isize) as *const T
+            };
+            let cap = self.capacity();
+            ::std::mem::forget(self);
+            IntoIter {
+                buf: ::std::ptr::Shared::new_unchecked(begin),
+                cap,
+                ptr: begin,
+                end,
+            }
+        }
+    }
+}
+
+impl<'a, T> IntoIterator for &'a SliceDeque<T> {
+    type Item = &'a T;
+    type IntoIter = ::std::slice::Iter<'a, T>;
+    #[inline]
+    fn into_iter(self) -> ::std::slice::Iter<'a, T> {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut SliceDeque<T> {
+    type Item = &'a mut T;
+    type IntoIter = ::std::slice::IterMut<'a, T>;
+    #[inline]
+    fn into_iter(self) -> ::std::slice::IterMut<'a, T> {
+        self.iter_mut()
+    }
+}
+
+impl<T> Extend<T> for SliceDeque<T> {
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        <Self as SpecExtend<T, I::IntoIter>>::spec_extend(
+            self,
+            iter.into_iter(),
+        )
+    }
+}
+
+// Specialization trait used for SliceDeque::from_iter and SliceDeque::extend
+trait SpecExtend<T, I> {
+    fn from_iter(iter: I) -> Self;
+    fn spec_extend(&mut self, iter: I);
+}
+
+impl<T, I> SpecExtend<T, I> for SliceDeque<T>
+where
+    I: Iterator<Item = T>,
+{
+    default fn from_iter(mut iterator: I) -> Self {
+        // Unroll the first iteration, as the deque is going to be
+        // expanded on this iteration in every case when the iterable is not
+        // empty, but the loop in extend_desugared() is not going to see the
+        // deque being full in the few subsequent loop iterations.
+        // So we get better branch prediction.
+        let mut deque = match iterator.next() {
+            None => return Self::new(),
+            Some(element) => {
+                let (lower, _) = iterator.size_hint();
+                let mut deque = Self::with_capacity(lower.saturating_add(1));
+                unsafe {
+                    ::std::ptr::write(deque.get_unchecked_mut(0), element);
+                    deque.move_tail(1);
+                }
+                deque
+            }
+        };
+        <Self as SpecExtend<T, I>>::spec_extend(&mut deque, iterator);
+        deque
+    }
+
+    default fn spec_extend(&mut self, iter: I) {
+        self.extend_desugared(iter)
+    }
+}
+
+impl<T, I> SpecExtend<T, I> for SliceDeque<T>
+where
+    I: ::std::iter::TrustedLen<Item = T>,
+{
+    default fn from_iter(iterator: I) -> Self {
+        let mut deque = Self::new();
+        <Self as SpecExtend<T, I>>::spec_extend(&mut deque, iterator);
+        deque
+    }
+
+    default fn spec_extend(&mut self, iterator: I) {
+        // This is the case for a TrustedLen iterator.
+        let (low, high) = iterator.size_hint();
+        if let Some(high_value) = high {
+            debug_assert_eq!(
+                low,
+                high_value,
+                "TrustedLen iterator's size hint is not exact: {:?}",
+                (low, high)
+            );
+        }
+        if let Some(additional) = high {
+            self.reserve(additional);
+            unsafe {
+                let mut ptr = self.as_mut_ptr().offset(self.len() as isize);
+                for element in iterator {
+                    ::std::ptr::write(ptr, element);
+                    ptr = ptr.offset(1);
+                    // NB can't overflow since we would have had to alloc the
+                    // address space
+                    self.move_tail(1);
+                }
+            }
+        } else {
+            self.extend_desugared(iterator)
+        }
+    }
+}
+
+impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
+    fn from_iter(iterator: IntoIter<T>) -> Self {
+        // A common case is passing a deque into a function which immediately
+        // re-collects into a deque. We can short circuit this if the IntoIter
+        // has not been advanced at all.
+        if iterator.buf.as_ptr() as *const _ == iterator.ptr {
+            unsafe {
+                let deq = Self::from_raw_parts(
+                    iterator.buf.as_ptr(),
+                    iterator.cap,
+                    iterator.head(),
+                    iterator.tail(),
+                );
+                ::std::mem::forget(iterator);
+                deq
+            }
+        } else {
+            let mut deque = Self::new();
+            deque.spec_extend(iterator);
+            deque
+        }
+    }
+
+    fn spec_extend(&mut self, mut iterator: IntoIter<T>) {
+        unsafe {
+            self.append_elements(iterator.as_slice() as _);
+        }
+        iterator.ptr = iterator.end;
+    }
+}
+
+impl<'a, T: 'a, I> SpecExtend<&'a T, I> for SliceDeque<T>
+where
+    I: Iterator<Item = &'a T>,
+    T: Clone,
+{
+    default fn from_iter(iterator: I) -> Self {
+        SpecExtend::from_iter(iterator.cloned())
+    }
+
+    default fn spec_extend(&mut self, iterator: I) {
+        self.spec_extend(iterator.cloned())
+    }
+}
+
+impl<'a, T: 'a> SpecExtend<&'a T, ::std::slice::Iter<'a, T>> for SliceDeque<T>
+where
+    T: Copy,
+{
+    fn spec_extend(&mut self, iterator: ::std::slice::Iter<'a, T>) {
+        let slice = iterator.as_slice();
+        self.reserve(slice.len());
+        unsafe {
+            let len = self.len();
+            self.move_tail(slice.len() as isize);
+            self.get_unchecked_mut(len..).copy_from_slice(slice);
+        }
+    }
+}
+
+impl<T> ::std::iter::FromIterator<T> for SliceDeque<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        <Self as SpecExtend<T, I::IntoIter>>::from_iter(iter.into_iter())
+    }
+}
+
+// This code generalises `extend_with_{element,default}`.
+trait ExtendWith<T> {
+    fn next(&self) -> T;
+    fn last(self) -> T;
+}
+
+struct ExtendElement<T>(T);
+impl<T: Clone> ExtendWith<T> for ExtendElement<T> {
+    fn next(&self) -> T {
+        self.0.clone()
+    }
+    fn last(self) -> T {
+        self.0
+    }
+}
+
+struct ExtendDefault;
+impl<T: Default> ExtendWith<T> for ExtendDefault {
+    fn next(&self) -> T {
+        Default::default()
+    }
+    fn last(self) -> T {
+        Default::default()
+    }
+}
+
+#[doc(hidden)]
+pub fn from_elem<T: Clone>(elem: T, n: usize) -> SliceDeque<T> {
+    <T as SpecFromElem>::from_elem(elem, n)
+}
+
+// Specialization trait used for SliceDeque::from_elem
+trait SpecFromElem: Sized {
+    fn from_elem(elem: Self, n: usize) -> SliceDeque<Self>;
+}
+
+impl<T: Clone> SpecFromElem for T {
+    default fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
+        let mut v = SliceDeque::with_capacity(n);
+        v.extend_with(n, ExtendElement(elem));
+        v
+    }
+}
+
+impl SpecFromElem for u8 {
+    #[inline]
+    fn from_elem(elem: u8, n: usize) -> SliceDeque<u8> {
+        unsafe {
+            let mut v = SliceDeque::with_capacity(n);
+            ::std::ptr::write_bytes(v.as_mut_ptr(), elem, n);
+            v.move_tail(n as isize);
+            v
+        }
+    }
+}
+
+macro_rules! impl_spec_from_elem {
+    ($t: ty, $is_zero: expr) => {
+        impl SpecFromElem for $t {
+            #[inline]
+            fn from_elem(elem: $t, n: usize) -> SliceDeque<$t> {
+                let mut v = SliceDeque::with_capacity(n);
+                v.extend_with(n, ExtendElement(elem));
+                v
+            }
+        }
+    };
+}
+
+impl_spec_from_elem!(i8, |x| x == 0);
+impl_spec_from_elem!(i16, |x| x == 0);
+impl_spec_from_elem!(i32, |x| x == 0);
+impl_spec_from_elem!(i64, |x| x == 0);
+impl_spec_from_elem!(i128, |x| x == 0);
+impl_spec_from_elem!(isize, |x| x == 0);
+
+impl_spec_from_elem!(u16, |x| x == 0);
+impl_spec_from_elem!(u32, |x| x == 0);
+impl_spec_from_elem!(u64, |x| x == 0);
+impl_spec_from_elem!(u128, |x| x == 0);
+impl_spec_from_elem!(usize, |x| x == 0);
+
+impl_spec_from_elem!(f32, |x: f32| x == 0. && x.is_sign_positive());
+impl_spec_from_elem!(f64, |x: f64| x == 0. && x.is_sign_positive());
+
+/// Extend implementation that copies elements out of references before
+/// pushing them onto the `SliceDeque`.
+///
+/// This implementation is specialized for slice iterators, where it uses
+/// [`copy_from_slice`] to append the entire slice at once.
+///
+/// [`copy_from_slice`]: ../../std/primitive.slice.html#method.copy_from_slice
+impl<'a, T: 'a + Copy> Extend<&'a T> for SliceDeque<T> {
+    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
+        self.spec_extend(iter.into_iter())
+    }
+}
+
+/// A splicing iterator for `SliceDeque`.
+///
+/// This struct is created by the [`splice()`] method on [`SliceDeque`]. See
+/// its documentation for more.
+///
+/// [`splice()`]: struct.SliceDeque.html#method.splice
+/// [`SliceDeque`]: struct.SliceDeque.html
+#[derive(Debug)]
+pub struct Splice<'a, I: Iterator + 'a> {
+    drain: Drain<'a, I::Item>,
+    replace_with: I,
+}
+
+impl<'a, I: Iterator> Iterator for Splice<'a, I> {
+    type Item = I::Item;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.drain.next()
+    }
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.drain.size_hint()
+    }
+}
+
+impl<'a, I: Iterator> DoubleEndedIterator for Splice<'a, I> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.drain.next_back()
+    }
+}
+
+impl<'a, I: Iterator> ExactSizeIterator for Splice<'a, I> {}
+
+impl<'a, I: Iterator> ::std::iter::FusedIterator for Splice<'a, I> {}
+
+impl<'a, I: Iterator> Drop for Splice<'a, I> {
+    fn drop(&mut self) {
+        // exhaust drain first
+        while let Some(_) = self.drain.next() {}
+
+        unsafe {
+            if self.drain.tail_len == 0 {
+                self.drain.deq.as_mut().extend(self.replace_with.by_ref());
+                return;
+            }
+
+            // First fill the range left by drain().
+            if !self.drain.fill(&mut self.replace_with) {
+                return;
+            }
+
+            // There may be more elements. Use the lower bound as an estimate.
+            // FIXME: Is the upper bound a better guess? Or something else?
+            let (lower_bound, _upper_bound) = self.replace_with.size_hint();
+            if lower_bound > 0 {
+                self.drain.move_tail(lower_bound);
+                if !self.drain.fill(&mut self.replace_with) {
+                    return;
+                }
+            }
+
+            // Collect any remaining elements.
+            // This is a zero-length deque which does not allocate if
+            // `lower_bound` was exact.
+            let mut collected = self.replace_with
+                .by_ref()
+                .collect::<SliceDeque<I::Item>>()
+                .into_iter();
+            // Now we have an exact count.
+            if collected.len() > 0 {
+                self.drain.move_tail(collected.len());
+                let filled = self.drain.fill(&mut collected);
+                debug_assert!(filled);
+                debug_assert_eq!(collected.len(), 0);
+            }
+        }
+        // Let `Drain::drop` move the tail back if necessary and restore
+        // `deq.tail`.
+    }
+}
+
+/// Private helper methods for `Splice::drop`
+impl<'a, T> Drain<'a, T> {
+    /// The range from `self.deq.tail` to `self.tail_start` contains elements
+    /// that have been moved out.
+    /// Fill that range as much as possible with new elements from the
+    /// `replace_with` iterator. Return whether we filled the entire
+    /// range. (`replace_with.next()` didn’t return `None`.)
+    unsafe fn fill<I: Iterator<Item = T>>(
+        &mut self, replace_with: &mut I
+    ) -> bool {
+        let deq = self.deq.as_mut();
+        let range_start = deq.len();
+        let range_end = self.tail_start;
+        let range_slice = ::std::slice::from_raw_parts_mut(
+            deq.as_mut_ptr().offset(range_start as isize),
+            range_end - range_start,
+        );
+
+        for place in range_slice {
+            if let Some(new_item) = replace_with.next() {
+                ::std::ptr::write(place, new_item);
+                deq.move_tail(1);
+            } else {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Make room for inserting more elements before the tail.
+    unsafe fn move_tail(&mut self, extra_capacity: usize) {
+        let deq = self.deq.as_mut();
+        let used_capacity = self.tail_start + self.tail_len;
+        deq.reserve_capacity(used_capacity + extra_capacity);
+
+        let new_tail_start = self.tail_start + extra_capacity;
+        let src = deq.as_ptr().offset(self.tail_start as isize);
+        let dst = deq.as_mut_ptr().offset(new_tail_start as isize);
+        ::std::ptr::copy(src, dst, self.tail_len);
+        self.tail_start = new_tail_start;
+    }
+}
+
+/// An iterator produced by calling `drain_filter` on SliceDeque.
+#[derive(Debug)]
+pub struct DrainFilter<'a, T: 'a, F>
+where
+    F: FnMut(&mut T) -> bool,
+{
+    deq: &'a mut SliceDeque<T>,
+    idx: usize,
+    del: usize,
+    old_len: usize,
+    pred: F,
+}
+
+impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
+where
+    F: FnMut(&mut T) -> bool,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        unsafe {
+            while self.idx != self.old_len {
+                let i = self.idx;
+                self.idx += 1;
+                let v = ::std::slice::from_raw_parts_mut(
+                    self.deq.as_mut_ptr(),
+                    self.old_len,
+                );
+                if (self.pred)(&mut v[i]) {
+                    self.del += 1;
+                    return Some(::std::ptr::read(&v[i]));
+                } else if self.del > 0 {
+                    let del = self.del;
+                    let src: *const T = &v[i];
+                    let dst: *mut T = &mut v[i - del];
+                    // This is safe because self.deq has length 0
+                    // thus its elements will not have Drop::drop
+                    // called on them in the event of a panic.
+                    ::std::ptr::copy_nonoverlapping(src, dst, 1);
+                }
+            }
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.old_len - self.idx))
+    }
+}
+
+impl<'a, T, F> Drop for DrainFilter<'a, T, F>
+where
+    F: FnMut(&mut T) -> bool,
+{
+    fn drop(&mut self) {
+        for _ in self.by_ref() {}
+
+        unsafe {
+            self.deq.move_tail(-(self.del as isize));
+        }
     }
 }
 
@@ -1202,15 +2549,8 @@ mod tests {
 
     fn sizes_to_test() -> impl Iterator<Item = usize> {
         let sample = vec![
-            // powers of 2
-            2,
-            4,
-            8,
-            16,
-            32,
-            64,
-            128,
-            /*
+            /* powers of 2 */ 2, 4, 8, 16, 32, 64,
+            128 /*
             256,
             512,
             1024,
@@ -1223,7 +2563,7 @@ mod tests {
             1, 3, 7, 13, 17, 31, 61, 127, 257, 509, 1021, 2039, 4093,
             8191, 16_381, 32_749,  65_537, 131_071, 262_143, 4_194_301,
             // powers of 10
-            10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/
+            10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/,
         ];
         sample.into_iter()
     }
@@ -1244,7 +2584,9 @@ mod tests {
         v
     }
 
-    fn constant_deque<T: Clone + ::std::fmt::Debug>(size: usize, val: &T) -> SliceDeque<T> {
+    fn constant_deque<T: Clone + ::std::fmt::Debug>(
+        size: usize, val: &T
+    ) -> SliceDeque<T> {
         let mut v: SliceDeque<T> = SliceDeque::with_capacity(size);
         for i in 0..size {
             let copy = val.clone();
@@ -1468,7 +2810,7 @@ mod tests {
     }
 
     #[test]
-    fn hash() {
+    fn hash_map() {
         use std::collections::HashMap;
         let mut hm: HashMap<SliceDeque<u32>, u32> = HashMap::new();
         let mut a = SliceDeque::new();
@@ -1479,4 +2821,2064 @@ mod tests {
         assert_eq!(hm.get(&a), Some(&3));
         assert_eq!(hm.get(&b), None);
     }
+
+    #[test]
+    fn partial_ord_eq() {
+        let mut a = SliceDeque::new();
+        a.push_back(1);
+        a.push_back(2);
+        a.push_back(3);
+        assert!(a == a);
+        assert!(!(a != a));
+
+        let mut b = SliceDeque::new();
+        b.push_back(1);
+        b.push_back(3);
+        b.push_back(2);
+        assert!(a < b);
+        assert!(b > a);
+        assert!(a != b);
+
+        let mut c = SliceDeque::new();
+        c.push_back(2);
+        assert!(c > a);
+        assert!(a < c);
+    }
+
+    struct DropCounter<'a> {
+        count: &'a mut u32,
+    }
+
+    impl<'a> Drop for DropCounter<'a> {
+        fn drop(&mut self) {
+            *self.count += 1;
+        }
+    }
+
+    #[test]
+    fn vec_double_drop() {
+        struct TwoSliceDeque<T> {
+            x: SliceDeque<T>,
+            y: SliceDeque<T>,
+        }
+
+        let (mut count_x, mut count_y) = (0, 0);
+        {
+            let mut tv = TwoSliceDeque {
+                x: SliceDeque::new(),
+                y: SliceDeque::new(),
+            };
+            tv.x.push_back(DropCounter {
+                count: &mut count_x,
+            });
+            tv.y.push_back(DropCounter {
+                count: &mut count_y,
+            });
+
+            // If SliceDeque had a drop flag, here is where it would be zeroed.
+            // Instead, it should rely on its internal state to prevent
+            // doing anything significant when dropped multiple times.
+            ::std::mem::drop(tv.x);
+
+            // Here tv goes out of scope, tv.y should be dropped, but not tv.x.
+        }
+
+        assert_eq!(count_x, 1);
+        assert_eq!(count_y, 1);
+    }
+
+    #[test]
+    fn vec_reserve() {
+        let mut v = SliceDeque::new();
+        assert_eq!(v.capacity(), 0);
+
+        v.reserve(2);
+        assert!(v.capacity() >= 2);
+
+        for i in 0..16 {
+            v.push_back(i);
+        }
+
+        assert!(v.capacity() >= 16);
+        v.reserve(16);
+        assert!(v.capacity() >= 32);
+
+        v.push_back(16);
+
+        v.reserve(16);
+        assert!(v.capacity() >= 33)
+    }
+
+    #[test]
+    fn vec_extend() {
+        let mut v = SliceDeque::new();
+        let mut w = SliceDeque::new();
+
+        v.extend(w.clone());
+        assert_eq!(v, &[]);
+
+        v.extend(0..3);
+        for i in 0..3 {
+            w.push_back(i)
+        }
+
+        assert_eq!(v, w);
+
+        v.extend(3..10);
+        for i in 3..10 {
+            w.push_back(i)
+        }
+
+        assert_eq!(v, w);
+
+        v.extend(w.clone()); // specializes to `append`
+        assert!(v.iter().eq(w.iter().chain(w.iter())));
+
+        /* TODO: zero-sized types
+        // Zero sized types
+        #[derive(PartialEq, Debug)]
+        struct Foo;
+
+        let mut a = SliceDeque::new();
+        let b = sdeq![Foo, Foo];
+
+        a.extend(b);
+        assert_eq!(a, &[Foo, Foo]);
+        */
+        // Double drop
+        let mut count_x = 0;
+        {
+            let mut x = SliceDeque::new();
+            let mut y = SliceDeque::new();
+            y.push_back(DropCounter {
+                count: &mut count_x,
+            });
+            x.extend(y);
+        }
+        assert_eq!(count_x, 1);
+    }
+
+    #[test]
+    fn vec_extend_ref() {
+        let mut v = SliceDeque::new();
+        for &i in &[1, 2] {
+            v.push_back(i);
+        }
+        v.extend(&[3, 4, 5]);
+
+        assert_eq!(v.len(), 5);
+        assert_eq!(v, [1, 2, 3, 4, 5]);
+
+        let mut w = SliceDeque::new();
+        for &i in &[6, 7] {
+            w.push_back(i);
+        }
+        v.extend(&w);
+
+        assert_eq!(v.len(), 7);
+        assert_eq!(v, [1, 2, 3, 4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn vec_slice_from_mut() {
+        let mut values = sdeq![1, 2, 3, 4, 5];
+        {
+            let slice = &mut values[2..];
+            assert!(slice == [3, 4, 5]);
+            for p in slice {
+                *p += 2;
+            }
+        }
+
+        assert!(values == [1, 2, 5, 6, 7]);
+    }
+
+    #[test]
+    fn vec_slice_to_mut() {
+        let mut values = sdeq![1, 2, 3, 4, 5];
+        {
+            let slice = &mut values[..2];
+            assert!(slice == [1, 2]);
+            for p in slice {
+                *p += 1;
+            }
+        }
+
+        assert!(values == [2, 3, 3, 4, 5]);
+    }
+
+    #[test]
+    fn vec_split_at_mut() {
+        let mut values = sdeq![1, 2, 3, 4, 5];
+        {
+            let (left, right) = values.split_at_mut(2);
+            {
+                let left: &[_] = left;
+                assert!(&left[..left.len()] == &[1, 2]);
+            }
+            for p in left {
+                *p += 1;
+            }
+
+            {
+                let right: &[_] = right;
+                assert!(&right[..right.len()] == &[3, 4, 5]);
+            }
+            for p in right {
+                *p += 2;
+            }
+        }
+
+        assert_eq!(values, [2, 3, 5, 6, 7]);
+    }
+
+    #[test]
+    fn vec_clone() {
+        let v: SliceDeque<i32> = sdeq![];
+        let w = sdeq![1, 2, 3];
+
+        assert_eq!(v, v.clone());
+
+        let z = w.clone();
+        assert_eq!(w, z);
+        // they should be disjoint in memory.
+        assert!(w.as_ptr() != z.as_ptr())
+    }
+
+    #[test]
+    fn vec_clone_from() {
+        let mut v = sdeq![];
+        let three: SliceDeque<Box<_>> = sdeq![box 1, box 2, box 3];
+        let two: SliceDeque<Box<_>> = sdeq![box 4, box 5];
+
+        // zero, long
+        v.clone_from(&three);
+        assert_eq!(v, three);
+
+        // equal
+        v.clone_from(&three);
+        assert_eq!(v, three);
+
+        // long, short
+        v.clone_from(&two);
+        assert_eq!(v, two);
+
+        // short, long
+        v.clone_from(&three);
+        assert_eq!(v, three)
+    }
+
+    #[test]
+    fn vec_retain() {
+        let mut deq = sdeq![1, 2, 3, 4];
+        deq.retain(|&x| x % 2 == 0);
+        assert_eq!(deq, [2, 4]);
+    }
+
+    #[test]
+    fn vec_dedup() {
+        fn case(a: SliceDeque<i32>, b: SliceDeque<i32>) {
+            let mut v = a;
+            v.dedup();
+            assert_eq!(v, b);
+        }
+        case(sdeq![], sdeq![]);
+        case(sdeq![1], sdeq![1]);
+        case(sdeq![1, 1], sdeq![1]);
+        case(sdeq![1, 2, 3], sdeq![1, 2, 3]);
+        case(sdeq![1, 1, 2, 3], sdeq![1, 2, 3]);
+        case(sdeq![1, 2, 2, 3], sdeq![1, 2, 3]);
+        case(sdeq![1, 2, 3, 3], sdeq![1, 2, 3]);
+        case(sdeq![1, 1, 2, 2, 2, 3, 3], sdeq![1, 2, 3]);
+    }
+
+    #[test]
+    fn vec_dedup_by_key() {
+        fn case(a: SliceDeque<i32>, b: SliceDeque<i32>) {
+            let mut v = a;
+            v.dedup_by_key(|i| *i / 10);
+            assert_eq!(v, b);
+        }
+        case(sdeq![], sdeq![]);
+        case(sdeq![10], sdeq![10]);
+        case(sdeq![10, 11], sdeq![10]);
+        case(sdeq![10, 20, 30], sdeq![10, 20, 30]);
+        case(sdeq![10, 11, 20, 30], sdeq![10, 20, 30]);
+        case(sdeq![10, 20, 21, 30], sdeq![10, 20, 30]);
+        case(sdeq![10, 20, 30, 31], sdeq![10, 20, 30]);
+        case(sdeq![10, 11, 20, 21, 22, 30, 31], sdeq![10, 20, 30]);
+    }
+
+    #[test]
+    fn vec_dedup_by() {
+        let mut deq = sdeq!["foo", "bar", "Bar", "baz", "bar"];
+        deq.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+
+        assert_eq!(deq, ["foo", "bar", "baz", "bar"]);
+
+        let mut deq =
+            sdeq![("foo", 1), ("foo", 2), ("bar", 3), ("bar", 4), ("bar", 5)];
+        deq.dedup_by(|a, b| {
+            a.0 == b.0 && {
+                b.1 += a.1;
+                true
+            }
+        });
+
+        assert_eq!(deq, [("foo", 3), ("bar", 12)]);
+    }
+
+    #[test]
+    fn vec_dedup_unique() {
+        let mut v0: SliceDeque<Box<_>> = sdeq![box 1, box 1, box 2, box 3];
+        v0.dedup();
+        let mut v1: SliceDeque<Box<_>> = sdeq![box 1, box 2, box 2, box 3];
+        v1.dedup();
+        let mut v2: SliceDeque<Box<_>> = sdeq![box 1, box 2, box 3, box 3];
+        v2.dedup();
+        // If the boxed pointers were leaked or otherwise misused, valgrind
+        // and/or rt should raise errors.
+    }
+
+    #[test]
+    fn zero_sized_values() {
+        let mut v = SliceDeque::new();
+        assert_eq!(v.len(), 0);
+        v.push_back(());
+        assert_eq!(v.len(), 1);
+        v.push_back(());
+        assert_eq!(v.len(), 2);
+        assert_eq!(v.pop_back(), Some(()));
+        assert_eq!(v.pop_back(), Some(()));
+        assert_eq!(v.pop_back(), None);
+
+        assert_eq!(v.iter().count(), 0);
+        v.push_back(());
+        assert_eq!(v.iter().count(), 1);
+        v.push_back(());
+        assert_eq!(v.iter().count(), 2);
+
+        for &() in &v {}
+
+        assert_eq!(v.iter_mut().count(), 2);
+        v.push_back(());
+        assert_eq!(v.iter_mut().count(), 3);
+        v.push_back(());
+        assert_eq!(v.iter_mut().count(), 4);
+
+        for &mut () in &mut v {}
+        unsafe {
+            let len = v.len() as isize;
+            v.move_tail(-len);
+        }
+        assert_eq!(v.iter_mut().count(), 0);
+    }
+
+    #[test]
+    fn vec_partition() {
+        assert_eq!(
+            sdeq![].into_iter().partition(|x: &i32| *x < 3),
+            (sdeq![], sdeq![])
+        );
+        assert_eq!(
+            sdeq![1, 2, 3].into_iter().partition(|x| *x < 4),
+            (sdeq![1, 2, 3], sdeq![])
+        );
+        assert_eq!(
+            sdeq![1, 2, 3].into_iter().partition(|x| *x < 2),
+            (sdeq![1], sdeq![2, 3])
+        );
+        assert_eq!(
+            sdeq![1, 2, 3].into_iter().partition(|x| *x < 0),
+            (sdeq![], sdeq![1, 2, 3])
+        );
+    }
+
+    #[test]
+    fn vec_zip_unzip() {
+        let z1 = sdeq![(1, 4), (2, 5), (3, 6)];
+
+        let (left, right): (SliceDeque<_>, SliceDeque<_>) =
+            z1.iter().cloned().unzip();
+
+        assert_eq!((1, 4), (left[0], right[0]));
+        assert_eq!((2, 5), (left[1], right[1]));
+        assert_eq!((3, 6), (left[2], right[2]));
+    }
+
+    #[test]
+    fn vec_vec_truncate_drop() {
+        static mut DROPS: u32 = 0;
+        struct Elem(i32);
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut v = sdeq![Elem(1), Elem(2), Elem(3), Elem(4), Elem(5)];
+        assert_eq!(unsafe { DROPS }, 0);
+        v.truncate(3);
+        assert_eq!(unsafe { DROPS }, 2);
+        v.truncate(0);
+        assert_eq!(unsafe { DROPS }, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_vec_truncate_fail() {
+        struct BadElem(i32);
+        impl Drop for BadElem {
+            fn drop(&mut self) {
+                let BadElem(ref mut x) = *self;
+                if *x == 0xbadbeef {
+                    panic!("BadElem panic: 0xbadbeef")
+                }
+            }
+        }
+
+        let mut v =
+            sdeq![BadElem(1), BadElem(2), BadElem(0xbadbeef), BadElem(4)];
+        v.truncate(0);
+    }
+
+    #[test]
+    fn vec_index() {
+        let deq = sdeq![1, 2, 3];
+        assert!(deq[1] == 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_index_out_of_bounds() {
+        let deq = sdeq![1, 2, 3];
+        let _ = deq[3];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_slice_out_of_bounds_1() {
+        let x = sdeq![1, 2, 3, 4, 5];
+        &x[!0..];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_slice_out_of_bounds_2() {
+        let x = sdeq![1, 2, 3, 4, 5];
+        &x[..6];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_slice_out_of_bounds_3() {
+        let x = sdeq![1, 2, 3, 4, 5];
+        &x[!0..4];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_slice_out_of_bounds_4() {
+        let x = sdeq![1, 2, 3, 4, 5];
+        &x[1..6];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_slice_out_of_bounds_5() {
+        let x = sdeq![1, 2, 3, 4, 5];
+        &x[3..2];
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_swap_remove_empty() {
+        let mut deq = SliceDeque::<i32>::new();
+        deq.swap_remove_back(0);
+    }
+
+    #[test]
+    fn vec_move_items() {
+        let deq = sdeq![1, 2, 3];
+        let mut deq2 = sdeq![];
+        for i in deq {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq2, [1, 2, 3]);
+    }
+
+    #[test]
+    fn vec_move_items_reverse() {
+        let deq = sdeq![1, 2, 3];
+        let mut deq2 = sdeq![];
+        for i in deq.into_iter().rev() {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq2, [3, 2, 1]);
+    }
+
+    #[test]
+    fn vec_move_items_zero_sized() {
+        let deq = sdeq![(), (), ()];
+        let mut deq2 = sdeq![];
+        for i in deq {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq2, [(), (), ()]);
+    }
+
+    #[test]
+    fn vec_drain_items() {
+        let mut deq = sdeq![1, 2, 3];
+        let mut deq2 = sdeq![];
+        for i in deq.drain(..) {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq, []);
+        assert_eq!(deq2, [1, 2, 3]);
+    }
+
+    #[test]
+    fn vec_drain_items_reverse() {
+        let mut deq = sdeq![1, 2, 3];
+        let mut deq2 = sdeq![];
+        for i in deq.drain(..).rev() {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq, []);
+        assert_eq!(deq2, [3, 2, 1]);
+    }
+
+    #[test]
+    fn vec_drain_items_zero_sized() {
+        let mut deq = sdeq![(), (), ()];
+        let mut deq2 = sdeq![];
+        for i in deq.drain(..) {
+            deq2.push_back(i);
+        }
+        assert_eq!(deq, []);
+        assert_eq!(deq2, [(), (), ()]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_drain_out_of_bounds() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        v.drain(5..6);
+    }
+
+    #[test]
+    fn vec_drain_range() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        for _ in v.drain(4..) {}
+        assert_eq!(v, &[1, 2, 3, 4]);
+
+        let mut v: SliceDeque<_> = (1..6).map(|x| x.to_string()).collect();
+        for _ in v.drain(1..4) {}
+        assert_eq!(v, &[1.to_string(), 5.to_string()]);
+
+        let mut v: SliceDeque<_> = (1..6).map(|x| x.to_string()).collect();
+        for _ in v.drain(1..4).rev() {}
+        assert_eq!(v, &[1.to_string(), 5.to_string()]);
+
+        let mut v: SliceDeque<_> = sdeq![(); 5];
+        for _ in v.drain(1..4).rev() {}
+        assert_eq!(v, &[(), ()]);
+    }
+
+    #[test]
+    fn vec_drain_inclusive_range() {
+        let mut v = sdeq!['a', 'b', 'c', 'd', 'e'];
+        for _ in v.drain(1..=3) {}
+        assert_eq!(v, &['a', 'e']);
+
+        let mut v: SliceDeque<_> = (0..=5).map(|x| x.to_string()).collect();
+        for _ in v.drain(1..=5) {}
+        assert_eq!(v, &["0".to_string()]);
+
+        let mut v: SliceDeque<String> =
+            (0..=5).map(|x| x.to_string()).collect();
+        for _ in v.drain(0..=5) {}
+        assert_eq!(v, SliceDeque::<String>::new());
+
+        let mut v: SliceDeque<_> = (0..=5).map(|x| x.to_string()).collect();
+        for _ in v.drain(0..=3) {}
+        assert_eq!(v, &["4".to_string(), "5".to_string()]);
+
+        let mut v: SliceDeque<_> = (0..=1).map(|x| x.to_string()).collect();
+        for _ in v.drain(..=0) {}
+        assert_eq!(v, &["1".to_string()]);
+    }
+
+    /* TODO: zero-sized types
+#[test]
+fn vec_drain_max_vec_size() {
+    let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
+    unsafe { v.set_len(usize::max_value()); }
+    for _ in v.drain(usize::max_value() - 1..) {
+    }
+    assert_eq!(v.len(), usize::max_value() - 1);
+
+    let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
+    unsafe { v.set_len(usize::max_value()); }
+    for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {
+    }
+    assert_eq!(v.len(), usize::max_value() - 1);
+}
+*/
+
+    #[test]
+    #[should_panic]
+    fn vec_drain_inclusive_out_of_bounds() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        v.drain(5..=5);
+    }
+
+    #[test]
+    fn vec_splice() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        let a = [10, 11, 12];
+        v.splice(2..4, a.iter().cloned());
+        assert_eq!(v, &[1, 2, 10, 11, 12, 5]);
+        v.splice(1..3, Some(20));
+        assert_eq!(v, &[1, 20, 11, 12, 5]);
+    }
+
+    #[test]
+    fn vec_splice_inclusive_range() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        let a = [10, 11, 12];
+        let t1: SliceDeque<_> = v.splice(2..=3, a.iter().cloned()).collect();
+        assert_eq!(v, &[1, 2, 10, 11, 12, 5]);
+        assert_eq!(t1, &[3, 4]);
+        let t2: SliceDeque<_> = v.splice(1..=2, Some(20)).collect();
+        assert_eq!(v, &[1, 20, 11, 12, 5]);
+        assert_eq!(t2, &[2, 10]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_splice_out_of_bounds() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        let a = [10, 11, 12];
+        v.splice(5..6, a.iter().cloned());
+    }
+
+    #[test]
+    #[should_panic]
+    fn vec_splice_inclusive_out_of_bounds() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        let a = [10, 11, 12];
+        v.splice(5..=5, a.iter().cloned());
+    }
+
+    #[test]
+    fn vec_splice_items_zero_sized() {
+        let mut deq = sdeq![(), (), ()];
+        let deq2 = sdeq![];
+        let t: SliceDeque<_> =
+            deq.splice(1..2, deq2.iter().cloned()).collect();
+        assert_eq!(deq, &[(), ()]);
+        assert_eq!(t, &[()]);
+    }
+
+    #[test]
+    fn vec_splice_unbounded() {
+        let mut deq = sdeq![1, 2, 3, 4, 5];
+        let t: SliceDeque<_> = deq.splice(.., None).collect();
+        assert_eq!(deq, &[]);
+        assert_eq!(t, &[1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn vec_splice_forget() {
+        let mut v = sdeq![1, 2, 3, 4, 5];
+        let a = [10, 11, 12];
+        ::std::mem::forget(v.splice(2..4, a.iter().cloned()));
+        assert_eq!(v, &[1, 2]);
+    }
+
+    /* into_boxed_slice probably can't be supported portably
+#[test]
+fn vec_into_boxed_slice() {
+    let xs = sdeq![1, 2, 3];
+    let ys = xs.into_boxed_slice();
+    assert_eq!(&*ys, [1, 2, 3]);
+}
+*/
+
+    #[test]
+    fn vec_append() {
+        let mut deq = sdeq![1, 2, 3];
+        let mut deq2 = sdeq![4, 5, 6];
+        deq.append(&mut deq2);
+        assert_eq!(deq, [1, 2, 3, 4, 5, 6]);
+        assert_eq!(deq2, []);
+    }
+
+    #[test]
+    fn vec_split_off() {
+        let mut deq = sdeq![1, 2, 3, 4, 5, 6];
+        let deq2 = deq.split_off(4);
+        assert_eq!(deq, [1, 2, 3, 4]);
+        assert_eq!(deq2, [5, 6]);
+    }
+
+    #[test]
+    fn vec_into_iter_as_slice() {
+        let deq = sdeq!['a', 'b', 'c'];
+        let mut into_iter = deq.into_iter();
+        assert_eq!(into_iter.as_slice(), &['a', 'b', 'c']);
+        let _ = into_iter.next().unwrap();
+        assert_eq!(into_iter.as_slice(), &['b', 'c']);
+        let _ = into_iter.next().unwrap();
+        let _ = into_iter.next().unwrap();
+        assert_eq!(into_iter.as_slice(), &[]);
+    }
+
+    #[test]
+    fn vec_into_iter_as_mut_slice() {
+        let deq = sdeq!['a', 'b', 'c'];
+        let mut into_iter = deq.into_iter();
+        assert_eq!(into_iter.as_slice(), &['a', 'b', 'c']);
+        into_iter.as_mut_slice()[0] = 'x';
+        into_iter.as_mut_slice()[1] = 'y';
+        assert_eq!(into_iter.next().unwrap(), 'x');
+        assert_eq!(into_iter.as_slice(), &['y', 'c']);
+    }
+
+    #[test]
+    fn vec_into_iter_debug() {
+        let deq = sdeq!['a', 'b', 'c'];
+        let into_iter = deq.into_iter();
+        let debug = format!("{:?}", into_iter);
+        assert_eq!(debug, "IntoIter(['a', 'b', 'c'])");
+    }
+
+    #[test]
+    fn vec_into_iter_count() {
+        assert_eq!(sdeq![1, 2, 3].into_iter().count(), 3);
+    }
+
+    #[test]
+    fn vec_into_iter_clone() {
+        fn iter_equal<I: Iterator<Item = i32>>(it: I, slice: &[i32]) {
+            let v: SliceDeque<i32> = it.collect();
+            assert_eq!(&v[..], slice);
+        }
+        let mut it = sdeq![1, 2, 3].into_iter();
+        iter_equal(it.clone(), &[1, 2, 3]);
+        assert_eq!(it.next(), Some(1));
+        let mut it = it.rev();
+        iter_equal(it.clone(), &[3, 2]);
+        assert_eq!(it.next(), Some(3));
+        iter_equal(it.clone(), &[2]);
+        assert_eq!(it.next(), Some(2));
+        iter_equal(it.clone(), &[]);
+        assert_eq!(it.next(), None);
+    }
+
+    /* TODO: Cow support
+#[test]
+    fn vec_cow_from() {
+        use std::borrow::Cow;
+    let borrowed: &[_] = &["borrowed", "(slice)"];
+    let owned = sdeq!["owned", "(vec)"];
+    match (Cow::from(owned.clone()), Cow::from(borrowed)) {
+        (Cow::Owned(o), Cow::Borrowed(b)) => assert!(o == owned && b == borrowed),
+        _ => panic!("invalid `Cow::from`"),
+    }
+}
+
+#[test]
+    fn vec_from_cow() {
+        use std::borrow::Cow;
+    let borrowed: &[_] = &["borrowed", "(slice)"];
+    let owned = sdeq!["owned", "(vec)"];
+    assert_eq!(SliceDeque::from(Cow::Borrowed(borrowed)), sdeq!["borrowed", "(slice)"]);
+    assert_eq!(SliceDeque::from(Cow::Owned(owned)), sdeq!["owned", "(vec)"]);
+}
+     */
+
+    use super::Drain;
+
+    /* TODO: covariance
+use super::{IntoIter};
+
+#[allow(dead_code)]
+fn assert_covariance() {
+    fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
+        d
+    }
+    fn into_iter<'new>(i: IntoIter<&'static str>) -> IntoIter<&'new str> {
+        i
+    }
+}
+    */
+
+    /* TODO: placement syntax
+#[test]
+fn vec_placement() {
+    let mut deq = sdeq![1];
+    assert_eq!(deq.place_back() <- 2, &2);
+    assert_eq!(deq.len(), 2);
+    assert_eq!(deq.place_back() <- 3, &3);
+    assert_eq!(deq.len(), 3);
+    assert_eq!(&deq, &[1, 2, 3]);
+}
+
+
+#[test]
+    fn vec_placement_panic() {
+        use ::std::panic;
+    let mut deq = sdeq![1, 2, 3];
+    fn mkpanic() -> usize { panic!() }
+    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| { deq.place_back() <- mkpanic(); }));
+    assert_eq!(deq.len(), 3);
+}
+     */
+
+    #[test]
+    fn from_into_inner() {
+        let deq = sdeq![1, 2, 3];
+        let ptr = deq.as_ptr();
+        let deq = deq.into_iter().collect::<SliceDeque<_>>();
+        assert_eq!(deq, [1, 2, 3]);
+        assert_eq!(deq.as_ptr(), ptr);
+
+        let ptr = &deq[1] as *const _;
+        let mut it = deq.into_iter();
+        it.next().unwrap();
+        let deq = it.collect::<SliceDeque<_>>();
+        assert_eq!(deq, [2, 3]);
+        assert!(ptr != deq.as_ptr());
+    }
+
+    #[test]
+    fn overaligned_allocations() {
+        #[repr(align(256))]
+        struct Foo(usize);
+        let mut v = sdeq![Foo(273)];
+        for i in 0..0x1000 {
+            v.reserve_exact(i);
+            assert!(v[0].0 == 273);
+            assert!(v.as_ptr() as usize & 0xff == 0);
+            v.shrink_to_fit();
+            assert!(v[0].0 == 273);
+            assert!(v.as_ptr() as usize & 0xff == 0);
+        }
+    }
+
+    #[test]
+    fn drain_filter_empty() {
+        let mut deq: SliceDeque<i32> = sdeq![];
+
+        {
+            let mut iter = deq.drain_filter(|_| true);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+        }
+        assert_eq!(deq.len(), 0);
+        assert_eq!(deq, sdeq![]);
+    }
+
+    #[test]
+    fn drain_filter_zst() {
+        let mut deq = sdeq![(), (), (), (), ()];
+        let initial_len = deq.len();
+        let mut count = 0;
+        {
+            let mut iter = deq.drain_filter(|_| true);
+            assert_eq!(iter.size_hint(), (0, Some(initial_len)));
+            while let Some(_) = iter.next() {
+                count += 1;
+                assert_eq!(iter.size_hint(), (0, Some(initial_len - count)));
+            }
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+        }
+
+        assert_eq!(count, initial_len);
+        assert_eq!(deq.len(), 0);
+        assert_eq!(deq, sdeq![]);
+    }
+
+    #[test]
+    fn drain_filter_false() {
+        let mut deq = sdeq![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+        let initial_len = deq.len();
+        let mut count = 0;
+        {
+            let mut iter = deq.drain_filter(|_| false);
+            assert_eq!(iter.size_hint(), (0, Some(initial_len)));
+            for _ in iter.by_ref() {
+                count += 1;
+            }
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+        }
+
+        assert_eq!(count, 0);
+        assert_eq!(deq.len(), initial_len);
+        assert_eq!(deq, sdeq![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    }
+
+    #[test]
+    fn drain_filter_true() {
+        let mut deq = sdeq![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+        let initial_len = deq.len();
+        let mut count = 0;
+        {
+            let mut iter = deq.drain_filter(|_| true);
+            assert_eq!(iter.size_hint(), (0, Some(initial_len)));
+            while let Some(_) = iter.next() {
+                count += 1;
+                assert_eq!(iter.size_hint(), (0, Some(initial_len - count)));
+            }
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+        }
+
+        assert_eq!(count, initial_len);
+        assert_eq!(deq.len(), 0);
+        assert_eq!(deq, sdeq![]);
+    }
+
+    #[test]
+    fn drain_filter_complex() {
+        {
+            //                [+xxx++++++xxxxx++++x+x++]
+            let mut deq = sdeq![
+                1, 2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29,
+                31, 33, 34, 35, 36, 37, 39,
+            ];
+
+            let removed =
+                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            assert_eq!(removed.len(), 10);
+            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+
+            assert_eq!(deq.len(), 14);
+            assert_eq!(
+                deq,
+                sdeq![1, 7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]
+            );
+        }
+
+        {
+            //                [xxx++++++xxxxx++++x+x++]
+            let mut deq = sdeq![
+                2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29, 31,
+                33, 34, 35, 36, 37, 39,
+            ];
+
+            let removed =
+                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            assert_eq!(removed.len(), 10);
+            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+
+            assert_eq!(deq.len(), 13);
+            assert_eq!(
+                deq,
+                sdeq![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]
+            );
+        }
+
+        {
+            //                [xxx++++++xxxxx++++x+x]
+            let mut deq = sdeq![
+                2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29, 31,
+                33, 34, 35, 36,
+            ];
+
+            let removed =
+                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            assert_eq!(removed.len(), 10);
+            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+
+            assert_eq!(deq.len(), 11);
+            assert_eq!(deq, sdeq![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35]);
+        }
+
+        {
+            //                [xxxxxxxxxx+++++++++++]
+            let mut deq = sdeq![
+                2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 1, 3, 5, 7, 9, 11, 13, 15,
+                17, 19,
+            ];
+
+            let removed =
+                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            assert_eq!(removed.len(), 10);
+            assert_eq!(removed, sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+
+            assert_eq!(deq.len(), 10);
+            assert_eq!(deq, sdeq![1, 3, 5, 7, 9, 11, 13, 15, 17, 19]);
+        }
+
+        {
+            //                [+++++++++++xxxxxxxxxx]
+            let mut deq = sdeq![
+                1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 2, 4, 6, 8, 10, 12, 14, 16,
+                18, 20,
+            ];
+
+            let removed =
+                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            assert_eq!(removed.len(), 10);
+            assert_eq!(removed, sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+
+            assert_eq!(deq.len(), 10);
+            assert_eq!(deq, sdeq![1, 3, 5, 7, 9, 11, 13, 15, 17, 19]);
+        }
+    }
+
+    #[test]
+    fn vecdeque_simple() {
+        let mut d = SliceDeque::new();
+        assert_eq!(d.len(), 0);
+        d.push_front(17);
+        d.push_front(42);
+        d.push_back(137);
+        assert_eq!(d.len(), 3);
+        d.push_back(137);
+        assert_eq!(d.len(), 4);
+        assert_eq!(*d.front().unwrap(), 42);
+        assert_eq!(*d.back().unwrap(), 137);
+        let mut i = d.pop_front();
+        assert_eq!(i, Some(42));
+        i = d.pop_back();
+        assert_eq!(i, Some(137));
+        i = d.pop_back();
+        assert_eq!(i, Some(137));
+        i = d.pop_back();
+        assert_eq!(i, Some(17));
+        assert_eq!(d.len(), 0);
+        d.push_back(3);
+        assert_eq!(d.len(), 1);
+        d.push_front(2);
+        assert_eq!(d.len(), 2);
+        d.push_back(4);
+        assert_eq!(d.len(), 3);
+        d.push_front(1);
+        assert_eq!(d.len(), 4);
+        assert_eq!(d[0], 1);
+        assert_eq!(d[1], 2);
+        assert_eq!(d[2], 3);
+        assert_eq!(d[3], 4);
+    }
+
+    #[cfg(test)]
+    fn vecdeque_parameterized<T: Clone + PartialEq + ::std::fmt::Debug>(
+        a: T, b: T, c: T, d: T
+    ) {
+        let mut deq = SliceDeque::new();
+        assert_eq!(deq.len(), 0);
+        deq.push_front(a.clone());
+        deq.push_front(b.clone());
+        deq.push_back(c.clone());
+        assert_eq!(deq.len(), 3);
+        deq.push_back(d.clone());
+        assert_eq!(deq.len(), 4);
+        assert_eq!((*deq.front().unwrap()).clone(), b.clone());
+        assert_eq!((*deq.back().unwrap()).clone(), d.clone());
+        assert_eq!(deq.pop_front().unwrap(), b.clone());
+        assert_eq!(deq.pop_back().unwrap(), d.clone());
+        assert_eq!(deq.pop_back().unwrap(), c.clone());
+        assert_eq!(deq.pop_back().unwrap(), a.clone());
+        assert_eq!(deq.len(), 0);
+        deq.push_back(c.clone());
+        assert_eq!(deq.len(), 1);
+        deq.push_front(b.clone());
+        assert_eq!(deq.len(), 2);
+        deq.push_back(d.clone());
+        assert_eq!(deq.len(), 3);
+        deq.push_front(a.clone());
+        assert_eq!(deq.len(), 4);
+        assert_eq!(deq[0].clone(), a.clone());
+        assert_eq!(deq[1].clone(), b.clone());
+        assert_eq!(deq[2].clone(), c.clone());
+        assert_eq!(deq[3].clone(), d.clone());
+    }
+
+    #[test]
+    fn vecdeque_push_front_grow() {
+        let mut deq = SliceDeque::new();
+        for i in 0..66 {
+            deq.push_front(i);
+        }
+        assert_eq!(deq.len(), 66);
+
+        for i in 0..66 {
+            assert_eq!(deq[i], 65 - i);
+        }
+
+        let mut deq = SliceDeque::new();
+        for i in 0..66 {
+            deq.push_back(i);
+        }
+
+        for i in 0..66 {
+            assert_eq!(deq[i], i);
+        }
+    }
+
+    #[test]
+    fn vecdeque_index() {
+        let mut deq = SliceDeque::new();
+        for i in 1..4 {
+            deq.push_front(i);
+        }
+        assert_eq!(deq[1], 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vecdeque_index_out_of_bounds() {
+        let mut deq = SliceDeque::new();
+        for i in 1..4 {
+            deq.push_front(i);
+        }
+        deq[3];
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    enum Taggy {
+        One(i32),
+        Two(i32, i32),
+        Three(i32, i32, i32),
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    enum Taggypar<T> {
+        Onepar(T),
+        Twopar(T, T),
+        Threepar(T, T, T),
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct RecCy {
+        x: i32,
+        y: i32,
+        t: Taggy,
+    }
+
+    use tests::Taggy::*;
+    use tests::Taggypar::*;
+
+    fn hash<T: ::std::hash::Hash>(t: &T) -> u64 {
+        let mut s = ::std::collections::hash_map::DefaultHasher::new();
+        use std::hash::Hasher;
+        t.hash(&mut s);
+        s.finish()
+    }
+
+    #[test]
+    fn vecdeque_param_int() {
+        vecdeque_parameterized::<i32>(5, 72, 64, 175);
+    }
+
+    #[test]
+    fn vecdeque_param_taggy() {
+        vecdeque_parameterized::<Taggy>(
+            One(1),
+            Two(1, 2),
+            Three(1, 2, 3),
+            Two(17, 42),
+        );
+    }
+
+    #[test]
+    fn vecdeque_param_taggypar() {
+        vecdeque_parameterized::<Taggypar<i32>>(
+            Onepar::<i32>(1),
+            Twopar::<i32>(1, 2),
+            Threepar::<i32>(1, 2, 3),
+            Twopar::<i32>(17, 42),
+        );
+    }
+
+    #[test]
+    fn vecdeque_param_reccy() {
+        let reccy1 = RecCy {
+            x: 1,
+            y: 2,
+            t: One(1),
+        };
+        let reccy2 = RecCy {
+            x: 345,
+            y: 2,
+            t: Two(1, 2),
+        };
+        let reccy3 = RecCy {
+            x: 1,
+            y: 777,
+            t: Three(1, 2, 3),
+        };
+        let reccy4 = RecCy {
+            x: 19,
+            y: 252,
+            t: Two(17, 42),
+        };
+        vecdeque_parameterized::<RecCy>(reccy1, reccy2, reccy3, reccy4);
+    }
+
+    #[test]
+    fn vecdeque_with_capacity() {
+        let mut d = SliceDeque::with_capacity(0);
+        d.push_back(1);
+        assert_eq!(d.len(), 1);
+        let mut d = SliceDeque::with_capacity(50);
+        d.push_back(1);
+        assert_eq!(d.len(), 1);
+    }
+
+    #[test]
+    fn vecdeque_with_capacity_non_power_two() {
+        let mut d3 = SliceDeque::with_capacity(3);
+        d3.push_back(1);
+
+        // X = None, | = lo
+        // [|1, X, X]
+        assert_eq!(d3.pop_front(), Some(1));
+        // [X, |X, X]
+        assert_eq!(d3.front(), None);
+
+        // [X, |3, X]
+        d3.push_back(3);
+        // [X, |3, 6]
+        d3.push_back(6);
+        // [X, X, |6]
+        assert_eq!(d3.pop_front(), Some(3));
+
+        // Pushing the lo past half way point to trigger
+        // the 'B' scenario for growth
+        // [9, X, |6]
+        d3.push_back(9);
+        // [9, 12, |6]
+        d3.push_back(12);
+
+        d3.push_back(15);
+        // There used to be a bug here about how the
+        // SliceDeque made growth assumptions about the
+        // underlying Vec which didn't hold and lead
+        // to corruption.
+        // (Vec grows to next power of two)
+        // good- [9, 12, 15, X, X, X, X, |6]
+        // bug-  [15, 12, X, X, X, |6, X, X]
+        assert_eq!(d3.pop_front(), Some(6));
+
+        // Which leads us to the following state which
+        // would be a failure case.
+        // bug-  [15, 12, X, X, X, X, |X, X]
+        assert_eq!(d3.front(), Some(&9));
+    }
+
+    #[test]
+    fn vecdeque_reserve_exact() {
+        let mut d = SliceDeque::new();
+        d.push_back(0);
+        d.reserve_exact(50);
+        assert!(d.capacity() >= 51);
+    }
+
+    #[test]
+    fn vecdeque_reserve() {
+        let mut d = SliceDeque::new();
+        d.push_back(0);
+        d.reserve(50);
+        assert!(d.capacity() >= 51);
+    }
+
+    #[test]
+    fn vecdeque_swap() {
+        let mut d: SliceDeque<_> = (0..5).collect();
+        d.pop_front();
+        d.swap(0, 3);
+        assert_eq!(d.iter().cloned().collect::<Vec<_>>(), [4, 2, 3, 1]);
+    }
+
+    #[test]
+    fn vecdeque_iter() {
+        let mut d = SliceDeque::new();
+        assert_eq!(d.iter().next(), None);
+        assert_eq!(d.iter().size_hint(), (0, Some(0)));
+
+        for i in 0..5 {
+            d.push_back(i);
+        }
+        {
+            let b: &[_] = &[&0, &1, &2, &3, &4];
+            assert_eq!(d.iter().collect::<Vec<_>>(), b);
+        }
+
+        for i in 6..9 {
+            d.push_front(i);
+        }
+        {
+            let b: &[_] = &[&8, &7, &6, &0, &1, &2, &3, &4];
+            assert_eq!(d.iter().collect::<Vec<_>>(), b);
+        }
+
+        let mut it = d.iter();
+        let mut len = d.len();
+        loop {
+            match it.next() {
+                None => break,
+                _ => {
+                    len -= 1;
+                    assert_eq!(it.size_hint(), (len, Some(len)))
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn vecdeque_rev_iter() {
+        let mut d = SliceDeque::new();
+        assert_eq!(d.iter().rev().next(), None);
+
+        for i in 0..5 {
+            d.push_back(i);
+        }
+        {
+            let b: &[_] = &[&4, &3, &2, &1, &0];
+            assert_eq!(d.iter().rev().collect::<Vec<_>>(), b);
+        }
+
+        for i in 6..9 {
+            d.push_front(i);
+        }
+        let b: &[_] = &[&4, &3, &2, &1, &0, &6, &7, &8];
+        assert_eq!(d.iter().rev().collect::<Vec<_>>(), b);
+    }
+
+    #[test]
+    fn vecdeque_mut_rev_iter_wrap() {
+        let mut d = SliceDeque::with_capacity(3);
+        assert!(d.iter_mut().rev().next().is_none());
+
+        d.push_back(1);
+        d.push_back(2);
+        d.push_back(3);
+        assert_eq!(d.pop_front(), Some(1));
+        d.push_back(4);
+
+        assert_eq!(
+            d.iter_mut().rev().map(|x| *x).collect::<Vec<_>>(),
+            vec![4, 3, 2]
+        );
+    }
+
+    #[test]
+    fn vecdeque_mut_iter() {
+        let mut d = SliceDeque::new();
+        assert!(d.iter_mut().next().is_none());
+
+        for i in 0..3 {
+            d.push_front(i);
+        }
+
+        for (i, elt) in d.iter_mut().enumerate() {
+            assert_eq!(*elt, 2 - i);
+            *elt = i;
+        }
+
+        {
+            let mut it = d.iter_mut();
+            assert_eq!(*it.next().unwrap(), 0);
+            assert_eq!(*it.next().unwrap(), 1);
+            assert_eq!(*it.next().unwrap(), 2);
+            assert!(it.next().is_none());
+        }
+    }
+
+    #[test]
+    fn vecdeque_mut_rev_iter() {
+        let mut d = SliceDeque::new();
+        assert!(d.iter_mut().rev().next().is_none());
+
+        for i in 0..3 {
+            d.push_front(i);
+        }
+
+        for (i, elt) in d.iter_mut().rev().enumerate() {
+            assert_eq!(*elt, i);
+            *elt = i;
+        }
+
+        {
+            let mut it = d.iter_mut().rev();
+            assert_eq!(*it.next().unwrap(), 0);
+            assert_eq!(*it.next().unwrap(), 1);
+            assert_eq!(*it.next().unwrap(), 2);
+            assert!(it.next().is_none());
+        }
+    }
+
+    #[test]
+    fn vecdeque_into_iter() {
+        // Empty iter
+        {
+            let d: SliceDeque<i32> = SliceDeque::new();
+            let mut iter = d.into_iter();
+
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+            assert_eq!(iter.next(), None);
+            assert_eq!(iter.size_hint(), (0, Some(0)));
+        }
+
+        // simple iter
+        {
+            let mut d = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+
+            let b = vec![0, 1, 2, 3, 4];
+            assert_eq!(d.into_iter().collect::<Vec<_>>(), b);
+        }
+
+        // wrapped iter
+        {
+            let mut d = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+            for i in 6..9 {
+                d.push_front(i);
+            }
+
+            let b = vec![8, 7, 6, 0, 1, 2, 3, 4];
+            assert_eq!(d.into_iter().collect::<Vec<_>>(), b);
+        }
+
+        // partially used
+        {
+            let mut d = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+            for i in 6..9 {
+                d.push_front(i);
+            }
+
+            let mut it = d.into_iter();
+            assert_eq!(it.size_hint(), (8, Some(8)));
+            assert_eq!(it.next(), Some(8));
+            assert_eq!(it.size_hint(), (7, Some(7)));
+            assert_eq!(it.next_back(), Some(4));
+            assert_eq!(it.size_hint(), (6, Some(6)));
+            assert_eq!(it.next(), Some(7));
+            assert_eq!(it.size_hint(), (5, Some(5)));
+        }
+    }
+
+    #[test]
+    fn vecdeque_drain() {
+        // Empty iter
+        {
+            let mut d: SliceDeque<i32> = SliceDeque::new();
+
+            {
+                let mut iter = d.drain(..);
+
+                assert_eq!(iter.size_hint(), (0, Some(0)));
+                assert_eq!(iter.next(), None);
+                assert_eq!(iter.size_hint(), (0, Some(0)));
+            }
+
+            assert!(d.is_empty());
+        }
+
+        // simple iter
+        {
+            let mut d = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+
+            assert_eq!(d.drain(..).collect::<Vec<_>>(), [0, 1, 2, 3, 4]);
+            assert!(d.is_empty());
+        }
+
+        // wrapped iter
+        {
+            let mut d = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+            for i in 6..9 {
+                d.push_front(i);
+            }
+
+            assert_eq!(
+                d.drain(..).collect::<Vec<_>>(),
+                [8, 7, 6, 0, 1, 2, 3, 4]
+            );
+            assert!(d.is_empty());
+        }
+
+        // partially used
+        {
+            let mut d: SliceDeque<_> = SliceDeque::new();
+            for i in 0..5 {
+                d.push_back(i);
+            }
+            for i in 6..9 {
+                d.push_front(i);
+            }
+
+            {
+                let mut it = d.drain(..);
+                assert_eq!(it.size_hint(), (8, Some(8)));
+                assert_eq!(it.next(), Some(8));
+                assert_eq!(it.size_hint(), (7, Some(7)));
+                assert_eq!(it.next_back(), Some(4));
+                assert_eq!(it.size_hint(), (6, Some(6)));
+                assert_eq!(it.next(), Some(7));
+                assert_eq!(it.size_hint(), (5, Some(5)));
+            }
+            assert!(d.is_empty());
+        }
+    }
+
+    #[test]
+    fn vecdeque_from_iter() {
+        let v = vec![1, 2, 3, 4, 5, 6, 7];
+        let deq: SliceDeque<_> = v.iter().cloned().collect();
+        let u: Vec<_> = deq.iter().cloned().collect();
+        assert_eq!(u, v);
+
+        let seq = (0..).step_by(2).take(256);
+        let deq: SliceDeque<_> = seq.collect();
+        for (i, &x) in deq.iter().enumerate() {
+            assert_eq!(2 * i, x);
+        }
+        assert_eq!(deq.len(), 256);
+    }
+
+    #[test]
+    fn vecdeque_clone() {
+        let mut d = SliceDeque::new();
+        d.push_front(17);
+        d.push_front(42);
+        d.push_back(137);
+        d.push_back(137);
+        assert_eq!(d.len(), 4);
+        let mut e = d.clone();
+        assert_eq!(e.len(), 4);
+        while !d.is_empty() {
+            assert_eq!(d.pop_back(), e.pop_back());
+        }
+        assert_eq!(d.len(), 0);
+        assert_eq!(e.len(), 0);
+    }
+
+    #[test]
+    fn vecdeque_eq() {
+        let mut d = SliceDeque::new();
+        assert!(d == SliceDeque::with_capacity(0));
+        d.push_front(137);
+        d.push_front(17);
+        d.push_front(42);
+        d.push_back(137);
+        let mut e = SliceDeque::with_capacity(0);
+        e.push_back(42);
+        e.push_back(17);
+        e.push_back(137);
+        e.push_back(137);
+        assert!(&e == &d);
+        e.pop_back();
+        e.push_back(0);
+        assert!(e != d);
+        e.clear();
+        assert!(e == SliceDeque::new());
+    }
+
+    #[test]
+    fn vecdeque_partial_eq_array() {
+        let d = SliceDeque::<char>::new();
+        assert!(d == []);
+
+        let mut d = SliceDeque::new();
+        d.push_front('a');
+        assert!(d == ['a']);
+
+        let mut d = SliceDeque::new();
+        d.push_back('a');
+        assert!(d == ['a']);
+
+        let mut d = SliceDeque::new();
+        d.push_back('a');
+        d.push_back('b');
+        assert!(d == ['a', 'b']);
+    }
+
+    #[test]
+    fn vecdeque_hash() {
+        let mut x = SliceDeque::new();
+        let mut y = SliceDeque::new();
+
+        x.push_back(1);
+        x.push_back(2);
+        x.push_back(3);
+
+        y.push_back(0);
+        y.push_back(1);
+        y.pop_front();
+        y.push_back(2);
+        y.push_back(3);
+
+        assert!(hash(&x) == hash(&y));
+    }
+
+    #[test]
+    fn vecdeque_hash_after_rotation() {
+        // test that two deques hash equal even if elements are laid out
+        // differently
+        let len = 28;
+        let mut ring: SliceDeque<i32> = (0..len as i32).collect();
+        let orig = ring.clone();
+        for _ in 0..ring.capacity() {
+            // shift values 1 step to the right by pop, sub one, push
+            ring.pop_front();
+            for elt in &mut ring {
+                *elt -= 1;
+            }
+            ring.push_back(len - 1);
+            assert_eq!(hash(&orig), hash(&ring));
+            assert_eq!(orig, ring);
+            assert_eq!(ring, orig);
+        }
+    }
+
+    #[test]
+    fn vecdeque_eq_after_rotation() {
+        // test that two deques are equal even if elements are laid out
+        // differently
+        let len = 28;
+        let mut ring: SliceDeque<i32> = (0..len as i32).collect();
+        let mut shifted = ring.clone();
+        for _ in 0..10 {
+            // shift values 1 step to the right by pop, sub one, push
+            ring.pop_front();
+            for elt in &mut ring {
+                *elt -= 1;
+            }
+            ring.push_back(len - 1);
+        }
+
+        // try every shift
+        for _ in 0..shifted.capacity() {
+            shifted.pop_front();
+            for elt in &mut shifted {
+                *elt -= 1;
+            }
+            shifted.push_back(len - 1);
+            assert_eq!(shifted, ring);
+            assert_eq!(ring, shifted);
+        }
+    }
+
+    #[test]
+    fn vecdeque_ord() {
+        let x = SliceDeque::new();
+        let mut y = SliceDeque::new();
+        y.push_back(1);
+        y.push_back(2);
+        y.push_back(3);
+        assert!(x < y);
+        assert!(y > x);
+        assert!(x <= x);
+        assert!(x >= x);
+    }
+
+    #[test]
+    fn vecdeque_show() {
+        let ringbuf: SliceDeque<_> = (0..10).collect();
+        assert_eq!(format!("{:?}", ringbuf), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+
+        let ringbuf: SliceDeque<_> = vec!["just", "one", "test", "more"]
+            .iter()
+            .cloned()
+            .collect();
+        assert_eq!(
+            format!("{:?}", ringbuf),
+            "[\"just\", \"one\", \"test\", \"more\"]"
+        );
+    }
+
+    #[test]
+    fn vecdeque_drop() {
+        static mut DROPS: i32 = 0;
+        struct Elem;
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+        ::std::mem::drop(ring);
+
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+    #[test]
+    fn vecdeque_drop_with_pop() {
+        static mut DROPS: i32 = 0;
+        struct Elem;
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+
+        ::std::mem::drop(ring.pop_back());
+        ::std::mem::drop(ring.pop_front());
+        assert_eq!(unsafe { DROPS }, 2);
+
+        ::std::mem::drop(ring);
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+    #[test]
+    fn vecdeque_drop_clear() {
+        static mut DROPS: i32 = 0;
+        struct Elem;
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+        ring.push_back(Elem);
+        ring.push_front(Elem);
+        ring.clear();
+        assert_eq!(unsafe { DROPS }, 4);
+
+        ::std::mem::drop(ring);
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+    #[test]
+    fn vecdeque_reserve_grow() {
+        // test growth path A
+        // [T o o H] -> [T o o H . . . . ]
+        let mut ring = SliceDeque::with_capacity(4);
+        for i in 0..3 {
+            ring.push_back(i);
+        }
+        ring.reserve(7);
+        for i in 0..3 {
+            assert_eq!(ring.pop_front(), Some(i));
+        }
+
+        // test growth path B
+        // [H T o o] -> [. T o o H . . . ]
+        let mut ring = SliceDeque::with_capacity(4);
+        for i in 0..1 {
+            ring.push_back(i);
+            assert_eq!(ring.pop_front(), Some(i));
+        }
+        for i in 0..3 {
+            ring.push_back(i);
+        }
+        ring.reserve(7);
+        for i in 0..3 {
+            assert_eq!(ring.pop_front(), Some(i));
+        }
+
+        // test growth path C
+        // [o o H T] -> [o o H . . . . T ]
+        let mut ring = SliceDeque::with_capacity(4);
+        for i in 0..3 {
+            ring.push_back(i);
+            assert_eq!(ring.pop_front(), Some(i));
+        }
+        for i in 0..3 {
+            ring.push_back(i);
+        }
+        ring.reserve(7);
+        for i in 0..3 {
+            assert_eq!(ring.pop_front(), Some(i));
+        }
+    }
+
+    #[test]
+    fn vecdeque_get() {
+        let mut ring = SliceDeque::new();
+        ring.push_back(0);
+        assert_eq!(ring.get(0), Some(&0));
+        assert_eq!(ring.get(1), None);
+
+        ring.push_back(1);
+        assert_eq!(ring.get(0), Some(&0));
+        assert_eq!(ring.get(1), Some(&1));
+        assert_eq!(ring.get(2), None);
+
+        ring.push_back(2);
+        assert_eq!(ring.get(0), Some(&0));
+        assert_eq!(ring.get(1), Some(&1));
+        assert_eq!(ring.get(2), Some(&2));
+        assert_eq!(ring.get(3), None);
+
+        assert_eq!(ring.pop_front(), Some(0));
+        assert_eq!(ring.get(0), Some(&1));
+        assert_eq!(ring.get(1), Some(&2));
+        assert_eq!(ring.get(2), None);
+
+        assert_eq!(ring.pop_front(), Some(1));
+        assert_eq!(ring.get(0), Some(&2));
+        assert_eq!(ring.get(1), None);
+
+        assert_eq!(ring.pop_front(), Some(2));
+        assert_eq!(ring.get(0), None);
+        assert_eq!(ring.get(1), None);
+    }
+
+    #[test]
+    fn vecdeque_get_mut() {
+        let mut ring = SliceDeque::new();
+        for i in 0..3 {
+            ring.push_back(i);
+        }
+
+        match ring.get_mut(1) {
+            Some(x) => *x = -1,
+            None => (),
+        };
+
+        assert_eq!(ring.get_mut(0), Some(&mut 0));
+        assert_eq!(ring.get_mut(1), Some(&mut -1));
+        assert_eq!(ring.get_mut(2), Some(&mut 2));
+        assert_eq!(ring.get_mut(3), None);
+
+        assert_eq!(ring.pop_front(), Some(0));
+        assert_eq!(ring.get_mut(0), Some(&mut -1));
+        assert_eq!(ring.get_mut(1), Some(&mut 2));
+        assert_eq!(ring.get_mut(2), None);
+    }
+
+    #[test]
+    fn vecdeque_front() {
+        let mut ring = SliceDeque::new();
+        ring.push_back(10);
+        ring.push_back(20);
+        assert_eq!(ring.front(), Some(&10));
+        ring.pop_front();
+        assert_eq!(ring.front(), Some(&20));
+        ring.pop_front();
+        assert_eq!(ring.front(), None);
+    }
+
+    /* TODO: as_slice tests
+#[test]
+fn vecdeque_as_slices() {
+    let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
+    let cap = ring.capacity() as i32;
+    let first = cap / 2;
+    let last = cap - first;
+    for i in 0..first {
+        ring.push_back(i);
+
+        let (left, right) = ring.as_slices();
+        let expected: Vec<_> = (0..i + 1).collect();
+        assert_eq!(left, &expected[..]);
+        assert_eq!(right, []);
+    }
+
+    for j in -last..0 {
+        ring.push_front(j);
+        let (left, right) = ring.as_slices();
+        let expected_left: Vec<_> = (-last..j + 1).rev().collect();
+        let expected_right: Vec<_> = (0..first).collect();
+        assert_eq!(left, &expected_left[..]);
+        assert_eq!(right, &expected_right[..]);
+    }
+
+    assert_eq!(ring.len() as i32, cap);
+    assert_eq!(ring.capacity() as i32, cap);
+}
+
+#[test]
+fn vecdeque_as_mut_slices() {
+    let mut ring: SliceDeque<i32> = SliceDeque::with_capacity(127);
+    let cap = ring.capacity() as i32;
+    let first = cap / 2;
+    let last = cap - first;
+    for i in 0..first {
+        ring.push_back(i);
+
+        let (left, right) = ring.as_mut_slices();
+        let expected: Vec<_> = (0..i + 1).collect();
+        assert_eq!(left, &expected[..]);
+        assert_eq!(right, []);
+    }
+
+    for j in -last..0 {
+        ring.push_front(j);
+        let (left, right) = ring.as_mut_slices();
+        let expected_left: Vec<_> = (-last..j + 1).rev().collect();
+        let expected_right: Vec<_> = (0..first).collect();
+        assert_eq!(left, &expected_left[..]);
+        assert_eq!(right, &expected_right[..]);
+    }
+
+    assert_eq!(ring.len() as i32, cap);
+    assert_eq!(ring.capacity() as i32, cap);
+}
+    */
+
+    #[test]
+    fn vecdeque_append() {
+        let mut a: SliceDeque<_> = vec![1, 2, 3].into_iter().collect();
+        let mut b: SliceDeque<_> = vec![4, 5, 6].into_iter().collect();
+
+        // normal append
+        a.append(&mut b);
+        assert_eq!(a.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(b.iter().cloned().collect::<Vec<_>>(), []);
+
+        // append nothing to something
+        a.append(&mut b);
+        assert_eq!(a.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(b.iter().cloned().collect::<Vec<_>>(), []);
+
+        // append something to nothing
+        b.append(&mut a);
+        assert_eq!(b.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(a.iter().cloned().collect::<Vec<_>>(), []);
+    }
+
+    #[test]
+    fn vecdeque_retain() {
+        let mut buf = SliceDeque::new();
+        buf.extend(1..5);
+        buf.retain(|&x| x % 2 == 0);
+        let v: Vec<_> = buf.into_iter().collect();
+        assert_eq!(&v[..], &[2, 4]);
+    }
+
+    #[test]
+    fn vecdeque_extend_ref() {
+        let mut v = SliceDeque::new();
+        v.push_back(1);
+        v.extend(&[2, 3, 4]);
+
+        assert_eq!(v.len(), 4);
+        assert_eq!(v[0], 1);
+        assert_eq!(v[1], 2);
+        assert_eq!(v[2], 3);
+        assert_eq!(v[3], 4);
+
+        let mut w = SliceDeque::new();
+        w.push_back(5);
+        w.push_back(6);
+        v.extend(&w);
+
+        assert_eq!(v.len(), 6);
+        assert_eq!(v[0], 1);
+        assert_eq!(v[1], 2);
+        assert_eq!(v[2], 3);
+        assert_eq!(v[3], 4);
+        assert_eq!(v[4], 5);
+        assert_eq!(v[5], 6);
+    }
+
+    #[test]
+    fn vecdeque_contains() {
+        let mut v = SliceDeque::new();
+        v.extend(&[2, 3, 4]);
+
+        assert!(v.contains(&3));
+        assert!(!v.contains(&1));
+
+        v.clear();
+
+        assert!(!v.contains(&3));
+    }
+
+    /* TODO: covariance
+#[allow(dead_code)]
+fn assert_covariance() {
+    fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
+        d
+    }
+}
+    */
+
+    #[test]
+    fn vecdeque_is_empty() {
+        let mut v = SliceDeque::<i32>::new();
+        assert!(v.is_empty());
+        assert!(v.iter().is_empty());
+        assert!(v.iter_mut().is_empty());
+        v.extend(&[2, 3, 4]);
+        assert!(!v.is_empty());
+        assert!(!v.iter().is_empty());
+        assert!(!v.iter_mut().is_empty());
+        while let Some(_) = v.pop_front() {
+            assert_eq!(v.is_empty(), v.len() == 0);
+            assert_eq!(v.iter().is_empty(), v.iter().len() == 0);
+            assert_eq!(v.iter_mut().is_empty(), v.iter_mut().len() == 0);
+        }
+        assert!(v.is_empty());
+        assert!(v.iter().is_empty());
+        assert!(v.iter_mut().is_empty());
+        assert!(v.into_iter().is_empty());
+    }
+    /* TODO: placement
+#[test]
+fn vecdeque_placement_in() {
+    let mut buf: SliceDeque<isize> = SliceDeque::new();
+    buf.place_back() <- 1;
+    buf.place_back() <- 2;
+    assert_eq!(buf, [1,2]);
+
+    buf.place_front() <- 3;
+    buf.place_front() <- 4;
+    assert_eq!(buf, [4,3,1,2]);
+
+    {
+        let ptr_head = buf.place_front() <- 5;
+        assert_eq!(*ptr_head, 5);
+    }
+    {
+        let ptr_tail = buf.place_back() <- 6;
+        assert_eq!(*ptr_tail, 6);
+    }
+    assert_eq!(buf, [5,4,3,1,2,6]);
+}
+*/
 }

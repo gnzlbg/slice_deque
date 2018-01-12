@@ -42,7 +42,8 @@ pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     assert!(size % page_size() == 0);
     unsafe {
         let addr = ptr as mach_vm_address_t;
-        let r: kern_return_t = mach_vm_deallocate(mach_task_self(), addr, size as u64);
+        let r: kern_return_t =
+            mach_vm_deallocate(mach_task_self(), addr, size as u64);
         if r == KERN_SUCCESS {
             Ok(())
         } else {
