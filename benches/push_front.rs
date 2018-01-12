@@ -1,7 +1,7 @@
 #![feature(test)]
 
-extern crate test;
 extern crate slice_deque;
+extern crate test;
 
 use std::collections::VecDeque;
 

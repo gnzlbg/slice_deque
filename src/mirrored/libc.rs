@@ -1,8 +1,8 @@
 //! Implements the POSIX mmap/munmap/mremap hooks on top of libc
 
-use libc::{c_void, size_t, c_int, off_t, _SC_PAGESIZE, sysconf, PROT_READ, PROT_WRITE,
-           MAP_SHARED, MAP_NORESERVE, MAP_ANONYMOUS, MAP_FAILED, MREMAP_FIXED,MREMAP_MAYMOVE,
-           mmap, munmap, mremap};
+use libc::{c_int, c_void, mmap, mremap, munmap, off_t, size_t, sysconf, MAP_ANONYMOUS, MAP_FAILED,
+           MAP_NORESERVE, MAP_SHARED, MREMAP_FIXED, MREMAP_MAYMOVE, PROT_READ, PROT_WRITE,
+           _SC_PAGESIZE};
 
 /// Allocates enough memory to store `size` bytes.
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
@@ -25,7 +25,7 @@ pub fn alloc(size: usize) -> Result<*mut u8, ()> {
 /// Deallocates memory to store `size` bytes.
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     unsafe {
-        let r: c_int  = munmap(ptr as *mut c_void, size as size_t);
+        let r: c_int = munmap(ptr as *mut c_void, size as size_t);
         if r == 0 as c_int {
             Ok(())
         } else {
