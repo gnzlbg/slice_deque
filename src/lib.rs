@@ -3391,6 +3391,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn vec_drain_items_zero_sized() {
         let mut deq = sdeq![(), (), ()];
         let mut deq2 = sdeq![];
