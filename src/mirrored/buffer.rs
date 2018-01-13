@@ -106,6 +106,9 @@ impl<T> Buffer<T> {
     ///
     /// `ptr` must not be null.
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
+        // Zero-sized types are not supported yet:
+        assert!(::std::mem::size_of::<T>() > 0);
+
         debug_assert!(!ptr.is_null());
         Self {
             ptr: NonZero::new_unchecked(ptr),
@@ -121,11 +124,12 @@ impl<T> Buffer<T> {
     /// Create a mirrored buffer containing `len` `T`s where the first half of
     /// the buffer is mirrored into the second half.
     pub unsafe fn uninitialized(len: usize) -> Result<Self, ()> {
+        // Zero-sized types are not supported yet:
+        assert!(::std::mem::size_of::<T>() > 0);
         // The alignment requirements of `T` must be smaller than the page-size
         // and the page-size must be a multiple of `T` (to be able to mirror
         // the buffer without wholes).
         assert!(::std::mem::align_of::<T>() <= page_size());
-        // TODO: assert!(page_size() % ::std::mem::size_of::<T>() == 0);
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror
         // something.

@@ -3421,7 +3421,11 @@ mod tests {
         let mut v: SliceDeque<_> = (1..6).map(|x| x.to_string()).collect();
         for _ in v.drain(1..4).rev() {}
         assert_eq!(v, &[1.to_string(), 5.to_string()]);
+    }
 
+    #[test]
+    #[should_panic]
+    fn vec_drain_range_zst() {
         let mut v: SliceDeque<_> = sdeq![(); 5];
         for _ in v.drain(1..4).rev() {}
         assert_eq!(v, &[(), ()]);
