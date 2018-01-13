@@ -1641,7 +1641,8 @@ impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
     ) -> Result<(), ::std::fmt::Error> {
         write!(
             f,
-            "[ len: {}, cap: {}, head: {}, tail: {} | {:?} ]",
+            // TODO: "SliceDeque({:?})",
+            "SliceDeque(len: {}, cap: {}, head: {}, tail: {}, elems: {:?})",
             self.len(),
             self.capacity(),
             self.head,
@@ -1887,14 +1888,16 @@ impl<T> IntoIter<T> {
     /// buffer.
     #[inline]
     fn head(&self) -> usize {
-        self.ptr as usize - self.buf.as_ptr() as usize
+        self.buf.as_ptr().offset_to(self.ptr).unwrap() as usize
     }
 
     /// Returns the index of the tail with respect to the beginning of the
     /// buffer.
     #[inline]
     fn tail(&self) -> usize {
-        self.end as usize - self.buf.as_ptr() as usize
+        let t = self.buf.as_ptr().offset_to(self.end).unwrap() as usize;
+        debug_assert!(t >= self.head());
+        t
     }
 
     /// Returns the remaining items of this iterator as a slice.
@@ -2032,9 +2035,7 @@ unsafe impl<T> ::std::iter::TrustedLen for IntoIter<T> {}
 impl<T: Clone> Clone for IntoIter<T> {
     #[inline]
     fn clone(&self) -> IntoIter<T> {
-        let mut deq = SliceDeque::<T>::with_capacity(
-            self.end as usize - self.ptr as usize,
-        );
+        let mut deq = SliceDeque::<T>::with_capacity(self.len());
         unsafe {
             deq.append_elements(self.as_slice());
         }
@@ -2091,13 +2092,16 @@ impl<T> IntoIterator for SliceDeque<T> {
                 begin.offset(self.len() as isize) as *const T
             };
             let cap = self.capacity();
+            let len = self.len();
             ::std::mem::forget(self);
-            IntoIter {
+            let it = IntoIter {
                 buf: ::std::ptr::Shared::new_unchecked(begin),
-                cap,
+                cap: cap,
                 ptr: begin,
-                end,
-            }
+                end: end,
+            };
+            debug_assert!(len == it.len());
+            it
         }
     }
 }
@@ -3598,8 +3602,10 @@ fn vec_into_boxed_slice() {
             let v: SliceDeque<i32> = it.collect();
             assert_eq!(&v[..], slice);
         }
-        let mut it = sdeq![1, 2, 3].into_iter();
-        iter_equal(it.clone(), &[1, 2, 3]);
+        let deq = sdeq![1, 2, 3];
+        let mut it = deq.into_iter();
+        let it_c = it.clone();
+        iter_equal(it_c, &[1, 2, 3]);
         assert_eq!(it.next(), Some(1));
         let mut it = it.rev();
         iter_equal(it.clone(), &[3, 2]);
