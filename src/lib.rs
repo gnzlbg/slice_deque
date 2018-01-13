@@ -3425,7 +3425,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic]  // TODO: zero-sized types
     fn vec_drain_range_zst() {
         let mut v: SliceDeque<_> = sdeq![(); 5];
         for _ in v.drain(1..4).rev() {}
@@ -3737,6 +3737,7 @@ fn vec_placement() {
     }
 
     #[test]
+    #[should_panic]  // TODO: zst
     fn drain_filter_zst() {
         let mut deq = sdeq![(), (), (), (), ()];
         let initial_len = deq.len();
