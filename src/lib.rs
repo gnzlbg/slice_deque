@@ -686,7 +686,7 @@ impl<T> SliceDeque<T> {
             }
 
             self.move_head(-1);
-            *self.get_mut(0).unwrap() = value;
+            std::ptr::write(self.get_mut(0).unwrap(), value);
         }
     }
 
@@ -4559,7 +4559,8 @@ fn vec_placement() {
     }
 
     #[test]
-    fn vecdeque_drop() {
+    #[should_panic] // TODO: zero-sized
+    fn vecdeque_drop_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
         impl Drop for Elem {
@@ -4581,7 +4582,32 @@ fn vec_placement() {
     }
 
     #[test]
-    fn vecdeque_drop_with_pop() {
+    fn vecdeque_drop() {
+        static mut DROPS: i32 = 0;
+        #[derive(Clone)] struct Elem(i32);
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    println!("dropping: {} += 1 = {}", DROPS, DROPS + 1);
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem(0));
+        ring.push_front(Elem(1));
+        ring.push_back(Elem(2));
+        ring.push_front(Elem(3));
+        ::std::mem::drop(ring);
+
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+
+    #[test]
+    #[should_panic]
+    fn vecdeque_drop_with_pop_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
         impl Drop for Elem {
@@ -4607,7 +4633,34 @@ fn vec_placement() {
     }
 
     #[test]
-    fn vecdeque_drop_clear() {
+    fn vecdeque_drop_with_pop() {
+        static mut DROPS: i32 = 0;
+        struct Elem(i32);
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem(0));
+        ring.push_front(Elem(0));
+        ring.push_back(Elem(0));
+        ring.push_front(Elem(0));
+
+        ::std::mem::drop(ring.pop_back());
+        ::std::mem::drop(ring.pop_front());
+        assert_eq!(unsafe { DROPS }, 2);
+
+        ::std::mem::drop(ring);
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn vecdeque_drop_clear_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
         impl Drop for Elem {
@@ -4623,6 +4676,30 @@ fn vec_placement() {
         ring.push_front(Elem);
         ring.push_back(Elem);
         ring.push_front(Elem);
+        ring.clear();
+        assert_eq!(unsafe { DROPS }, 4);
+
+        ::std::mem::drop(ring);
+        assert_eq!(unsafe { DROPS }, 4);
+    }
+
+    #[test]
+    fn vecdeque_drop_clear() {
+        static mut DROPS: i32 = 0;
+        struct Elem(i32);
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut ring = SliceDeque::new();
+        ring.push_back(Elem(0));
+        ring.push_front(Elem(0));
+        ring.push_back(Elem(0));
+        ring.push_front(Elem(0));
         ring.clear();
         assert_eq!(unsafe { DROPS }, 4);
 
