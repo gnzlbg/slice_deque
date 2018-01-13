@@ -83,7 +83,7 @@ The main drawbacks of [`SliceDeque`] are:
 * constrained platform support: by necessity [`SliceDeque`] must use the
 platform-specific virtual memory facilities of the underlying operating
 system. While [`SliceDeque`] can work on all major operating systems,
-currently only `MacOS X` is supported.
+currently only `MacOS X` and `Linux` are supported.
 
 * no global allocator support: since the `Alloc`ator API does not support
 virtual memory, to use platform-specific virtual memory support
