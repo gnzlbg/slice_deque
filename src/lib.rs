@@ -2411,6 +2411,7 @@ impl<'a, I: Iterator> DoubleEndedIterator for Splice<'a, I> {
 
 impl<'a, I: Iterator> ExactSizeIterator for Splice<'a, I> {}
 
+// TODO: re-evaluate this
 impl<'a, I: Iterator> ::std::iter::FusedIterator for Splice<'a, I> {}
 
 impl<'a, I: Iterator> Drop for Splice<'a, I> {
@@ -2560,7 +2561,10 @@ where
         for _ in self.by_ref() {}
 
         unsafe {
-            self.deq.move_tail(-(self.del as isize));
+            let new_len = self.old_len - self.del;
+            let new_tail = self.deq.head + new_len;
+            let old_tail = self.deq.tail;
+            self.deq.move_tail(new_tail as isize - old_tail as isize);
         }
     }
 }
@@ -3425,7 +3429,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]  // TODO: zero-sized types
+    #[should_panic] // TODO: zero-sized types
     fn vec_drain_range_zst() {
         let mut v: SliceDeque<_> = sdeq![(); 5];
         for _ in v.drain(1..4).rev() {}
@@ -3737,7 +3741,7 @@ fn vec_placement() {
     }
 
     #[test]
-    #[should_panic]  // TODO: zst
+    #[should_panic] // TODO: zst
     fn drain_filter_zst() {
         let mut deq = sdeq![(), (), (), (), ()];
         let initial_len = deq.len();
@@ -4600,7 +4604,6 @@ fn vec_placement() {
         impl Drop for Elem {
             fn drop(&mut self) {
                 unsafe {
-                    println!("dropping: {} += 1 = {}", DROPS, DROPS + 1);
                     DROPS += 1;
                 }
             }
