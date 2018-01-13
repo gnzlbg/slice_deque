@@ -2969,17 +2969,6 @@ mod tests {
         v.extend(w.clone()); // specializes to `append`
         assert!(v.iter().eq(w.iter().chain(w.iter())));
 
-        /* TODO: zero-sized types
-        // Zero sized types
-        #[derive(PartialEq, Debug)]
-        struct Foo;
-
-        let mut a = SliceDeque::new();
-        let b = sdeq![Foo, Foo];
-
-        a.extend(b);
-        assert_eq!(a, &[Foo, Foo]);
-        */
         // Double drop
         let mut count_x = 0;
         {
@@ -2991,6 +2980,20 @@ mod tests {
             x.extend(y);
         }
         assert_eq!(count_x, 1);
+    }
+
+    #[test]
+    #[should_panic] // TODO: zero-sized types
+    fn vec_extend_zst() {
+        // Zero sized types
+        #[derive(PartialEq, Debug)]
+        struct Foo;
+
+        let mut a = SliceDeque::new();
+        let b = sdeq![Foo, Foo];
+
+        a.extend(b);
+        assert_eq!(a, &[Foo, Foo]);
     }
 
     #[test]
@@ -3080,7 +3083,6 @@ mod tests {
         assert!(w.as_ptr() != z.as_ptr())
     }
 
-    /* FIXME: bug
     #[test]
     fn vec_clone_from() {
         let mut v = sdeq![];
@@ -3103,7 +3105,6 @@ mod tests {
         v.clone_from(&three);
         assert_eq!(v, three)
     }
-    */
 
     #[test]
     fn vec_retain() {
@@ -3178,6 +3179,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn zero_sized_values() {
         let mut v = SliceDeque::new();
         assert_eq!(v.len(), 0);
