@@ -1639,6 +1639,8 @@ impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
     fn fmt(
         &self, f: &mut ::std::fmt::Formatter
     ) -> Result<(), ::std::fmt::Error> {
+        write!(f, "{:?}", self.as_slice())
+        /*
         write!(
             f,
             // TODO: "SliceDeque({:?})",
@@ -1649,6 +1651,7 @@ impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
             self.tail,
             self.as_slice()
         )
+       */
     }
 }
 
