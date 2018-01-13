@@ -221,9 +221,9 @@ macro_rules! sdeq {
     ($($x:expr),*) => (
         {
             unsafe {
-          let slice = &[$($x),*];
-          let deq = $crate::SliceDeque::steal_from_slice(slice);
-          ::std::mem::forget(slice);
+                let slice = [$($x),*];
+                let deq = $crate::SliceDeque::steal_from_slice(&slice);
+                ::std::mem::forget(slice);
                 deq
             }
         }
@@ -548,7 +548,7 @@ impl<T> SliceDeque<T> {
     /// Steal the elements from the slice `s`. You should `mem::forget` the
     /// slice afterwards.
     pub unsafe fn steal_from_slice(s: &[T]) -> Self {
-        let mut deq = Self::with_capacity(s.len());
+        let mut deq = Self::new();
         deq.append_elements(s as *const _);
         deq
     }
