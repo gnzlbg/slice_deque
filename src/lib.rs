@@ -3179,7 +3179,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic] // TODO: zero-sized types
     fn zero_sized_values() {
         let mut v = SliceDeque::new();
         assert_eq!(v.len(), 0);
@@ -3357,8 +3357,8 @@ mod tests {
         assert_eq!(deq2, [3, 2, 1]);
     }
 
-    /* TODO: zero-sized
     #[test]
+    #[should_panic] // TODO: zero-sized types
     fn vec_move_items_zero_sized() {
         let deq = sdeq![(), (), ()];
         let mut deq2 = sdeq![];
@@ -3367,7 +3367,6 @@ mod tests {
         }
         assert_eq!(deq2, [(), (), ()]);
     }
-    */
 
     #[test]
     fn vec_drain_items() {
@@ -3452,22 +3451,24 @@ mod tests {
         assert_eq!(v, &["1".to_string()]);
     }
 
-    /* TODO: zero-sized types
-#[test]
-fn vec_drain_max_vec_size() {
-    let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
-    unsafe { v.set_len(usize::max_value()); }
-    for _ in v.drain(usize::max_value() - 1..) {
-    }
-    assert_eq!(v.len(), usize::max_value() - 1);
+    /*
+    #[test]
+    #[should_panic] // TODO: zero-sized types
+    fn vec_drain_max_vec_size() {
+        let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
+        unsafe {
+            v.set_len(usize::max_value());
+        }
+        for _ in v.drain(usize::max_value() - 1..) {}
+        assert_eq!(v.len(), usize::max_value() - 1);
 
-    let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
-    unsafe { v.set_len(usize::max_value()); }
-    for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {
-    }
-    assert_eq!(v.len(), usize::max_value() - 1);
-}
-*/
+        let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
+        unsafe {
+            v.set_len(usize::max_value());
+        }
+        for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {}
+        assert_eq!(v.len(), usize::max_value() - 1);
+    }*/
 
     #[test]
     #[should_panic]
@@ -3514,8 +3515,8 @@ fn vec_drain_max_vec_size() {
         v.splice(5..=5, a.iter().cloned());
     }
 
-    /* TODO: zero-sized
     #[test]
+    #[should_panic] // TODO: zero-sized
     fn vec_splice_items_zero_sized() {
         let mut deq = sdeq![(), (), ()];
         let deq2 = sdeq![];
@@ -3524,7 +3525,6 @@ fn vec_drain_max_vec_size() {
         assert_eq!(deq, &[(), ()]);
         assert_eq!(t, &[()]);
     }
-    */
 
     #[test]
     fn vec_splice_unbounded() {
@@ -4589,7 +4589,8 @@ fn vec_placement() {
     #[test]
     fn vecdeque_drop() {
         static mut DROPS: i32 = 0;
-        #[derive(Clone)] struct Elem(i32);
+        #[derive(Clone)]
+        struct Elem(i32);
         impl Drop for Elem {
             fn drop(&mut self) {
                 unsafe {
@@ -4608,7 +4609,6 @@ fn vec_placement() {
 
         assert_eq!(unsafe { DROPS }, 4);
     }
-
 
     #[test]
     #[should_panic]
