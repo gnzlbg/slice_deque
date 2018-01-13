@@ -202,7 +202,7 @@ pub struct SliceDeque<T> {
 /// let v = sdeq![Rc::new(1_i32); 5];
 /// let ptr: *const i32 = &*v[0] as *const i32;
 /// for i in v.iter() {
-///    assert_eq!(&*i as *const i32, ptr);
+///    assert_eq!(Rc::into_raw(i.clone()), ptr);
 /// }
 /// # }
 /// ```
@@ -449,9 +449,12 @@ impl<T> SliceDeque<T> {
     /// # Examples
     ///
     /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # fn main() {
     /// let mut deq = sdeq![1];
     /// deq.reserve_exact(10);
     /// assert!(deq.capacity() >= 11);
+    /// # }
     /// ```
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
@@ -3655,10 +3658,8 @@ fn vec_into_boxed_slice() {
 }
      */
 
-    use super::Drain;
-
     /* TODO: covariance
-use super::{IntoIter};
+use super::{Drain, IntoIter};
 
 #[allow(dead_code)]
 fn assert_covariance() {
