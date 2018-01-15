@@ -21,10 +21,10 @@ mach = "0.1.*"
 winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
 
 [profile.bench]
-opt-level = 3
-debug = false
-rpath = false
-lto = true
+opt-level = 0 # 3
+debug = true # false
+rpath = true # false
+lto = false # true
 debug-assertions = false
 codegen-units = 1
-panic = 'abort'
+panic = 'unwind' # 'abort'
