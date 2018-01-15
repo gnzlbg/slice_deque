@@ -6,7 +6,7 @@
 
 The double-ended queue in the standard library ([`VecDeque`]) is implemented
 using a growable ring buffer (`0` represents uninitialized memory, and `T`
-represents one enelemnt in the queue):
+represents one element in the queue):
 
 ```rust
 // [ 0 | 0 | 0 | T | T | T | 0 ]

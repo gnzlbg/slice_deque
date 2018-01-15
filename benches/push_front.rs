@@ -5,7 +5,7 @@ extern crate test;
 
 use std::collections::VecDeque;
 
-const MAX_NO_ITERS: usize = 100_000_000;
+const MAX_NO_ITERS: usize = 1_000_000_000;
 
 #[bench]
 fn push_front_std_vecdeque(b: &mut test::Bencher) {
