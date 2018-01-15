@@ -299,37 +299,44 @@ impl<T> Buffer<T> {
 }
 
 impl<T> Drop for Buffer<T> {
-    // On "macos" and "linux" we can deallocate the non-mirrored and
-    // mirrored parts of the buffer at once:
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn drop(&mut self) {
         if self.is_empty() {
             return;
         }
 
         let buffer_size_in_bytes = Self::size_in_bytes(self.len());
-        let ptr_first_half = self.ptr.get() as *mut u8;
-        // If deallocation fails while calling drop we just panic:
-        dealloc(ptr_first_half, buffer_size_in_bytes)
-            .expect("deallocating mirrored buffer failed")
-    }
+        let first_half_ptr = self.ptr.get() as *mut u8;
 
-    // On "windows" we unmap the memory.
-    #[cfg(target_os = "windows")]
-    fn drop(&mut self) {
-        if self.is_empty() {
-            return;
+        // On "macos" we can deallocate the non-mirrored and mirrored parts of
+        // the buffer at once:
+        #[cfg(target_os = "macos")] {
+            // If deallocation fails while calling drop we just panic:
+            dealloc(first_half_ptr, buffer_size_in_bytes)
+                .expect("deallocating mirrored buffer failed")
         }
 
-        let buffer_size_in_bytes = Self::size_in_bytes(self.len());
-        let half_alloc_size = buffer_size_in_bytes / 2;
-        unmap_file_from_memory(self.ptr.get() as *mut u8)
-            .expect("unmapping first buffer half failed");
-        let second_half = unsafe {
-            (self.ptr.get() as *mut u8).offset(half_alloc_size as isize)
-        };
-        unmap_file_from_memory(second_half)
-            .expect("unmapping second buffer half failed");
+        // On linux "linux" 
+        #[cfg(target_os = "linux")] {
+            let half_alloc_size = buffer_size_in_bytes / 2;
+            let second_half_ptr = unsafe {
+                first_half_ptr.offset(half_alloc_size as isize)
+            };
+            // If deallocation fails while calling drop we just panic:
+            dealloc(first_half_ptr, buffer_size_in_bytes)
+                .expect("deallocating first buffer failed")
+        }
+
+        // On "windows" we unmap the memory.
+        #[cfg(target_os = "windows")] {
+            let half_alloc_size = buffer_size_in_bytes / 2;
+            unmap_file_from_memory(first_half_ptr)
+                .expect("unmapping first buffer half failed");
+            let second_half_ptr = unsafe {
+                first_half_ptr.offset(half_alloc_size as isize)
+            };
+            unmap_file_from_memory(second_half_ptr)
+                .expect("unmapping second buffer half failed");
+        }
     }
 }
 

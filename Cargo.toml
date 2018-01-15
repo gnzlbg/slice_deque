@@ -20,6 +20,15 @@ mach = "0.1.*"
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
 
+[profile.dev]
+opt-level = 0
+debug = true
+rpath = true
+lto = false
+debug-assertions = true
+codegen-units = 4
+panic = 'unwind'
+
 [profile.bench]
 opt-level = 3
 debug = false

@@ -175,7 +175,7 @@ pub fn allocation_granularity() -> usize {
     }
 }
 
-#[cfg(build = "debug")]
+#[cfg(debug_assertions)]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -184,5 +184,5 @@ fn print_error(location: &str) {
     );
 }
 
-#[cfg(not(build = "debug"))]
+#[cfg(not(debug_assertions))]
 fn print_error(_location: &str) {}
