@@ -304,8 +304,10 @@ impl<T> SliceDeque<T> {
             Self {
                 head: 0,
                 tail: 0,
-                buf: Buffer::uninitialized(2 * n)
-                    .expect("failed to allocate a buffer"),
+                buf: Buffer::uninitialized(2 * n).expect(&format!(
+                    "failed to allocate a buffer with capacity: {}",
+                    n
+                )),
             }
         }
     }
