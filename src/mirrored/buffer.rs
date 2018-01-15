@@ -17,7 +17,11 @@ use core::nonzero::NonZero;
 ///
 /// If that happens, we try again. This constant specifies the maximum number
 /// of times that we will try.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const MAX_NO_ALLOC_ITERS: usize = 3;
+
+#[cfg(target_os = "windows")]
+const MAX_NO_ALLOC_ITERS: usize = 5;
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {

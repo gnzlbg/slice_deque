@@ -128,8 +128,8 @@ When should I prefer [`VecDeque`] over [`SliceDeque`]?
 
 [travis-shield]: https://img.shields.io/travis/gnzlbg/slice_deque.svg?style=flat-square
 [travis]: https://travis-ci.org/gnzlbg/slice_deque
-[appveyor-shield]: https://img.shields.io/appveyor/ci/gnzlbg/slice_deque.svg?style=flat-square
-[appveyor]: https://ci.appveyor.com/project/gnzlbg/slice_deque/branch/master
+[appveyor-shield]: https://ci.appveyor.com/api/projects/status/do5lv0m61efb7wrb/branch/master?svg=truehttps://img.shields.io/appveyor/ci/gnzlbg/slice_deque.svg?style=flat-square
+[appveyor]: https://ci.appveyor.com/project/gnzlbg/slice-deque/branch/master
 [coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/slice_deque.svg?style=flat-square
 [coveralls]: https://coveralls.io/github/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
