@@ -305,7 +305,7 @@ impl<T> Buffer<T> {
                 // If this fails, we release the map of the first half and try
                 // again:
                 no_iters += 1;
-                if unmap_file_mapped_memory(virt_ptr).is_err() {
+                if unmap_file_from_memory(virt_ptr).is_err() {
                     // If unmapping fails try to free the physical memory and
                     // panic:
                     close_file_mapping(file_mapping)
@@ -353,12 +353,12 @@ impl<T> Drop for Buffer<T> {
 
         let buffer_size_in_bytes = Self::size_in_bytes(self.len());
         let half_alloc_size = buffer_size_in_bytes / 2;
-        unmap_file_mapped_memory(self.ptr.get() as *mut u8)
+        unmap_file_from_memory(self.ptr.get() as *mut u8)
             .expect("unmapping first buffer half failed");
         let second_half = unsafe {
             (self.ptr.get() as *mut u8).offset(half_alloc_size as isize)
         };
-        unmap_file_mapped_memory(second_half)
+        unmap_file_from_memory(second_half)
             .expect("unmapping second buffer half failed");
         close_file_mapping(self.file_mapping.get())
             .expect("freeing physical memory failed");

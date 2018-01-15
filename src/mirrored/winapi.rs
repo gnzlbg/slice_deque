@@ -1,15 +1,14 @@
 //! Implements the allocator hooks on top of window's virtual alloc.
 
 use winapi::shared::basetsd::SIZE_T;
-use winapi::shared::ntdef::LPCSTR;
+use winapi::shared::ntdef::LPCWSTR;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
 use winapi::um::memoryapi::{MapViewOfFileEx, UnmapViewOfFile, VirtualAlloc,
-                            VirtualFree, FILE_MAP_ALL_ACCESS};
+                            VirtualFree, FILE_MAP_ALL_ACCESS, CreateFileMappingW};
 use winapi::um::winnt::{MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS,
                         PAGE_READWRITE, SEC_COMMIT};
 
 use winapi::um::minwinbase::LPSECURITY_ATTRIBUTES;
-use winapi::um::winbase::CreateFileMappingA;
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::sysinfoapi::{GetSystemInfo, LPSYSTEM_INFO, SYSTEM_INFO};
 
@@ -40,16 +39,18 @@ pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         _ => unimplemented!(),
     };
     unsafe {
-        let h: HANDLE = CreateFileMappingA(
+        let h: HANDLE = CreateFileMappingW(
             /* hFile: */ INVALID_HANDLE_VALUE as HANDLE,
             /* lpAttributes: */ 0 as LPSECURITY_ATTRIBUTES,
             /* flProtect: */ PAGE_READWRITE | SEC_COMMIT as DWORD,
             /* dwMaximumSizeHigh: */ dw_maximum_size_high,
             /* dwMaximumSizeLow: */ dw_maximum_size_low,
-            /* lpName: */ 0 as LPCSTR,
+            /* lpName: */ 0 as LPCWSTR,
         );
 
         if h.is_null() {
+            eprintln!("failed to create a file mapping with size {}", size);
+            print_error("create_file_mapping");
             return Err(());
         }
         Ok(h)
@@ -66,6 +67,7 @@ pub fn close_file_mapping(file_mapping: HANDLE) -> Result<(), ()> {
     unsafe {
         let r: BOOL = CloseHandle(file_mapping);
         if r == 0 {
+            print_error("close_file_mapping");
             return Err(());
         }
         Ok(())
@@ -92,6 +94,7 @@ pub fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
         );
 
         if r.is_null() {
+            print_error("reserve_virtual_memory(alloc failed)");
             return Err(());
         }
 
@@ -101,6 +104,7 @@ pub fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
             /* dwFreeType: */ MEM_RELEASE as DWORD,
         );
         if fr == 0 {
+            print_error("reserve_virtual_memory(free failed)");
             return Err(());
         }
 
@@ -130,6 +134,7 @@ pub fn map_file_to_memory(
             /* lpBaseAddress: */ address as LPVOID,
         );
         if r.is_null() {
+            print_error("map_file_to_memory");
             return Err(());
         }
         debug_assert!(r == address as LPVOID);
@@ -142,11 +147,12 @@ pub fn map_file_to_memory(
 /// # Panics
 ///
 /// If `address` is null.
-pub fn unmap_file_mapped_memory(address: *mut u8) -> Result<(), ()> {
+pub fn unmap_file_from_memory(address: *mut u8) -> Result<(), ()> {
     assert!(!address.is_null());
     unsafe {
         let r = UnmapViewOfFile(/* lpBaseAddress: */ address as LPCVOID);
         if r == 0 {
+            print_error("unmap_file_from_memory");
             return Err(());
         }
         Ok(())
@@ -169,4 +175,9 @@ pub fn allocation_granularity() -> usize {
         let page_size = system_info.dwPageSize as usize;
         page_size.max(allocation_granularity)
     }
+}
+
+
+fn print_error(location: &str) {
+    eprintln!("Error at {}: {}", location, ::std::io::Error::last_os_error());
 }
