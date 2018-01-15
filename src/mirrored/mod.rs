@@ -13,4 +13,10 @@ mod libc;
 #[cfg(target_os = "linux")]
 use self::libc::*;
 
+#[cfg(target_os = "windows")]
+mod kernel32;
+
+#[cfg(target_os = "windows")]
+use self::kernel32::*;
+
 pub use self::buffer::Buffer;

@@ -1,4 +1,4 @@
-//! Implements the POSIX mmap/munmap/mremap hooks on top of libc
+//! Implements the allocator hooks on top of POSIX mmap/munmap/mremap via libc
 
 use libc::{c_int, c_void, mmap, mremap, munmap, off_t, size_t, sysconf,
            MAP_ANONYMOUS, MAP_FAILED, MAP_NORESERVE, MAP_SHARED,
@@ -8,9 +8,9 @@ use libc::{c_int, c_void, mmap, mremap, munmap, off_t, size_t, sysconf,
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let r: *mut c_void = mmap(
             /* addr: */ 0 as *mut c_void,
@@ -31,9 +31,9 @@ pub fn alloc(size: usize) -> Result<*mut u8, ()> {
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let r: c_int = munmap(ptr as *mut c_void, size as size_t);
         if r == 0 as c_int {
@@ -49,9 +49,9 @@ pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let r: *mut c_void = mremap(
             /* addr: */ from as *mut c_void,
@@ -68,7 +68,9 @@ pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
-/// Returns the size of a memory page in bytes.
-pub fn page_size() -> usize {
+/// Returns the size of a memory allocation unit.
+///
+/// In Linux-like systems this equal the page-size.
+pub fn allocation_granularity() -> usize {
     unsafe { sysconf(_SC_PAGESIZE) as usize }
 }
