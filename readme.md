@@ -80,40 +80,47 @@ and amortized `O(1)` `push_front` methods.
 
 The main drawbacks of [`SliceDeque`] are:
 
-* constrained platform support: by necessity [`SliceDeque`] must use the
-platform-specific virtual memory facilities of the underlying operating
-system. While [`SliceDeque`] can work on all major operating systems,
-currently only `MacOS X` and `Linux` are supported.
+* constrained platform support: [`SliceDeque`] requires an operating system with
+virtual memory support. While [`SliceDeque`] can be made to work on all major
+operating systems (they all have supported virtual-memory forever),
+platform-specific code is required for this. Currently, the following operating
+systems are supported:
 
-* no global allocator support: since the `Alloc`ator API does not support
-virtual memory, to use platform-specific virtual memory support
-[`SliceDeque`] must bypass the global allocator and talk directly to the
-operating system. This can have negative performance consequences since
-growing [`SliceDeque`] is always going to incur the cost of some system
-calls.
+    * `MacOS X`
+    * `Linux`
+    * `Windows`
+
+* no global allocator support: [`SliceDeque`] directly uses OS-specific APIs, so
+its behavior is independent of the global allocator.
 
 * capacity constrained by virtual memory facilities: [`SliceDeque`] must
-allocate two adjacent memory regions that map to the same region of physical
-memory. Most operating systems allow this operation to be performed
-exclusively on memory pages (or memory allocations that are multiples of a
-memory page). As a consequence, the smalles [`SliceDeque`] that can be
-created has typically a capacity of 2 memory pages, and it can grow only to
-capacities that are a multiple of a memory page.
+allocate two adjacent virtual memory regions that map to the same region of
+physical memory. Most operating systems allow this operation to be performed
+exclusively on memory pages or similar. As a consequence, the smallest capacity
+that a [`SliceDeque`] can have is a memory page on `Linux` and `MacOSX` (4kB,
+that is, `512` `u64`s), and an "allocation granularity" on Windows (64kB, that
+is, `8192` `u64`s).
 
 The main advantages of [`SliceDeque`] are:
 
 * nicer API: since it `Deref`s to a slice, all operations that work on
 slices are available for `SliceDeque`.
 
-* efficient iteration: as efficient as for slices.
+* efficient: as efficient as a slice (iteration, sorting, etc.).
 
-* simpler serialization: since one can just serialize/deserialize a single slice.
+When should I prefer [`VecDeque`] over [`SliceDeque`]? 
 
-All in all, if your double-ended queues are small (smaller than a memory
-page) or they get resized very often, `VecDeque` can perform better than
-[`SliceDeque`]. Otherwise, [`SliceDeque`] typically performs better (see
-the benchmarks), but platform support and global allocator bypass are two
-reasons to weight in against its usage.
+* Do you need to target OSes or targets without virtual-memory support? If so,
+  [`SliceDeque`] is not an option, although [`VecDeque`] won't probably be an
+  option either (these systems might lack an allocator). Still, getting
+  [`VecDeque`] running on these systems is way easier than implementing support
+  for [`SliceDeque`], which might not even be an option if the target does not
+  have an Memory Management Unit.
+
+* Is your deque small (smaller than the smallest capacity of a [`SliceDeque`])?
+  If so, [`SliceDeque`] will unnecessarily use more memory than what you need.
+  This might be an acceptable performance trade-off or not, depending on the
+  application.
 
 [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
@@ -121,13 +128,13 @@ reasons to weight in against its usage.
 
 [travis-shield]: https://img.shields.io/travis/gnzlbg/slice_deque.svg?style=flat-square
 [travis]: https://travis-ci.org/gnzlbg/slice_deque
-[appveyor-shield]: https://ci.appveyor.com/api/projects/status/do5lv0m61efb7wrb?svg=true
+[appveyor-shield]: https://img.shields.io/appveyor/ci/gnzlbg/slice_deque.svg?style=flat-square
 [appveyor]: https://ci.appveyor.com/project/gnzlbg/slice_deque/branch/master
 [coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/slice_deque.svg?style=flat-square
 [coveralls]: https://coveralls.io/github/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
 [docs]: https://gnzlbg.github.io/slice_deque
-[license-shield]: https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square
+[license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
 [license]: https://github.com/gnzlbg/slice_deque/blob/master/license.md
 [crate-shield]: https://img.shields.io/crates/v/slice_deque.svg?style=flat-square
 [crate]: https://crates.io/crates/slice_deque

@@ -13,9 +13,9 @@ use mach::vm_inherit::VM_INHERIT_COPY;
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn alloc(size: usize) -> Result<*mut u8, ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let mut addr: mach_vm_address_t = 0;
         let r: kern_return_t = mach_vm_allocate(
@@ -37,9 +37,9 @@ pub fn alloc(size: usize) -> Result<*mut u8, ()> {
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let addr = ptr as mach_vm_address_t;
         let r: kern_return_t =
@@ -57,9 +57,9 @@ pub fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
 ///
 /// # Panics
 ///
-/// If `size` is not a multiple of the `page_size`.
+/// If `size` is not a multiple of the `allocation_granularity`.
 pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
-    assert!(size % page_size() == 0);
+    assert!(size % allocation_granularity() == 0);
     unsafe {
         let mut cur_protection: vm_prot_t = 0;
         let mut max_protection: vm_prot_t = 0;
@@ -85,7 +85,9 @@ pub fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
     }
 }
 
-/// Returns the size of a memory page in bytes.
-pub fn page_size() -> usize {
+/// Returns the size of an allocation unit.
+///
+/// In `MacOSX` this equals the page size.
+pub fn allocation_granularity() -> usize {
     unsafe { mach::vm_page_size::vm_page_size as usize }
 }

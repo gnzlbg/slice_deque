@@ -17,6 +17,9 @@ libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 mach = "0.1.*"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
+
 [profile.bench]
 opt-level = 3
 debug = false

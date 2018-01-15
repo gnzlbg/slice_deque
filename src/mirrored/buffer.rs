@@ -19,9 +19,9 @@ use core::nonzero::NonZero;
 /// of times that we will try.
 const MAX_NO_ALLOC_ITERS: usize = 3;
 
-/// Number of required memory pages to hold `bytes`.
-fn no_required_pages(bytes: usize) -> usize {
-    let r = (bytes / page_size()).max(1);
+/// Number of required memory allocation units to hold `bytes`.
+fn no_required_allocation_units(bytes: usize) -> usize {
+    let r = (bytes / allocation_granularity()).max(1);
     if r % 2 == 0 {
         r
     } else {
@@ -42,6 +42,9 @@ pub struct Buffer<T> {
     /// * the elements in range `[0, len/2)` are mirrored into the range
     /// `[len/2, len)`.
     len: usize,
+    /// Handle to the memory-mapped file.
+    #[cfg(target_os = "windows")]
+    file_mapping: NonZero<HANDLE>,
 }
 
 impl<T> Buffer<T> {
@@ -98,18 +101,50 @@ impl<T> Buffer<T> {
             Self {
                 ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
                 len: 0,
+                #[cfg(target_os = "windows")]
+                file_mapping: NonZero::new_unchecked(
+                    ::std::usize::MAX as HANDLE,
+                ),
             }
+        }
+    }
+
+    /// On Windows targets returns the handle of the memory map.
+    #[cfg(target_os = "windows")]
+    pub unsafe fn file_mapping_handle(&self) -> HANDLE {
+        self.file_mapping.get()
+    }
+
+    /// Creates a new empty `Buffer` from a `ptr`, a `len`, and a file handle.
+    ///
+    /// # Panics
+    ///
+    /// If `ptr` or `handle` are null.
+    #[cfg(target_os = "windows")]
+    pub unsafe fn from_raw_parts(
+        ptr: *mut T, len: usize, handle: HANDLE
+    ) -> Self {
+        // Zero-sized types are not supported yet:
+        assert!(::std::mem::size_of::<T>() > 0);
+        assert!(!ptr.is_null());
+        assert!(!handle.is_null());
+        Self {
+            ptr: NonZero::new_unchecked(ptr),
+            len: len,
+            file_mapping: NonZero::new_unchecked(handle),
         }
     }
 
     /// Creates a new empty `Buffer` from a `ptr` and a `len`.
     ///
-    /// `ptr` must not be null.
+    /// # Panics
+    ///
+    /// If `ptr` is null.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
         // Zero-sized types are not supported yet:
         assert!(::std::mem::size_of::<T>() > 0);
-
-        debug_assert!(!ptr.is_null());
+        assert!(!ptr.is_null());
         Self {
             ptr: NonZero::new_unchecked(ptr),
             len: len,
@@ -118,7 +153,8 @@ impl<T> Buffer<T> {
 
     /// Total number of bytes in the buffer (including mirrored memory).
     fn size_in_bytes(len: usize) -> usize {
-        no_required_pages(len * ::std::mem::size_of::<T>()) * page_size()
+        no_required_allocation_units(len * ::std::mem::size_of::<T>())
+            * allocation_granularity()
     }
 
     /// Create a mirrored buffer containing `len` `T`s where the first half of
@@ -126,10 +162,9 @@ impl<T> Buffer<T> {
     pub unsafe fn uninitialized(len: usize) -> Result<Self, ()> {
         // Zero-sized types are not supported yet:
         assert!(::std::mem::size_of::<T>() > 0);
-        // The alignment requirements of `T` must be smaller than the page-size
-        // and the page-size must be a multiple of `T` (to be able to mirror
-        // the buffer without wholes).
-        assert!(::std::mem::align_of::<T>() <= page_size());
+        // The alignment requirements of `T` must be smaller than the
+        // allocation granularity.
+        assert!(::std::mem::align_of::<T>() <= allocation_granularity());
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror
         // something.
@@ -142,13 +177,29 @@ impl<T> Buffer<T> {
         let alloc_size = Self::size_in_bytes(len);
         debug_assert!(alloc_size > 0);
         debug_assert!(alloc_size % 2 == 0);
-        debug_assert!(alloc_size % page_size() == 0);
+        debug_assert!(alloc_size % allocation_granularity() == 0);
+
+        Self::allocate_uninitialized(alloc_size)
+    }
+
+    /// Allocates an uninitialzied buffer that holds `alloc_size` bytes, where
+    /// the bytes in range `[0, alloc_size / 2)` are mirrored into the bytes in
+    /// range `[alloc_size / 2, alloc_size)`.
+    ///
+    /// On Linux and Macos X the algorithm is as follows:
+    ///
+    /// * 1. Allocate twice the memory (`alloc_size` bytes)
+    /// * 2. Deallocate the second half (bytes in range `[alloc_size / 2, 0)`)
+    /// * 3. Race condition: mirror bytes of the first half into the second
+    /// half.
+    ///
+    /// If we get a race (e.g. because some other process allocates to the
+    /// second half) we release all the resources (we need to deallocate the
+    /// memory) and try again (up to a maximum of `MAX_NO_ALLOC_ITERS` times).
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    unsafe fn allocate_uninitialized(alloc_size: usize) -> Result<Self, ()> {
         let half_alloc_size = alloc_size / 2;
 
-        // 2. We allocate twice the memory, deallocate the second half, and
-        // mirror the first half into the second which is free for a short
-        // period of time. If the mirroring fails, we deallocate the first
-        // half, and try again.
         let mut no_iters = 0;
         let ptr = loop {
             if no_iters > MAX_NO_ALLOC_ITERS {
@@ -186,27 +237,127 @@ impl<T> Buffer<T> {
             }
             no_iters += 1;
         };
+
         Ok(Self {
             ptr: NonZero::new_unchecked(ptr as *mut T),
             len: alloc_size / ::std::mem::size_of::<T>(),
         })
     }
+
+    /// Allocates an uninitialzied buffer that holds `alloc_size` bytes, where
+    /// the bytes in range `[0, alloc_size / 2)` are mirrored into the bytes in
+    /// range `[alloc_size / 2, alloc_size)`.
+    ///
+    /// On Windows the algorithm is as follows:
+    ///
+    /// * 1. Allocate physical memory to hold `alloc_size / 2` bytes using a
+    ///   memory mapped file.
+    /// * 2. Find a region of virtual memory large enough to hold `alloc_size`
+    /// bytes (by allocating memory with `VirtualAlloc` and immediately
+    /// freeing   it with `VirtualFree`).
+    /// * 3. Race condition: map the physical memory to the two halves of the
+    ///   virtual memory region.
+    ///
+    /// If we get a race (e.g. because some other process obtains memory in the
+    /// memory region where we wanted to map our physical memory) we release
+    /// the first portion of virtual memory if mapping succeeded and try
+    /// again (up to a maximum of `MAX_NO_ALLOC_ITERS` times).
+    #[cfg(target_os = "windows")]
+    unsafe fn allocate_uninitialized(alloc_size: usize) -> Result<Self, ()> {
+        let half_alloc_size = alloc_size / 2;
+
+        let file_mapping = create_file_mapping(half_alloc_size)?;
+
+        let mut no_iters = 0;
+        let virt_ptr = loop {
+            if no_iters > MAX_NO_ALLOC_ITERS {
+                // If we exceeded the number of iterations we try to free the
+                // memory and panic:
+                close_file_mapping(file_mapping)
+                    .expect("freeing physical memory failed");
+                panic!("number of iterations exceeded!");
+            }
+
+            // Find large enough virtual memory region (if this fails we are
+            // done):
+            let virt_ptr = reserve_virtual_memory(alloc_size)?;
+
+            // Map the physical memory to the first half:
+            if map_file_to_memory(file_mapping, half_alloc_size, virt_ptr)
+                .is_err()
+            {
+                // If this fails, there is nothing to free and we try again:
+                no_iters += 1;
+                continue;
+            }
+
+            // Map physical memory to the second half:
+            if map_file_to_memory(
+                file_mapping,
+                half_alloc_size,
+                virt_ptr.offset(half_alloc_size as isize),
+            ).is_err()
+            {
+                // If this fails, we release the map of the first half and try
+                // again:
+                no_iters += 1;
+                if unmap_file_mapped_memory(virt_ptr).is_err() {
+                    // If unmapping fails try to free the physical memory and
+                    // panic:
+                    close_file_mapping(file_mapping)
+                        .expect("freeing physical memory failed");
+                    panic!("unmapping first half of memory failed")
+                }
+                continue;
+            }
+
+            // We are done
+            break virt_ptr;
+        };
+
+        Ok(Self {
+            ptr: NonZero::new_unchecked(virt_ptr as *mut T),
+            len: alloc_size / ::std::mem::size_of::<T>(),
+            file_mapping: NonZero::new_unchecked(file_mapping),
+        })
+    }
 }
 
 impl<T> Drop for Buffer<T> {
+    // On "macos" and "linux" we can deallocate the non-mirrored and
+    // mirrored parts of the buffer at once:
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn drop(&mut self) {
         if self.is_empty() {
             return;
         }
 
-        // On "darwin" and "linux" we can deallocate the non-mirrored and
-        // mirrored parts of the buffer at once:
-        // TODO: Does this hold on Windows?
         let buffer_size_in_bytes = Self::size_in_bytes(self.len());
         let ptr_first_half = self.ptr.get() as *mut u8;
         // If deallocation fails while calling drop we just panic:
         dealloc(ptr_first_half, buffer_size_in_bytes)
             .expect("deallocating mirrored buffer failed")
+    }
+
+    // On "windows" we unmap the memory and close the memory handle to free the
+    // physical memory.
+    #[cfg(target_os = "windows")]
+    fn drop(&mut self) {
+        if self.is_empty() {
+            return;
+        }
+
+        let buffer_size_in_bytes = Self::size_in_bytes(self.len());
+        let half_alloc_size = buffer_size_in_bytes / 2;
+        unmap_file_mapped_memory(self.ptr.get() as *mut u8)
+            .expect("unmapping first buffer half failed");
+        let second_half = unsafe {
+            (self.ptr.get() as *mut u8).offset(half_alloc_size as isize)
+        };
+        unmap_file_mapped_memory(second_half)
+            .expect("unmapping second buffer half failed");
+        close_file_mapping(self.file_mapping.get())
+            .expect("freeing physical memory failed");
     }
 }
 
@@ -274,12 +425,13 @@ mod tests {
 
     #[test]
     fn allocations() {
-        let elements_per_page = page_size() / ::std::mem::size_of::<u64>();
+        let elements_per_alloc_unit =
+            allocation_granularity() / ::std::mem::size_of::<u64>();
         let sizes = [
             8,
-            elements_per_page / 2,
-            elements_per_page,
-            elements_per_page * 4,
+            elements_per_alloc_unit / 2,
+            elements_per_alloc_unit,
+            elements_per_alloc_unit * 4,
         ];
         for &i in &sizes {
             test_alloc(i);
@@ -287,16 +439,34 @@ mod tests {
     }
 
     #[test]
-    fn no_pages_required() {
-        // Up to the page size we always need two memory pages
-        assert_eq!(no_required_pages(page_size() / 4), 2);
-        assert_eq!(no_required_pages(page_size() / 2), 2);
-        assert_eq!(no_required_pages(page_size()), 2);
-        assert_eq!(no_required_pages(2 * page_size()), 2);
-        // After the page sizes we always round up to the next even number of
-        // pages:
-        assert_eq!(no_required_pages(3 * page_size()), 4);
-        assert_eq!(no_required_pages(4 * page_size()), 4);
-        assert_eq!(no_required_pages(5 * page_size()), 6);
+    fn no_alloc_units_required() {
+        // Up to the allocation unit size we always need two allocation units
+        assert_eq!(
+            no_required_allocation_units(allocation_granularity() / 4),
+            2
+        );
+        assert_eq!(
+            no_required_allocation_units(allocation_granularity() / 2),
+            2
+        );
+        assert_eq!(no_required_allocation_units(allocation_granularity()), 2);
+        assert_eq!(
+            no_required_allocation_units(2 * allocation_granularity()),
+            2
+        );
+        // For sizes larger than the allocation units we always round up to the
+        // next even number of allocation units:
+        assert_eq!(
+            no_required_allocation_units(3 * allocation_granularity()),
+            4
+        );
+        assert_eq!(
+            no_required_allocation_units(4 * allocation_granularity()),
+            4
+        );
+        assert_eq!(
+            no_required_allocation_units(5 * allocation_granularity()),
+            6
+        );
     }
 }

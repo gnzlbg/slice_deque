@@ -140,8 +140,14 @@ extern crate mach;
 #[cfg(target_os = "linux")]
 extern crate libc;
 
+#[cfg(target_os = "windows")]
+extern crate winapi;
+
 mod mirrored;
 pub use mirrored::Buffer;
+
+#[cfg(target_os = "windows")]
+use mirrored::HANDLE;
 
 /// A double-ended queue that derefs into a slice.
 ///
@@ -254,14 +260,32 @@ impl<T> SliceDeque<T> {
     ///
     /// The `ptr` must be a pointer to the beginning of the memory buffer from
     /// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[inline]
-    pub unsafe fn from_raw_parts(
+    unsafe fn from_raw_parts(
         ptr: *mut T, capacity: usize, head: usize, tail: usize
     ) -> Self {
         Self {
             head: head,
             tail: tail,
             buf: Buffer::from_raw_parts(ptr, capacity * 2),
+        }
+    }
+
+    /// Creates a SliceDeque from its raw components.
+    ///
+    /// The `ptr` must be a pointer to the beginning of the memory buffer from
+    /// another `SliceDeque`, `capacity` the capacity of this `SliceDeque`,
+    /// and `handle` the handle to the memory mapped file of this `SliceDeque`.
+    #[cfg(target_os = "windows")]
+    #[inline]
+    unsafe fn from_raw_parts(
+        ptr: *mut T, capacity: usize, handle: HANDLE, head: usize, tail: usize
+    ) -> Self {
+        Self {
+            head: head,
+            tail: tail,
+            buf: Buffer::from_raw_parts(ptr, capacity * 2, handle),
         }
     }
 
@@ -880,6 +904,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
         R: ::std::collections::range::RangeArgument<usize>,
@@ -1331,6 +1356,7 @@ impl<T> SliceDeque<T> {
     /// >  }
     #[inline]
     fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
+        #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
         while let Some(element) = iterator.next() {
             let len = self.len();
             if len == self.capacity() {
@@ -1843,7 +1869,7 @@ impl<'a, T> Drop for Drain<'a, T> {
     #[inline]
     fn drop(&mut self) {
         // exhaust self first
-        while let Some(_) = self.next() {}
+        self.for_each(|_| {});
 
         if self.tail_len > 0 {
             unsafe {
@@ -1881,6 +1907,7 @@ pub struct IntoIter<T> {
     cap: usize,
     ptr: *const T,
     end: *const T,
+    #[cfg(target_os = "windows")] handle: HANDLE,
 }
 
 impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
@@ -1962,25 +1989,22 @@ impl<T> Iterator for IntoIter<T> {
         unsafe {
             if self.ptr as *const _ == self.end {
                 None
+            } else if ::std::mem::size_of::<T>() == 0 {
+                // purposefully don't use 'ptr.offset' because for
+                // deques with 0-size elements this would return the
+                // same pointer.
+                self.ptr =
+                    ::std::intrinsics::arith_offset(self.ptr as *const i8, 1)
+                        as *mut T;
+
+                // Use a non-null pointer value
+                // (self.ptr might be null because of wrapping)
+                Some(::std::ptr::read(1 as *mut T))
             } else {
-                if ::std::mem::size_of::<T>() == 0 {
-                    // purposefully don't use 'ptr.offset' because for
-                    // deques with 0-size elements this would return the
-                    // same pointer.
-                    self.ptr = ::std::intrinsics::arith_offset(
-                        self.ptr as *const i8,
-                        1,
-                    ) as *mut T;
+                let old = self.ptr;
+                self.ptr = self.ptr.offset(1);
 
-                    // Use a non-null pointer value
-                    // (self.ptr might be null because of wrapping)
-                    Some(::std::ptr::read(1 as *mut T))
-                } else {
-                    let old = self.ptr;
-                    self.ptr = self.ptr.offset(1);
-
-                    Some(::std::ptr::read(old))
-                }
+                Some(::std::ptr::read(old))
             }
         }
     }
@@ -2006,22 +2030,19 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
         unsafe {
             if self.end == self.ptr {
                 None
+            } else if ::std::mem::size_of::<T>() == 0 {
+                // See above for why 'ptr.offset' isn't used
+                self.end =
+                    ::std::intrinsics::arith_offset(self.end as *const i8, -1)
+                        as *mut T;
+
+                // Use a non-null pointer value
+                // (self.end might be null because of wrapping)
+                Some(::std::ptr::read(1 as *mut T))
             } else {
-                if ::std::mem::size_of::<T>() == 0 {
-                    // See above for why 'ptr.offset' isn't used
-                    self.end = ::std::intrinsics::arith_offset(
-                        self.end as *const i8,
-                        -1,
-                    ) as *mut T;
+                self.end = self.end.offset(-1);
 
-                    // Use a non-null pointer value
-                    // (self.end might be null because of wrapping)
-                    Some(::std::ptr::read(1 as *mut T))
-                } else {
-                    self.end = self.end.offset(-1);
-
-                    Some(::std::ptr::read(self.end))
-                }
+                Some(::std::ptr::read(self.end))
             }
         }
     }
@@ -2056,8 +2077,14 @@ unsafe impl<#[may_dangle] T> Drop for IntoIter<T> {
         for _x in self.by_ref() {}
 
         // Buffer handles deallocation
-        let _ =
-            unsafe { Buffer::from_raw_parts(self.buf.as_ptr(), 2 * self.cap) };
+        let _ = unsafe {
+            Buffer::from_raw_parts(
+                self.buf.as_ptr(),
+                2 * self.cap,
+                #[cfg(target_os = "windows")]
+                self.handle,
+            )
+        };
     }
 }
 
@@ -2097,16 +2124,16 @@ impl<T> IntoIterator for SliceDeque<T> {
             } else {
                 begin.offset(self.len() as isize) as *const T
             };
-            let cap = self.capacity();
-            let len = self.len();
-            ::std::mem::forget(self);
             let it = IntoIter {
                 buf: ::std::ptr::Shared::new_unchecked(begin),
-                cap: cap,
+                cap: self.capacity(),
                 ptr: begin,
                 end: end,
+                #[cfg(windows)]
+                handle: self.buf.file_mapping_handle(),
             };
-            debug_assert!(len == it.len());
+            debug_assert!(self.len() == it.len());
+            ::std::mem::forget(self);
             it
         }
     }
@@ -2226,6 +2253,8 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                 let deq = Self::from_raw_parts(
                     iterator.buf.as_ptr(),
                     iterator.cap,
+                    #[cfg(target_os = "windows")]
+                    iterator.handle,
                     iterator.head(),
                     iterator.tail(),
                 );
@@ -2506,7 +2535,7 @@ impl<'a, T> Drain<'a, T> {
     }
 }
 
-/// An iterator produced by calling `drain_filter` on SliceDeque.
+/// An iterator produced by calling `drain_filter` on `SliceDeque`.
 #[derive(Debug)]
 pub struct DrainFilter<'a, T: 'a, F>
 where
