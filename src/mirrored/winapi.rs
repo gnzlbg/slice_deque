@@ -3,8 +3,9 @@
 use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::ntdef::LPCWSTR;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
-use winapi::um::memoryapi::{MapViewOfFileEx, UnmapViewOfFile, VirtualAlloc,
-                            VirtualFree, FILE_MAP_ALL_ACCESS, CreateFileMappingW};
+use winapi::um::memoryapi::{CreateFileMappingW, MapViewOfFileEx,
+                            UnmapViewOfFile, VirtualAlloc, VirtualFree,
+                            FILE_MAP_ALL_ACCESS};
 use winapi::um::winnt::{MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS,
                         PAGE_READWRITE, SEC_COMMIT};
 
@@ -21,21 +22,17 @@ pub use winapi::shared::ntdef::HANDLE;
 /// If `size` is not a multiple of the `allocation_granularity`.
 pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
     assert!(size % allocation_granularity() == 0);
+    let dw_maximum_size_low: DWORD = size as DWORD;
     let dw_maximum_size_high: DWORD = match (
         ::std::mem::size_of::<DWORD>(),
         ::std::mem::size_of::<usize>(),
     ) {
-        // If both sizes are equal, the size is passed in the lower half
+        // If both sizes are equal, the size is passed in the lower half,
+        // so the higher 32-bits are zero
         (4, 4) | (8, 8) => 0,
+        // If DWORD is 32 bit but usize is 64-bit, we pass the higher 32-bit of
+        // size:
         (4, 8) => (size >> 32) as DWORD,
-        _ => unimplemented!(),
-    };
-    let dw_maximum_size_low: DWORD = match (
-        ::std::mem::size_of::<DWORD>(),
-        ::std::mem::size_of::<usize>(),
-    ) {
-        (4, 4) | (8, 8) => size as DWORD,
-        (4, 8) => (size & 0xFFFF_FFFF) as DWORD,
         _ => unimplemented!(),
     };
     unsafe {
@@ -49,7 +46,7 @@ pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         );
 
         if h.is_null() {
-            eprintln!("failed to create a file mapping with size {}", size);
+            eprintln!("failed to create a file mapping with size {} bytes", size);
             print_error("create_file_mapping");
             return Err(());
         }
@@ -177,7 +174,10 @@ pub fn allocation_granularity() -> usize {
     }
 }
 
-
 fn print_error(location: &str) {
-    eprintln!("Error at {}: {}", location, ::std::io::Error::last_os_error());
+    eprintln!(
+        "Error at {}: {}",
+        location,
+        ::std::io::Error::last_os_error()
+    );
 }
