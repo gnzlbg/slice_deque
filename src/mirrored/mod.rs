@@ -20,6 +20,3 @@ mod winapi;
 use self::winapi::*;
 
 pub use self::buffer::Buffer;
-
-#[cfg(target_os = "windows")]
-pub use self::winapi::HANDLE;

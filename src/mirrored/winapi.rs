@@ -46,8 +46,9 @@ pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         );
 
         if h.is_null() {
-            eprintln!("failed to create a file mapping with size {} bytes", size);
             print_error("create_file_mapping");
+            #[cfg(build = "debug")]
+            eprintln!("failed to create a file mapping with size {} bytes", size);
             return Err(());
         }
         Ok(h)
@@ -174,6 +175,7 @@ pub fn allocation_granularity() -> usize {
     }
 }
 
+#[cfg(build = "debug")]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -181,3 +183,6 @@ fn print_error(location: &str) {
         ::std::io::Error::last_os_error()
     );
 }
+
+#[cfg(not(build = "debug"))]
+fn print_error(_location: &str) {}

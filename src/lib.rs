@@ -146,9 +146,6 @@ extern crate winapi;
 mod mirrored;
 pub use mirrored::Buffer;
 
-#[cfg(target_os = "windows")]
-use mirrored::HANDLE;
-
 /// A double-ended queue that derefs into a slice.
 ///
 /// It is implemented with a growable virtual ring buffer.
@@ -260,32 +257,14 @@ impl<T> SliceDeque<T> {
     ///
     /// The `ptr` must be a pointer to the beginning of the memory buffer from
     /// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[inline]
-    unsafe fn from_raw_parts(
+    pub unsafe fn from_raw_parts(
         ptr: *mut T, capacity: usize, head: usize, tail: usize
     ) -> Self {
         Self {
             head: head,
             tail: tail,
             buf: Buffer::from_raw_parts(ptr, capacity * 2),
-        }
-    }
-
-    /// Creates a SliceDeque from its raw components.
-    ///
-    /// The `ptr` must be a pointer to the beginning of the memory buffer from
-    /// another `SliceDeque`, `capacity` the capacity of this `SliceDeque`,
-    /// and `handle` the handle to the memory mapped file of this `SliceDeque`.
-    #[cfg(target_os = "windows")]
-    #[inline]
-    unsafe fn from_raw_parts(
-        ptr: *mut T, capacity: usize, handle: HANDLE, head: usize, tail: usize
-    ) -> Self {
-        Self {
-            head: head,
-            tail: tail,
-            buf: Buffer::from_raw_parts(ptr, capacity * 2, handle),
         }
     }
 
@@ -1909,7 +1888,6 @@ pub struct IntoIter<T> {
     cap: usize,
     ptr: *const T,
     end: *const T,
-    #[cfg(target_os = "windows")] handle: HANDLE,
 }
 
 impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
@@ -2083,8 +2061,6 @@ unsafe impl<#[may_dangle] T> Drop for IntoIter<T> {
             Buffer::from_raw_parts(
                 self.buf.as_ptr(),
                 2 * self.cap,
-                #[cfg(target_os = "windows")]
-                self.handle,
             )
         };
     }
@@ -2131,8 +2107,6 @@ impl<T> IntoIterator for SliceDeque<T> {
                 cap: self.capacity(),
                 ptr: begin,
                 end: end,
-                #[cfg(windows)]
-                handle: self.buf.file_mapping_handle(),
             };
             debug_assert!(self.len() == it.len());
             ::std::mem::forget(self);
@@ -2255,8 +2229,6 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                 let deq = Self::from_raw_parts(
                     iterator.buf.as_ptr(),
                     iterator.cap,
-                    #[cfg(target_os = "windows")]
-                    iterator.handle,
                     iterator.head(),
                     iterator.tail(),
                 );

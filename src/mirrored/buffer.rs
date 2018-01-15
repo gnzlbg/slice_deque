@@ -46,9 +46,6 @@ pub struct Buffer<T> {
     /// * the elements in range `[0, len/2)` are mirrored into the range
     /// `[len/2, len)`.
     len: usize,
-    /// Handle to the memory-mapped file.
-    #[cfg(target_os = "windows")]
-    file_mapping: NonZero<HANDLE>,
 }
 
 impl<T> Buffer<T> {
@@ -105,37 +102,7 @@ impl<T> Buffer<T> {
             Self {
                 ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
                 len: 0,
-                #[cfg(target_os = "windows")]
-                file_mapping: NonZero::new_unchecked(
-                    ::std::usize::MAX as HANDLE,
-                ),
             }
-        }
-    }
-
-    /// On Windows targets returns the handle of the memory map.
-    #[cfg(target_os = "windows")]
-    pub unsafe fn file_mapping_handle(&self) -> HANDLE {
-        self.file_mapping.get()
-    }
-
-    /// Creates a new empty `Buffer` from a `ptr`, a `len`, and a file handle.
-    ///
-    /// # Panics
-    ///
-    /// If `ptr` or `handle` are null.
-    #[cfg(target_os = "windows")]
-    pub unsafe fn from_raw_parts(
-        ptr: *mut T, len: usize, handle: HANDLE
-    ) -> Self {
-        // Zero-sized types are not supported yet:
-        assert!(::std::mem::size_of::<T>() > 0);
-        assert!(!ptr.is_null());
-        assert!(!handle.is_null());
-        Self {
-            ptr: NonZero::new_unchecked(ptr),
-            len: len,
-            file_mapping: NonZero::new_unchecked(handle),
         }
     }
 
@@ -144,7 +111,6 @@ impl<T> Buffer<T> {
     /// # Panics
     ///
     /// If `ptr` is null.
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
         // Zero-sized types are not supported yet:
         assert!(::std::mem::size_of::<T>() > 0);
@@ -275,8 +241,8 @@ impl<T> Buffer<T> {
         let mut no_iters = 0;
         let virt_ptr = loop {
             if no_iters > MAX_NO_ALLOC_ITERS {
-                // If we exceeded the number of iterations we try to free the
-                // memory and panic:
+                // If we exceeded the number of iterations try to close the
+                // handle and panic:
                 close_file_mapping(file_mapping)
                     .expect("freeing physical memory failed");
                 panic!("number of iterations exceeded!");
@@ -306,7 +272,7 @@ impl<T> Buffer<T> {
                 // again:
                 no_iters += 1;
                 if unmap_file_from_memory(virt_ptr).is_err() {
-                    // If unmapping fails try to free the physical memory and
+                    // If unmapping fails try to close the handle and
                     // panic:
                     close_file_mapping(file_mapping)
                         .expect("freeing physical memory failed");
@@ -319,10 +285,15 @@ impl<T> Buffer<T> {
             break virt_ptr;
         };
 
+        // Close the file handle, it will be released when all the memory is
+        // unmapped:
+        close_file_mapping(file_mapping)
+            .expect("closing file handle failed");
+
+
         Ok(Self {
             ptr: NonZero::new_unchecked(virt_ptr as *mut T),
             len: alloc_size / ::std::mem::size_of::<T>(),
-            file_mapping: NonZero::new_unchecked(file_mapping),
         })
     }
 }
@@ -343,8 +314,7 @@ impl<T> Drop for Buffer<T> {
             .expect("deallocating mirrored buffer failed")
     }
 
-    // On "windows" we unmap the memory and close the memory handle to free the
-    // physical memory.
+    // On "windows" we unmap the memory.
     #[cfg(target_os = "windows")]
     fn drop(&mut self) {
         if self.is_empty() {
@@ -360,8 +330,6 @@ impl<T> Drop for Buffer<T> {
         };
         unmap_file_from_memory(second_half)
             .expect("unmapping second buffer half failed");
-        close_file_mapping(self.file_mapping.get())
-            .expect("freeing physical memory failed");
     }
 }
 
