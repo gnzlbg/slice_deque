@@ -279,15 +279,13 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
-        unsafe {
-            Self {
-                head: 0,
-                tail: 0,
-                buf: Buffer::uninitialized(2 * n).expect(&format!(
-                    "failed to allocate a buffer with capacity: {}",
-                    n
-                )),
-            }
+        Self {
+            head: 0,
+            tail: 0,
+            buf: Buffer::uninitialized(2 * n).expect(&format!(
+                "failed to allocate a buffer with capacity: {}",
+                n
+            )),
         }
     }
 

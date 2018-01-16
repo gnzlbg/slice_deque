@@ -110,7 +110,7 @@ impl<T> Buffer<T> {
 
     /// Create a mirrored buffer containing `len` `T`s where the first half of
     /// the buffer is mirrored into the second half.
-    pub unsafe fn uninitialized(len: usize) -> Result<Self, ()> {
+    pub fn uninitialized(len: usize) -> Result<Self, ()> {
         // Zero-sized types are not supported yet:
         assert!(::std::mem::size_of::<T>() > 0);
         // The alignment requirements of `T` must be smaller than the
@@ -133,7 +133,7 @@ impl<T> Buffer<T> {
         let ptr = allocate_mirrored(alloc_size)?;
 
         Ok(Self {
-            ptr: NonZero::new_unchecked(ptr as *mut T),
+            ptr: unsafe { NonZero::new_unchecked(ptr as *mut T) },
             len: alloc_size / ::std::mem::size_of::<T>(),
         })
     }
@@ -147,8 +147,7 @@ impl<T> Drop for Buffer<T> {
 
         let buffer_size_in_bytes = Self::size_in_bytes(self.len());
         let first_half_ptr = self.ptr.get() as *mut u8;
-
-        deallocate_mirrored(first_half_ptr, buffer_size_in_bytes);
+        unsafe { deallocate_mirrored(first_half_ptr, buffer_size_in_bytes) };
     }
 }
 
