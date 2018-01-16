@@ -1,8 +1,8 @@
 //! A double-ended queue that `Deref`s into a slice.
 //!
-//! The double-ended queue in the standard library ([`VecDeque`]) is implemented
-//! using a growable ring buffer (`0` represents uninitialized memory, and `T`
-//! represents one element in the queue):
+//! The double-ended queue in the standard library ([`VecDeque`]) is
+//! implemented using a growable ring buffer (`0` represents uninitialized
+//! memory, and `T` represents one element in the queue):
 //!
 //! ```rust
 //! // [ 0 | 0 | 0 | T | T | T | 0 ]
@@ -2057,12 +2057,8 @@ unsafe impl<#[may_dangle] T> Drop for IntoIter<T> {
         for _x in self.by_ref() {}
 
         // Buffer handles deallocation
-        let _ = unsafe {
-            Buffer::from_raw_parts(
-                self.buf.as_ptr(),
-                2 * self.cap,
-            )
-        };
+        let _ =
+            unsafe { Buffer::from_raw_parts(self.buf.as_ptr(), 2 * self.cap) };
     }
 }
 

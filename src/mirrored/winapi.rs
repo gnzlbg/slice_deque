@@ -15,12 +15,27 @@ use winapi::um::sysinfoapi::{GetSystemInfo, LPSYSTEM_INFO, SYSTEM_INFO};
 
 pub use winapi::shared::ntdef::HANDLE;
 
+/// Maximum number of allocation iterations.
+///
+/// The memory allocation algorithm is:
+/// - 1. allocate memory for 2x the buffer
+/// - 2. deallocate the second half
+/// - 3. mirror the first half into the second half
+///
+/// There is a race between steps 2 and 3: if after step 2. another process
+/// allocates memory in the mean time, and the OS gives it virtual addresses in
+/// the second half, then step 3 will fail.
+///
+/// If that happens, we try again. This constant specifies the maximum number
+/// of times that we will try.
+const MAX_NO_ALLOC_ITERS: usize = 5;
+
 /// Creates a file mapping able to hold `alloc_size` bytes.
 ///
 /// # Panics
 ///
 /// If `size` is not a multiple of the `allocation_granularity`.
-pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
+fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
     assert!(size % allocation_granularity() == 0);
     let dw_maximum_size_low: DWORD = size as DWORD;
     let dw_maximum_size_high: DWORD = match (
@@ -48,7 +63,10 @@ pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         if h.is_null() {
             print_error("create_file_mapping");
             #[cfg(build = "debug")]
-            eprintln!("failed to create a file mapping with size {} bytes", size);
+            eprintln!(
+                "failed to create a file mapping with size {} bytes",
+                size
+            );
             return Err(());
         }
         Ok(h)
@@ -60,7 +78,7 @@ pub fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
 /// # Panics
 ///
 /// If `file_mapping` is null.
-pub fn close_file_mapping(file_mapping: HANDLE) -> Result<(), ()> {
+fn close_file_mapping(file_mapping: HANDLE) -> Result<(), ()> {
     assert!(!file_mapping.is_null());
     unsafe {
         let r: BOOL = CloseHandle(file_mapping);
@@ -81,7 +99,7 @@ pub fn close_file_mapping(file_mapping: HANDLE) -> Result<(), ()> {
 /// # Panics
 ///
 /// If `size` is not a multiple of the `allocation_granularity`.
-pub fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
+fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
     assert!(size % allocation_granularity() == 0);
     unsafe {
         let r: LPVOID = VirtualAlloc(
@@ -116,7 +134,7 @@ pub fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
 ///
 /// If `file_mapping` or `address` are null, or if `size` is not a multiple of
 /// the allocation granularity of the system.
-pub fn map_file_to_memory(
+fn map_file_to_memory(
     file_mapping: HANDLE, size: usize, address: *mut u8
 ) -> Result<(), ()> {
     assert!(!file_mapping.is_null());
@@ -145,7 +163,7 @@ pub fn map_file_to_memory(
 /// # Panics
 ///
 /// If `address` is null.
-pub fn unmap_file_from_memory(address: *mut u8) -> Result<(), ()> {
+fn unmap_file_from_memory(address: *mut u8) -> Result<(), ()> {
     assert!(!address.is_null());
     unsafe {
         let r = UnmapViewOfFile(/* lpBaseAddress: */ address as LPCVOID);
@@ -186,3 +204,88 @@ fn print_error(location: &str) {
 
 #[cfg(not(debug_assertions))]
 fn print_error(_location: &str) {}
+
+/// Allocates an uninitialzied buffer that holds `alloc_size` bytes, where
+/// the bytes in range `[0, alloc_size / 2)` are mirrored into the bytes in
+/// range `[alloc_size / 2, alloc_size)`.
+///
+/// On Windows the algorithm is as follows:
+///
+/// * 1. Allocate physical memory to hold `alloc_size / 2` bytes using a
+///   memory mapped file.
+/// * 2. Find a region of virtual memory large enough to hold `alloc_size`
+/// bytes (by allocating memory with `VirtualAlloc` and immediately
+/// freeing   it with `VirtualFree`).
+/// * 3. Race condition: map the physical memory to the two halves of the
+///   virtual memory region.
+///
+/// If we get a race (e.g. because some other process obtains memory in the
+/// memory region where we wanted to map our physical memory) we release
+/// the first portion of virtual memory if mapping succeeded and try
+/// again (up to a maximum of `MAX_NO_ALLOC_ITERS` times).
+pub unsafe fn allocate_mirrored(alloc_size: usize) -> Result<*mut u8, ()> {
+    let half_alloc_size = alloc_size / 2;
+
+    let file_mapping = create_file_mapping(half_alloc_size)?;
+
+    let mut no_iters = 0;
+    let virt_ptr = loop {
+        if no_iters > MAX_NO_ALLOC_ITERS {
+            // If we exceeded the number of iterations try to close the
+            // handle and panic:
+            close_file_mapping(file_mapping)
+                .expect("freeing physical memory failed");
+            panic!("number of iterations exceeded!");
+        }
+
+        // Find large enough virtual memory region (if this fails we are
+        // done):
+        let virt_ptr = reserve_virtual_memory(alloc_size)?;
+
+        // Map the physical memory to the first half:
+        if map_file_to_memory(file_mapping, half_alloc_size, virt_ptr).is_err()
+        {
+            // If this fails, there is nothing to free and we try again:
+            no_iters += 1;
+            continue;
+        }
+
+        // Map physical memory to the second half:
+        if map_file_to_memory(
+            file_mapping,
+            half_alloc_size,
+            virt_ptr.offset(half_alloc_size as isize),
+        ).is_err()
+        {
+            // If this fails, we release the map of the first half and try
+            // again:
+            no_iters += 1;
+            if unmap_file_from_memory(virt_ptr).is_err() {
+                // If unmapping fails try to close the handle and
+                // panic:
+                close_file_mapping(file_mapping)
+                    .expect("freeing physical memory failed");
+                panic!("unmapping first half of memory failed")
+            }
+            continue;
+        }
+
+        // We are done
+        break virt_ptr;
+    };
+
+    // Close the file handle, it will be released when all the memory is
+    // unmapped:
+    close_file_mapping(file_mapping).expect("closing file handle failed");
+
+    Ok(virt_ptr)
+}
+
+pub fn deallocate_mirrored(ptr: *mut u8, size: usize) {
+    // On "windows" we unmap the memory.
+    let half_alloc_size = size / 2;
+    unmap_file_from_memory(ptr).expect("unmapping first buffer half failed");
+    let second_half_ptr = unsafe { ptr.offset(half_alloc_size as isize) };
+    unmap_file_from_memory(second_half_ptr)
+        .expect("unmapping second buffer half failed");
+}

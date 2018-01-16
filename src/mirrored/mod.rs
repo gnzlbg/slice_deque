@@ -5,18 +5,18 @@ mod buffer;
 mod macos;
 
 #[cfg(target_os = "macos")]
-use self::macos::*;
+use self::macos::{allocate_mirrored, deallocate_mirrored, allocation_granularity};
 
 #[cfg(target_os = "linux")]
 mod libc;
 
 #[cfg(target_os = "linux")]
-use self::libc::*;
+use self::libc::{allocate_mirrored, deallocate_mirrored, allocation_granularity};
 
 #[cfg(target_os = "windows")]
 mod winapi;
 
 #[cfg(target_os = "windows")]
-use self::winapi::*;
+use self::winapi::{allocate_mirrored, deallocate_mirrored, allocation_granularity};
 
 pub use self::buffer::Buffer;
