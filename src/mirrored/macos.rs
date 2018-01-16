@@ -123,6 +123,7 @@ fn alloc(size: usize) -> Result<*mut u8, ()> {
         if r != KERN_SUCCESS {
             // If the first allocation fails, there is nothing to
             // deallocate and we can just fail to allocate:
+            print_error("alloc", r);
             return Err(());
         }
         Ok(addr as *mut u8)
@@ -147,11 +148,11 @@ unsafe fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     let addr = ptr as mach_vm_address_t;
     let r: kern_return_t =
         mach_vm_deallocate(mach_task_self(), addr, size as u64);
-    if r == KERN_SUCCESS {
-        Ok(())
-    } else {
-        Err(())
+    if r != KERN_SUCCESS {
+        print_error("dealloc", r);
+        return Err(());
     }
+    Ok(())
 }
 
 /// Mirrors `size` bytes of memory starting at `from` to a memory region
@@ -187,9 +188,78 @@ unsafe fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
         &mut max_protection,
         VM_INHERIT_COPY,
     );
-    if r == KERN_SUCCESS {
-        Ok(())
-    } else {
-        Err(())
+    if r != KERN_SUCCESS {
+        print_error("mirror", r);
+        return Err(());
+    }
+    Ok(())
+}
+
+#[cfg(not(debug_assertions))]
+fn print_error(_msg: &str, _code: kern_return_t) {}
+
+#[cfg(debug_assertions)]
+fn print_error(msg: &str, code: kern_return_t) {
+    eprintln!("ERROR at {}: {}", msg, report_error(code));
+}
+
+#[cfg(debug_assertions)]
+fn report_error(error: kern_return_t) -> &'static str {
+    use mach::kern_return::*;
+    match error {
+        KERN_ABORTED => &"KERN_ABORTED",
+        KERN_ALREADY_IN_SET => &"KERN_ALREADY_IN_SET",
+        KERN_ALREADY_WAITING => &"KERN_ALREADY_WAITING",
+        KERN_CODESIGN_ERROR => &"KERN_CODESIGN_ERROR",
+        KERN_DEFAULT_SET => &"KERN_DEFAULT_SET",
+        KERN_EXCEPTION_PROTECTED => &"KERN_EXCEPTION_PROTECTED",
+        KERN_FAILURE => &"KERN_FAILURE",
+        KERN_INVALID_ADDRESS => &"KERN_INVALID_ADDRESS",
+        KERN_INVALID_ARGUMENT => &"KERN_INVALID_ARGUMENT",
+        KERN_INVALID_CAPABILITY => &"KERN_INVALID_CAPABILITY",
+        KERN_INVALID_HOST => &"KERN_INVALID_HOST",
+        KERN_INVALID_LEDGER => &"KERN_INVALID_LEDGER",
+        KERN_INVALID_MEMORY_CONTROL => &"KERN_INVALID_MEMORY_CONTROL",
+        KERN_INVALID_NAME => &"KERN_INVALID_NAME",
+        KERN_INVALID_OBJECT => &"KERN_INVALID_OBJECT",
+        KERN_INVALID_POLICY => &"KERN_INVALID_POLICY",
+        KERN_INVALID_PROCESSOR_SET => &"KERN_INVALID_PROCESSOR_SET",
+        KERN_INVALID_RIGHT => &"KERN_INVALID_RIGHT",
+        KERN_INVALID_SECURITY => &"KERN_INVALID_SECURITY",
+        KERN_INVALID_TASK => &"KERN_INVALID_TASK",
+        KERN_INVALID_VALUE => &"KERN_INVALID_VALUE",
+        KERN_LOCK_OWNED => &"KERN_LOCK_OWNED",
+        KERN_LOCK_OWNED_SELF => &"KERN_LOCK_OWNED_SELF",
+        KERN_LOCK_SET_DESTROYED => &"KERN_LOCK_SET_DESTROYED",
+        KERN_LOCK_UNSTABLE => &"KERN_LOCK_UNSTABLE",
+        KERN_MEMORY_DATA_MOVED => &"KERN_MEMORY_DATA_MOVED",
+        KERN_MEMORY_ERROR => &"KERN_MEMORY_ERROR",
+        KERN_MEMORY_FAILURE => &"KERN_MEMORY_FAILURE",
+        KERN_MEMORY_PRESENT => &"KERN_MEMORY_PRESENT",
+        KERN_MEMORY_RESTART_COPY => &"KERN_MEMORY_RESTART_COPY",
+        KERN_NAME_EXISTS => &"KERN_NAME_EXISTS",
+        KERN_NODE_DOWN => &"KERN_NODE_DOWN",
+        KERN_NOT_DEPRESSED => &"KERN_NOT_DEPRESSED",
+        KERN_NOT_IN_SET => &"KERN_NOT_IN_SET",
+        KERN_NOT_RECEIVER => &"KERN_NOT_RECEIVER",
+        KERN_NOT_SUPPORTED => &"KERN_NOT_SUPPORTED",
+        KERN_NOT_WAITING => &"KERN_NOT_WAITING",
+        KERN_NO_ACCESS => &"KERN_NO_ACCESS",
+        KERN_NO_SPACE => &"KERN_NO_SPACE",
+        KERN_OPERATION_TIMED_OUT => &"KERN_OPERATION_TIMED_OUT",
+        KERN_POLICY_LIMIT => &"KERN_POLICY_LIMIT",
+        KERN_POLICY_STATIC => &"KERN_POLICY_STATIC",
+        KERN_PROTECTION_FAILURE => &"KERN_PROTECTION_FAILURE",
+        KERN_RESOURCE_SHORTAGE => &"KERN_RESOURCE_SHORTAGE",
+        KERN_RETURN_MAX => &"KERN_RETURN_MAX",
+        KERN_RIGHT_EXISTS => &"KERN_RIGHT_EXISTS",
+        KERN_RPC_CONTINUE_ORPHAN => &"KERN_RPC_CONTINUE_ORPHAN",
+        KERN_RPC_SERVER_TERMINATED => &"KERN_RPC_SERVER_TERMINATED",
+        KERN_RPC_TERMINATE_ORPHAN => &"KERN_RPC_TERMINATE_ORPHAN",
+        KERN_SEMAPHORE_DESTROYED => &"KERN_SEMAPHORE_DESTROYED",
+        KERN_SUCCESS => &"KERN_SUCCESS",
+        KERN_TERMINATED => &"KERN_TERMINATED",
+        KERN_UREFS_OVERFLOW => &"KERN_UREFS_OVERFLOW",
+        _ => &"UNKNOWN_ERROR",
     }
 }
