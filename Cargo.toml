@@ -11,6 +11,14 @@ keywords = ["collection", "deque"]
 categories = ["data-structures"]
 license = "MIT/Apache-2.0"
 
+[badges]
+appveyor = { repository = "gnzlbg/slice_deque" }
+travis-ci = { repository = "gnzlbg/slice_deque" }
+coveralls = { repository = "gnzlbg/slice_deque" }
+is-it-maintained-issue-resolution = { repository = "BurntSushi/stdsimd" }
+is-it-maintained-open-issues = { repository = "BurntSushi/stdsimd" }
+maintenance = { status = "experimental" }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
 
@@ -19,6 +27,12 @@ mach = "0.1.*"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
+
+[features]
+bytes_buf = ["bytes"]
+
+[dependencies]
+bytes = { version = "0.4.*", optional = true }
 
 [profile.dev]
 opt-level = 0

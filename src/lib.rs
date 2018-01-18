@@ -143,6 +143,12 @@ extern crate libc;
 #[cfg(target_os = "windows")]
 extern crate winapi;
 
+#[cfg(feature = "bytes_buf")]
+extern crate bytes;
+
+#[cfg(feature = "bytes_buf")]
+use std::slice;
+
 mod mirrored;
 pub use mirrored::Buffer;
 
@@ -2568,6 +2574,77 @@ where
             let old_tail = self.deq.tail;
             self.deq.move_tail(new_tail as isize - old_tail as isize);
         }
+    }
+}
+
+impl<T> ::std::convert::AsRef<[T]> for SliceDeque<T> {
+    fn as_ref(&self) -> &[T] { &*self }
+}
+
+impl<T> ::std::convert::AsMut<[T]> for SliceDeque<T> {
+    fn as_mut(&mut self) -> &mut [T] { &mut *self }
+}
+
+#[cfg(feature = "bytes_buf")]
+impl ::bytes::BufMut for SliceDeque<u8> {
+    #[inline]
+    fn remaining_mut(&self) -> usize {
+        ::std::usize::MAX - self.len()
+    }
+    #[inline]
+    unsafe fn bytes_mut(&mut self) -> &mut [u8] {
+        if self.capacity() == self.len() {
+            self.reserve(64); // Grow the deque
+        }
+
+        let cap = self.capacity();
+        let len = self.len();
+
+        let ptr = self.as_mut_ptr();
+        &mut slice::from_raw_parts_mut(ptr, cap)[len..]
+    }
+    #[inline]
+    unsafe fn advance_mut(&mut self, cnt: usize) {
+        let len = self.len();
+        let remaining = self.capacity() - len;
+        if cnt > remaining {
+            // Reserve additional capacity, and ensure that the total length
+            // will not overflow usize.
+            self.reserve(cnt);
+        }
+
+        self.move_tail(cnt as isize);
+    }
+}
+
+#[cfg(feature = "bytes_buf")]
+impl ::bytes::IntoBuf for SliceDeque<u8> {
+    type Buf = ::std::io::Cursor<SliceDeque<u8>>;
+
+    fn into_buf(self) -> Self::Buf {
+        ::std::io::Cursor::new(self)
+    }
+}
+
+#[cfg(feature = "bytes_buf")]
+impl<'a> ::bytes::IntoBuf for &'a SliceDeque<u8> {
+    type Buf = ::std::io::Cursor<&'a [u8]>;
+
+    fn into_buf(self) -> Self::Buf {
+        ::std::io::Cursor::new(&self[..])
+    }
+}
+
+#[cfg(feature = "bytes_buf")]
+impl ::bytes::buf::FromBuf for SliceDeque<u8> {
+    fn from_buf<T>(buf: T) -> Self
+        where T: ::bytes::IntoBuf
+    {
+        use ::bytes::{Buf, BufMut};
+        let buf = buf.into_buf();
+        let mut ret = SliceDeque::with_capacity(buf.remaining());
+        ret.put(buf);
+        ret
     }
 }
 
@@ -5011,5 +5088,150 @@ fn vecdeque_placement_in() {
     }
     assert_eq!(buf, [5,4,3,1,2,6]);
 }
-*/
+     */
+
+    #[cfg(feature = "bytes_buf")]
+    #[test]
+    fn bytes_bufmut() {
+        use bytes::{BufMut, BigEndian};
+        use std::io::Write;
+
+        {
+            let mut buf = sdeq![];
+
+            buf.put("hello world");
+
+            assert_eq!(buf, b"hello world");
+        }
+        {
+            let mut buf = SliceDeque::with_capacity(16);
+
+            unsafe {
+                buf.bytes_mut()[0] = b'h';
+                buf.bytes_mut()[1] = b'e';
+
+                buf.advance_mut(2);
+
+                buf.bytes_mut()[0] = b'l';
+                buf.bytes_mut()[1..3].copy_from_slice(b"lo");
+
+                buf.advance_mut(3);
+            }
+
+            assert_eq!(5, buf.len());
+            assert_eq!(buf, b"hello");
+        }
+        {
+            let mut buf = SliceDeque::with_capacity(16);
+
+            unsafe {
+                buf.bytes_mut()[0] = b'h';
+                buf.bytes_mut()[1] = b'e';
+
+                buf.advance_mut(2);
+
+                buf.bytes_mut()[0] = b'l';
+                buf.bytes_mut()[1..3].copy_from_slice(b"lo");
+
+                buf.advance_mut(3);
+            }
+
+            assert_eq!(5, buf.len());
+            assert_eq!(buf, b"hello");
+        }
+        {
+            let mut buf = sdeq![];
+
+            buf.put(b'h');
+            buf.put(&b"ello"[..]);
+            buf.put(" world");
+
+            assert_eq!(buf, b"hello world");
+        }
+        {
+            let mut buf = sdeq![];
+            buf.put_u8(0x01);
+            assert_eq!(buf, b"\x01");
+        }
+        {
+            let mut buf = sdeq![];
+            buf.put_i8(0x01);
+            assert_eq!(buf, b"\x01");
+        }
+        {
+            let mut buf = sdeq![];
+            buf.put_u16::<BigEndian>(0x0809);
+            assert_eq!(buf, b"\x08\x09");
+        }
+        {
+            let mut buf = sdeq![];
+
+            {
+                let reference = buf.by_ref();
+
+                // Adapt reference to `std::io::Write`.
+                let mut writer = reference.writer();
+
+                // Use the buffer as a writter
+                Write::write(&mut writer, &b"hello world"[..]).unwrap();
+            } // drop our &mut reference so that we can use `buf` again
+
+            assert_eq!(buf, &b"hello world"[..]);
+        }
+        {
+            let mut buf = sdeq![].writer();
+
+            let num = buf.write(&b"hello world"[..]).unwrap();
+            assert_eq!(11, num);
+
+            let buf = buf.into_inner();
+
+            assert_eq!(*buf, b"hello world"[..]);
+        }
+    }
+
+    #[cfg(feature = "bytes_buf")]
+    #[test]
+    fn bytes_buf() {
+        {
+            use bytes::{Buf, Bytes, IntoBuf};
+
+            let buf = Bytes::from(&b"hello world"[..]).into_buf();
+            let vec: SliceDeque<u8> = buf.collect();
+
+            assert_eq!(vec, &b"hello world"[..]);
+        }
+        {
+            use bytes::{Buf, BufMut};
+            use std::io::Cursor;
+
+            let mut buf = Cursor::new("hello world").take(5);
+            let mut dst = sdeq![];
+
+            dst.put(&mut buf);
+            assert_eq!(dst, b"hello");
+
+            let mut buf = buf.into_inner();
+            dst.clear();
+            dst.put(&mut buf);
+            assert_eq!(dst, b" world");
+        }
+        {
+            use bytes::{Buf, BufMut};
+            use std::io::Cursor;
+
+            let mut buf = Cursor::new("hello world");
+            let mut dst = sdeq![];
+
+            {
+                let reference = buf.by_ref();
+                dst.put(&mut reference.take(5));
+                assert_eq!(dst, b"hello");
+            } // drop our &mut reference so we can use `buf` again
+
+            dst.clear();
+            dst.put(&mut buf);
+            assert_eq!(dst, b" world");
+        }
+    }
 }
