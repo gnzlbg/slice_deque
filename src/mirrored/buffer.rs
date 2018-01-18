@@ -81,7 +81,7 @@ impl<T> Buffer<T> {
         // will ensure that it is never dereferenced in this state.
         unsafe {
             Self {
-                ptr: NonZero::new_unchecked(::std::usize::MAX as *mut T),
+                ptr: NonZero::new_unchecked(usize::max_value() as *mut T),
                 len: 0,
             }
         }

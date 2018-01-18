@@ -3,6 +3,7 @@
 use libc::{c_char, c_void, close, ftruncate, mkstemp, mmap, munmap, size_t,
            sysconf, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
            _SC_PAGESIZE};
+use std::ptr;
 
 /// Returns the size of a memory allocation unit.
 ///
@@ -51,7 +52,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
 
         // mmap memory
         let ptr = mmap(
-            0 as *mut c_void,
+            ptr::null_mut(),
             size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
@@ -112,6 +113,7 @@ pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
     }
 }
 
+/// Prints last os error at `location`.
 #[cfg(debug_assertions)]
 fn print_error(location: &str) {
     eprintln!(
@@ -121,5 +123,6 @@ fn print_error(location: &str) {
     );
 }
 
+/// Prints last os error at `location`.
 #[cfg(not(debug_assertions))]
 fn print_error(_location: &str) {}

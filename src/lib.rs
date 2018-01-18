@@ -128,7 +128,7 @@
                     inclusive_range_syntax, repr_align, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
-                  cast_sign_loss))]
+                  cast_sign_loss, cast_possible_truncation))]
 
 extern crate core;
 
@@ -1888,9 +1888,13 @@ impl<'a, T> ::std::iter::FusedIterator for Drain<'a, T> {}
 /// [`SliceDeque`]: struct.SliceDeque.html
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
+    /// Shared pointer to the buffer
     buf: ::std::ptr::Shared<T>,
+    /// Capacity of the buffer.
     cap: usize,
+    /// Pointer to the first element.
     ptr: *const T,
+    /// Pointer to one-past-the-end.
     end: *const T,
 }
 
@@ -1903,6 +1907,7 @@ impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
 impl<T> IntoIter<T> {
     /// Returns the index of the head with respect to the beginning of the
     /// buffer.
+    #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
     #[inline]
     fn head(&self) -> usize {
         self.buf.as_ptr().offset_to(self.ptr).unwrap() as usize
@@ -1910,6 +1915,7 @@ impl<T> IntoIter<T> {
 
     /// Returns the index of the tail with respect to the beginning of the
     /// buffer.
+    #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
     #[inline]
     fn tail(&self) -> usize {
         let t = self.buf.as_ptr().offset_to(self.end).unwrap() as usize;
@@ -2045,7 +2051,7 @@ unsafe impl<T> ::std::iter::TrustedLen for IntoIter<T> {}
 
 impl<T: Clone> Clone for IntoIter<T> {
     #[inline]
-    fn clone(&self) -> IntoIter<T> {
+    fn clone(&self) -> Self {
         let mut deq = SliceDeque::<T>::with_capacity(self.len());
         unsafe {
             deq.append_elements(self.as_slice());
@@ -2098,12 +2104,6 @@ impl<T> IntoIterator for SliceDeque<T> {
             let begin = buf_ptr.offset(self.head as isize) as *const T;
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
-            println!(
-                "begin: {}, cap: {}, end: {}",
-                begin as usize,
-                self.capacity(),
-                end as usize
-            );
             let it = IntoIter {
                 buf: ::std::ptr::Shared::new_unchecked(buf_ptr),
                 cap: self.capacity(),
@@ -2111,6 +2111,7 @@ impl<T> IntoIterator for SliceDeque<T> {
                 end: end,
             };
             debug_assert!(self.len() == it.len());
+            #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
             ::std::mem::forget(self);
             it
         }
@@ -2145,9 +2146,12 @@ impl<T> Extend<T> for SliceDeque<T> {
     }
 }
 
-// Specialization trait used for SliceDeque::from_iter and SliceDeque::extend
+/// Specialization trait used for `SliceDeque::from_iter` and
+/// `SliceDeque::extend`.
 trait SpecExtend<T, I> {
+    /// Specialization for `SliceDeque::from_iter`.
     fn from_iter(iter: I) -> Self;
+    /// Specialization for `SliceDeque::extend`.
     fn spec_extend(&mut self, iter: I);
 }
 
@@ -2192,6 +2196,7 @@ where
         deque
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(use_debug))]
     default fn spec_extend(&mut self, iterator: I) {
         // This is the case for a TrustedLen iterator.
         let (low, high) = iterator.size_hint();
@@ -2234,6 +2239,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.head(),
                     iterator.tail(),
                 );
+                #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
                 ::std::mem::forget(iterator);
                 deq
             }
@@ -2287,12 +2293,15 @@ impl<T> ::std::iter::FromIterator<T> for SliceDeque<T> {
     }
 }
 
-// This code generalises `extend_with_{element,default}`.
+/// This code generalises `extend_with_{element,default}`.
 trait ExtendWith<T> {
+    /// TODO: docs
     fn next(&self) -> T;
+    /// TODO: docs
     fn last(self) -> T;
 }
 
+/// TODO: docs
 struct ExtendElement<T>(T);
 impl<T: Clone> ExtendWith<T> for ExtendElement<T> {
     fn next(&self) -> T {
@@ -2303,6 +2312,7 @@ impl<T: Clone> ExtendWith<T> for ExtendElement<T> {
     }
 }
 
+/// TODO: docs
 struct ExtendDefault;
 impl<T: Default> ExtendWith<T> for ExtendDefault {
     fn next(&self) -> T {
@@ -2313,13 +2323,16 @@ impl<T: Default> ExtendWith<T> for ExtendDefault {
     }
 }
 
+/// TODO: docs
+/// FIXME: not used, this should be used by the sdeq! macro? Remove this maybe.
 #[doc(hidden)]
 pub fn from_elem<T: Clone>(elem: T, n: usize) -> SliceDeque<T> {
     <T as SpecFromElem>::from_elem(elem, n)
 }
 
-// Specialization trait used for SliceDeque::from_elem
+/// Specialization trait used for `SliceDeque::from_elem`.
 trait SpecFromElem: Sized {
+    /// TODO: docs
     fn from_elem(elem: Self, n: usize) -> SliceDeque<Self>;
 }
 
@@ -2333,7 +2346,7 @@ impl<T: Clone> SpecFromElem for T {
 
 impl SpecFromElem for u8 {
     #[inline]
-    fn from_elem(elem: u8, n: usize) -> SliceDeque<u8> {
+    fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
         unsafe {
             let mut v = SliceDeque::with_capacity(n);
             ::std::ptr::write_bytes(v.as_mut_ptr(), elem, n);
@@ -2394,7 +2407,9 @@ impl<'a, T: 'a + Copy> Extend<&'a T> for SliceDeque<T> {
 /// [`SliceDeque`]: struct.SliceDeque.html
 #[derive(Debug)]
 pub struct Splice<'a, I: Iterator + 'a> {
+    /// TODO: docs
     drain: Drain<'a, I::Item>,
+    /// TODO: docs
     replace_with: I,
 }
 
@@ -2517,10 +2532,15 @@ pub struct DrainFilter<'a, T: 'a, F>
 where
     F: FnMut(&mut T) -> bool,
 {
+    /// TODO: docs
     deq: &'a mut SliceDeque<T>,
+    /// TODO: docs
     idx: usize,
+    /// TODO: docs
     del: usize,
+    /// TODO: docs
     old_len: usize,
+    /// TODO: docs
     pred: F,
 }
 

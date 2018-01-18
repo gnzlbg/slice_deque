@@ -57,15 +57,14 @@ pub fn allocation_granularity() -> usize {
 /// If `size` is zero or `size / 2` is not a multiple of the
 /// allocation granularity.
 pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
+    /// Maximum number of attempts to allocate in case of a race condition.
+    const MAX_NO_ALLOC_ITERS: usize = 5;
     unsafe {
         let half_size = size / 2;
         assert!(size != 0);
         assert!(half_size % allocation_granularity() == 0);
 
         let file_mapping = create_file_mapping(half_size)?;
-
-        /// Maximum number of allocation iterations.
-        const MAX_NO_ALLOC_ITERS: usize = 5;
 
         let mut no_iters = 0;
         let virt_ptr = loop {
@@ -305,6 +304,7 @@ unsafe fn unmap_view_of_file(address: *mut u8) -> Result<(), ()> {
     Ok(())
 }
 
+/// Prints last os error at `location`.
 #[cfg(debug_assertions)]
 fn print_error(location: &str) {
     eprintln!(
@@ -314,5 +314,6 @@ fn print_error(location: &str) {
     );
 }
 
+/// Prints last os error at `location`.
 #[cfg(not(debug_assertions))]
 fn print_error(_location: &str) {}
