@@ -2578,11 +2578,15 @@ where
 }
 
 impl<T> ::std::convert::AsRef<[T]> for SliceDeque<T> {
-    fn as_ref(&self) -> &[T] { &*self }
+    fn as_ref(&self) -> &[T] {
+        &*self
+    }
 }
 
 impl<T> ::std::convert::AsMut<[T]> for SliceDeque<T> {
-    fn as_mut(&mut self) -> &mut [T] { &mut *self }
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut *self
+    }
 }
 
 #[cfg(feature = "bytes_buf")]
@@ -2638,9 +2642,10 @@ impl<'a> ::bytes::IntoBuf for &'a SliceDeque<u8> {
 #[cfg(feature = "bytes_buf")]
 impl ::bytes::buf::FromBuf for SliceDeque<u8> {
     fn from_buf<T>(buf: T) -> Self
-        where T: ::bytes::IntoBuf
+    where
+        T: ::bytes::IntoBuf,
     {
-        use ::bytes::{Buf, BufMut};
+        use bytes::{Buf, BufMut};
         let buf = buf.into_buf();
         let mut ret = SliceDeque::with_capacity(buf.remaining());
         ret.put(buf);
@@ -5093,7 +5098,7 @@ fn vecdeque_placement_in() {
     #[cfg(feature = "bytes_buf")]
     #[test]
     fn bytes_bufmut() {
-        use bytes::{BufMut, BigEndian};
+        use bytes::{BigEndian, BufMut};
         use std::io::Write;
 
         {
