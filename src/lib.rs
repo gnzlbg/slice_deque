@@ -137,7 +137,7 @@ use core::intrinsics::unlikely;
 #[cfg(target_os = "macos")]
 extern crate mach;
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "macos")))]
 extern crate libc;
 
 #[cfg(target_os = "windows")]
