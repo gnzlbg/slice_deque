@@ -1,5 +1,4 @@
 //! Implements the allocator hooks on top of mach.
-
 use mach;
 use mach::kern_return::{kern_return_t, KERN_SUCCESS};
 use mach::vm_types::mach_vm_address_t;
@@ -260,6 +259,6 @@ fn report_error(error: kern_return_t) -> &'static str {
         KERN_SUCCESS => &"KERN_SUCCESS",
         KERN_TERMINATED => &"KERN_TERMINATED",
         KERN_UREFS_OVERFLOW => &"KERN_UREFS_OVERFLOW",
-        _ => &"UNKNOWN_ERROR",
+        _ => &"UNKNOWN_KERN_ERROR",
     }
 }
