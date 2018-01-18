@@ -1,27 +1,19 @@
 language: rust
 rust: nightly
 cache: cargo
-env:
+services: docker
 
 matrix:
   fast_finish: true
   allow_failures:
     - env: NAME='cargo-travis'
   include:
-    - env:
-        - NAME='clippy'
-      before_script:
-        - cargo install clippy --force
-      script:
-        - cargo clippy -- -D clippy-pedantic
-    - env:
-        - NAME='rustfmt'
+    - env: RUSTFMT
       before_script:
         - cargo install rustfmt-nightly --force
       script:
         - cargo fmt -- --write-mode=diff
-    - env:
-        - NAME='cargo-travis'
+    - env: CARGO_TRAVIS
       sudo: required
       before_script:
         - export PATH=$HOME/.cargo/bin:$PATH
@@ -44,19 +36,60 @@ matrix:
             - libdw-dev
             - binutils-dev
             - cmake
-    - env:
-        - TARGET="x86_64-unknown-linux-gnu"
-        - NAME='${TARGET}'
+    # Linux
+    - env: TARGET=aarch64-unknown-linux-gnu
+    - env: TARGET=arm-unknown-linux-gnueabi
+    - env: TARGET=arm-unknown-linux-musleabi
+    - env: TARGET=armv7-unknown-linux-gnueabihf
+    - env: TARGET=armv7-unknown-linux-musleabihf
+    - env: TARGET=i586-unknown-linux-gnu
+    - env: TARGET=i686-unknown-linux-gnu
+    - env: TARGET=i686-unknown-linux-musl
+    - env: TARGET=mips-unknown-linux-gnu
+    - env: TARGET=mips64-unknown-linux-gnuabi64
+    - env: TARGET=mips64el-unknown-linux-gnuabi64
+    - env: TARGET=mipsel-unknown-linux-gnu
+    - env: TARGET=powerpc-unknown-linux-gnu
+    - env: TARGET=powerpc64-unknown-linux-gnu
+    - env: TARGET=powerpc64le-unknown-linux-gnu
+    - env: TARGET=sparc64-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-linux-musl
+
+    # Android
+    - env: TARGET=aarch64-linux-android
+    - env: TARGET=arm-linux-androideabi
+    - env: TARGET=armv7-linux-androideabi
+    - env: TARGET=x86_64-linux-android
+
+    # OSX
+    - env: TARGET=i686-apple-darwin
+      os: osx
+    - env: TARGET=x86_64-apple-darwin
+      os: osx
+
+    # Emscripten
+    - env: TARGET=asmjs-unknown-emscripten
+    - env: TARGET=wasm32-unknown-emscripten
+
+      before_script:
+        - cargo install cross
+        - cargo install clippy --force
       script:
-        - cargo build
-        - cargo test
-        - cargo test --release
-        - cargo test --features "bytes_buf"
+        - cross build --target=$TARGET
+        - cross test --target=$TARGET
+        - cross test --release --target=$TARGET
+        - cross test --features "bytes_buf" --target=$TARGET
+        - cargo clippy --target=$TARGET -- -D clippy-pedantic
 
 env:
   global:
-  - secure: CBkbWUVQ1pvKRYqgbpqmNnvpOXgmlyNoeprMhIQjNIDfKh/CW0EPeso2IvbgfwJFGPWwcmmwdl1K8NXR0J9oIGY0VD449p4K4ZAHV9W0TMoTfth5LNrls7NNQxMEABl7U/3mAEFpK1SxwS/CWCtHhGrOnZlLsbabTERJkHYK+ui9RFb8NYhwxm5me3GSEdTc3JNQ/4DfNaBEIcus67xY3FQU0VphkTDxhDOHnGzgj4+fU9UWldvdkWru9in2D4mmT82FZSPOKBQpRTe5twaTxPDvAU4uFanIw3G1Hxl5/m9EYkMx1ppwOLswp4DZxzVdcJbk/k7ZKcz5FSZVckoRx3C6O8ItHe0prNRp2YUbVY2P+1TOyuKISq5P1cEtGQW+K4cNtBD/sg68HUzJpcemG/5CYJpsHK2yLPV0F/oJLpdP7kqlatYFCg/mpoO/sgjUD6ChhghMm/JR/Ifcfdfic8t8gLm9tRxL4axek2sNNXMi7GDlnM8rIfOCdr8SIFDu53hyovZb7MDzLleeV66CIKpMqluDFThkb4dvuzeGyIDXnJRd9bRaMCGSw2qPX+Iyhm4vnPhYfHmcV9/C0nlqrTJTuDnrNGvjv6umIHK92mTaasjwIpnCaJ6kGAZq/COgz/bHU8XB4/Z3DPe7pnq+9qR4GwdybgeCp2raKey/WZI=
+  - secure: "CBkbWUVQ1pvKRYqgbpqmNnvpOXgmlyNoeprMhIQjNIDfKh/CW0EPeso2IvbgfwJFGPWwcmmwdl1K8NXR0J9oIGY0VD449p4K4ZAHV9W0TMoTfth5LNrls7NNQxMEABl7U/3mAEFpK1SxwS/CWCtHhGrOnZlLsbabTERJkHYK+ui9RFb8NYhwxm5me3GSEdTc3JNQ/4DfNaBEIcus67xY3FQU0VphkTDxhDOHnGzgj4+fU9UWldvdkWru9in2D4mmT82FZSPOKBQpRTe5twaTxPDvAU4uFanIw3G1Hxl5/m9EYkMx1ppwOLswp4DZxzVdcJbk/k7ZKcz5FSZVckoRx3C6O8ItHe0prNRp2YUbVY2P+1TOyuKISq5P1cEtGQW+K4cNtBD/sg68HUzJpcemG/5CYJpsHK2yLPV0F/oJLpdP7kqlatYFCg/mpoO/sgjUD6ChhghMm/JR/Ifcfdfic8t8gLm9tRxL4axek2sNNXMi7GDlnM8rIfOCdr8SIFDu53hyovZb7MDzLleeV66CIKpMqluDFThkb4dvuzeGyIDXnJRd9bRaMCGSw2qPX+Iyhm4vnPhYfHmcV9/C0nlqrTJTuDnrNGvjv6umIHK92mTaasjwIpnCaJ6kGAZq/COgz/bHU8XB4/Z3DPe7pnq+9qR4GwdybgeCp2raKey/WZI="
 
 branches:
   only:
     - master
+
+notifications:
+  email:
+    on_success: never
