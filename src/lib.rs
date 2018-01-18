@@ -137,7 +137,7 @@ use core::intrinsics::unlikely;
 #[cfg(target_os = "macos")]
 extern crate mach;
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 extern crate libc;
 
 #[cfg(target_os = "windows")]
@@ -2084,20 +2084,22 @@ impl<T> IntoIterator for SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    fn into_iter(mut self) -> IntoIter<T> {
+    fn into_iter(self) -> IntoIter<T> {
         unsafe {
-            let begin = self.as_mut_ptr();
-            ::std::intrinsics::assume(!begin.is_null());
-            let end = if ::std::mem::size_of::<T>() == 0 {
-                ::std::intrinsics::arith_offset(
-                    begin as *const i8,
-                    self.len() as isize,
-                ) as *const T
-            } else {
-                begin.offset(self.len() as isize) as *const T
-            };
+            let buf_ptr = self.buf.ptr().get();
+            ::std::intrinsics::assume(!buf_ptr.is_null());
+            assert!(::std::mem::size_of::<T>() != 0); // TODO: zero-sized types
+            let begin = buf_ptr.offset(self.head as isize) as *const T;
+            let end = buf_ptr.offset(self.tail as isize) as *const T;
+            assert!(begin as usize <= end as usize);
+            println!(
+                "begin: {}, cap: {}, end: {}",
+                begin as usize,
+                self.capacity(),
+                end as usize
+            );
             let it = IntoIter {
-                buf: ::std::ptr::Shared::new_unchecked(begin),
+                buf: ::std::ptr::Shared::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end: end,
@@ -4311,8 +4313,11 @@ fn vec_placement() {
                 d.push_front(i);
             }
 
+            eprintln!("{:?}", d);
             let b = vec![8, 7, 6, 0, 1, 2, 3, 4];
+            eprintln!("HERE A");
             assert_eq!(d.into_iter().collect::<Vec<_>>(), b);
+            eprintln!("HERE B");
         }
 
         // partially used
