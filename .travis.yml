@@ -1,12 +1,12 @@
 language: rust
 rust: nightly
-cache: cargo
 services: docker
 
 matrix:
   fast_finish: true
   allow_failures:
     - env: NAME='cargo-travis'
+    - env: TARGET=wasm32-unknown-emscripten
   include:
     - env: RUSTFMT
       before_script:
