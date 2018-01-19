@@ -4,6 +4,86 @@
 
 > A double-ended queue that `Deref`s into a slice.
 
+## Advantages
+
+The main advantages of [`SliceDeque`] are:
+
+* nicer API: since it `Deref`s to a slice, all operations that work on
+slices (like `sort`) "just work" for `SliceDeque`.
+
+* efficient: as efficient as a slice (iteration, sorting, etc.), more efficient
+  in general than `VecDeque`.
+
+## Platform Support
+
+Windows, Linux, MacOS and every other unix-like OS is supported (although maybe
+untested). The following targets are known to work and pass all tests:
+
+### Linux
+
+* aarch64-unknown-linux-gnu
+* arm-unknown-linux-gnueabi
+* arm-unknown-linux-musleabi
+* armv7-unknown-linux-gnueabihf
+* armv7-unknown-linux-musleabihf
+* i586-unknown-linux-gnu
+* i686-unknown-linux-gnu
+* i686-unknown-linux-musl
+* mips-unknown-linux-gnu
+* mips64-unknown-linux-gnuabi64
+* mips64el-unknown-linux-gnuabi64
+* mipsel-unknown-linux-gnu
+* powerpc-unknown-linux-gnu
+* powerpc64-unknown-linux-gnu
+* powerpc64le-unknown-linux-gnu
+* sparc64-unknown-linux-gnu
+* x86_64-unknown-linux-gnu
+* x86_64-unknown-linux-musl
+* aarch64-linux-android
+* arm-linux-androideabi
+* armv7-linux-androideabi
+* x86_64-linux-android
+
+### MacOS X
+
+* i686-apple-darwin
+* x86_64-apple-darwin
+
+### Windows
+
+* x86_64-pc-windows-msvc
+
+### asmjs/wasm
+
+* asmjs-unknown-emscripten
+
+## Drawbacks
+
+The main drawbacks of [`SliceDeque`] are:
+
+* "constrained" platform support: the operating system must support virtual
+  memory. In general, if you can use `std`, you can use [`SliceDeque`].
+
+* global allocator bypass: [`SliceDeque`] bypasses Rust's global allocator / it
+  is its own memory allocator, talking directly to the OS.
+  
+* smallest capacity constrained by the allocation granularity of the OS: some operating systems 
+  allow [`SliceDeque`] to allocate memory in 4/8/64 kB chunks. 
+
+When shouldn't you use it? In my opinion, if
+
+* you need to target `#[no_std]`, or
+* you can't use it (because your platform doesn't support it)
+
+you must use something else. If.
+
+* your ring-buffer's are very small,
+
+then by using [`SliceDeque`] you might be trading memory for performance.
+Whether this is worth it will depend on your application.
+
+## How it works
+
 The double-ended queue in the standard library ([`VecDeque`]) is implemented
 using a growable ring buffer (`0` represents uninitialized memory, and `T`
 represents one element in the queue):
@@ -78,49 +158,6 @@ advantage over [`VecDeque`] in some situations.
 In general, you can think of [`SliceDeque`] as a `Vec` with `O(1)` `pop_front`
 and amortized `O(1)` `push_front` methods.
 
-The main drawbacks of [`SliceDeque`] are:
-
-* constrained platform support: [`SliceDeque`] requires an operating system with
-virtual memory support. While [`SliceDeque`] can be made to work on all major
-operating systems (they all have supported virtual-memory forever),
-platform-specific code is required for this. Currently, the following operating
-systems are supported:
-
-    * `MacOS X`
-    * `Linux`
-    * `Windows`
-
-* no global allocator support: [`SliceDeque`] directly uses OS-specific APIs, so
-its behavior is independent of the global allocator.
-
-* capacity constrained by virtual memory facilities: [`SliceDeque`] must
-allocate two adjacent virtual memory regions that map to the same region of
-physical memory. Most operating systems allow this operation to be performed
-exclusively on memory pages or similar. As a consequence, the smallest capacity
-that a [`SliceDeque`] can have is a memory page on `Linux` and `MacOSX` (4kB,
-that is, `512` `u64`s), and an "allocation granularity" on Windows (64kB, that
-is, `8192` `u64`s).
-
-The main advantages of [`SliceDeque`] are:
-
-* nicer API: since it `Deref`s to a slice, all operations that work on
-slices are available for `SliceDeque`.
-
-* efficient: as efficient as a slice (iteration, sorting, etc.).
-
-When should I prefer [`VecDeque`] over [`SliceDeque`]? 
-
-* Do you need to target OSes or targets without virtual-memory support? If so,
-  [`SliceDeque`] is not an option, although [`VecDeque`] won't probably be an
-  option either (these systems might lack an allocator). Still, getting
-  [`VecDeque`] running on these systems is way easier than implementing support
-  for [`SliceDeque`], which might not even be an option if the target does not
-  have an Memory Management Unit.
-
-* Is your deque small (smaller than the smallest capacity of a [`SliceDeque`])?
-  If so, [`SliceDeque`] will unnecessarily use more memory than what you need.
-  This might be an acceptable performance trade-off or not, depending on the
-  application.
 
 [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
