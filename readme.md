@@ -158,6 +158,20 @@ advantage over [`VecDeque`] in some situations.
 In general, you can think of [`SliceDeque`] as a `Vec` with `O(1)` `pop_front`
 and amortized `O(1)` `push_front` methods.
 
+## License
+
+This project is licensed under either of
+
+* Apache License, Version 2.0, (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+
+at your option.
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in Serde by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
 
 [`VecDeque`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html
 [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
@@ -170,7 +184,7 @@ and amortized `O(1)` `push_front` methods.
 [coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/slice_deque.svg?style=flat-square
 [coveralls]: https://coveralls.io/github/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
-[docs]: https://gnzlbg.github.io/slice_deque
+[docs]: https://docs.rs/crate/slice-deque/
 [license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
 [license]: https://github.com/gnzlbg/slice_deque/blob/master/license.md
 [crate-shield]: https://img.shields.io/crates/v/slice_deque.svg?style=flat-square
