@@ -1,6 +1,6 @@
 [package]
 name = "slice-deque"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/slice_deque"
@@ -15,8 +15,8 @@ license = "MIT/Apache-2.0"
 appveyor = { repository = "gnzlbg/slice_deque" }
 travis-ci = { repository = "gnzlbg/slice_deque" }
 coveralls = { repository = "gnzlbg/slice_deque" }
-is-it-maintained-issue-resolution = { repository = "BurntSushi/stdsimd" }
-is-it-maintained-open-issues = { repository = "BurntSushi/stdsimd" }
+is-it-maintained-issue-resolution = { repository = "gnzlbg/slice_deque" }
+is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
 maintenance = { status = "experimental" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
