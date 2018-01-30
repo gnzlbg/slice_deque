@@ -174,7 +174,8 @@ mod intrinsics {
         x
     }
 
-    /// Like `core::intrinsics::arith_offset` but doing pointer to integer conversions.
+    /// Like `core::intrinsics::arith_offset` but doing pointer to integer
+    /// conversions.
     #[inline(always)]
     pub unsafe fn arith_offset<T>(dst: *const T, offset: isize) -> *const T {
         let r = if offset >= 0 {
