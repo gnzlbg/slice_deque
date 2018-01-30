@@ -21,7 +21,7 @@ matrix:
     script:
     - |
       cargo build    --verbose &&
-      cargo coverage --verbose &&
+      cargo coverage --features "unstable" --verbose &&
       bash <(curl -s https://codecov.io/bash) -s target/kcov
     - |
       cargo doc --features "unstable" --verbose --no-deps &&
