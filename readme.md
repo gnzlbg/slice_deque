@@ -1,6 +1,6 @@
 # Slice Deque
 
-[![crates.io version][crate-shield]][crate] [![Travis build status][travis-shield]][travis] [![Appveyor build status][appveyor-shield]][appveyor] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs] [![License][license-shield]][license]
+[![crates.io version][crate-shield]][crate] [![Travis build status][travis-shield]][travis] [![Appveyor build status][appveyor-shield]][appveyor] [![Codecov code coverage][codecov-shield]][codecov] [![Docs][docs-shield]][docs] [![License][license-shield]][license]
 
 > A double-ended queue that `Deref`s into a slice.
 
@@ -179,10 +179,10 @@ dual licensed as above, without any additional terms or conditions.
 
 [travis-shield]: https://img.shields.io/travis/gnzlbg/slice_deque.svg?style=flat-square
 [travis]: https://travis-ci.org/gnzlbg/slice_deque
-[appveyor-shield]: https://ci.appveyor.com/api/projects/status/do5lv0m61efb7wrb/branch/master?svg=true
+[appveyor-shield]: https://img.shields.io/appveyor/ci/gnzlbg/slice-deque.svg?style=flat-square
 [appveyor]: https://ci.appveyor.com/project/gnzlbg/slice-deque/branch/master
-[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/slice_deque.svg?style=flat-square
-[coveralls]: https://coveralls.io/github/gnzlbg/slice_deque
+[codecov-shield]: https://img.shields.io/codecov/c/github/gnzlbg/slice_deque.svg?style=flat-square
+[codecov]: https://codecov.io/gh/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
 [docs]: https://docs.rs/crate/slice-deque/
 [license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
