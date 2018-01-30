@@ -5,8 +5,6 @@ matrix:
   fast_finish: true
   allow_failures:
   - env: TARGET=wasm32-unknown-emscripten
-  - env: DOCS/COVERAGE
-  - env: CLIPPY
   include:
   - env: RUSTFMT
     before_script:
@@ -64,20 +62,23 @@ matrix:
     os: osx
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
-    before_script:
-    - cargo install cross
-    - cargo install clippy --force
-    script:
-    - cross build --target=$TARGET
-    - cross test --target=$TARGET
-    - cross test --release --target=$TARGET
-    - cross test --features "unstable" --target=$TARGET
-    - cross test --features "unstable" --release --target=$TARGET
-    - cross test --features "bytes_buf" --target=$TARGET
-    - cross test --features "unstable,bytes_buf" --target=$TARGET
-    - cargo clippy --target=$TARGET -- -D clippy-pedantic
-    - cargo clippy --features "unstable" --target=$TARGET -- -D clippy-pedantic
-    - cargo clippy --features "bytes_buf" --target=$TARGET -- -D clippy-pedantic
+
+before_script:
+  - cargo install cross
+  - cargo install clippy --force
+
+script:
+  - cross build --target=$TARGET
+  - cross test --target=$TARGET
+  - cross test --release --target=$TARGET
+  - cross test --features "unstable" --target=$TARGET
+  - cross test --features "unstable" --release --target=$TARGET
+  - cross test --features "bytes_buf" --target=$TARGET
+  - cross test --features "unstable,bytes_buf" --target=$TARGET
+  - cargo clippy --target=$TARGET -- -D clippy-pedantic
+  - cargo clippy --features "unstable" --target=$TARGET -- -D clippy-pedantic
+  - cargo clippy --features "bytes_buf" --target=$TARGET -- -D clippy-pedantic
+
 env:
   global:
   - secure: i5Am1bhaK+6Zw/7b6uBxCPW+TYsPQ1EHaL8FMp0+KBeGtvpOIT1HsZd31C2gdvWouOVB/vjhS5qWa9YtkUw47Z7skiVRXdJfO+8ZUbH3ac8MUDc2uMrIRtEn37ncdn6IdsedD0MfqJc5BmGu9DUztHQ2oMokzEXGJINOdbadrZv8XUKNx+nlXOFXq6wQln8XhjBIFCP/JTkOr8zeuQdSH/TpaYMxsgfxwy4TSSQFRUmgUOevegcbjakeWvfd6pPiis0h275Ppykm9Jjkf7/RxL6C6uVgOZKcO7qVT/22PbrJwl5kucYelZr+gWXnxh65wyLXIy+t//6B1/3dhwuyr6U/LlxesvB8ZnS8Bt0cA4Loxh6yX/TTYTg734O56hjXRU6rlJW6RaaO6Vukv2s8kU+LhCSWijMtwRf7c2H0K1tksBT9wRZQZ06QxnR7P7jN48/QqAp1QZdT7jhXvOr8s7ROsJhbku0scUAOoNfTZ47SHjbMxGc7klI31BhaxFeaNsWAZMyIeigebhJ8gnZcPDO78J/6svBb83AgMLRPaO4l9y1png4iLdtXtkxr0S8F8pAf9VnDVSJBH6SN9/d7dRa1QwpNDpVcW52GEY5OQkVJ1Xkp9xbnW5nJpOXQIeJeix8VwsUXX289MUyPfOxDQhRCzeSExqks7P1veL+TNss=
