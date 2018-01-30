@@ -60,7 +60,10 @@ The main drawbacks of [`SliceDeque`] are:
   memory. In general, if you can use `std`, you can use [`SliceDeque`].
 
 * global allocator bypass: [`SliceDeque`] bypasses Rust's global allocator / it
-  is its own memory allocator, talking directly to the OS.
+  is its own memory allocator, talking directly to the OS. That is, allocating
+  and growing [`SliceDeque`]s always involve system calls, while a [`VecDeque`]
+  backed-up by a global allocator might receive memory owned by the allocator
+  without any system calls at all.
   
 * smallest capacity constrained by the allocation granularity of the OS: some operating systems 
   allow [`SliceDeque`] to allocate memory in 4/8/64 kB chunks. 
@@ -74,8 +77,13 @@ you must use something else. If.
 
 * your ring-buffer's are very small,
 
-then by using [`SliceDeque`] you might be trading memory for performance.
-Whether this is worth it will depend on your application.
+then by using [`SliceDeque`] you might be trading memory for performance. Also,
+
+* your application has many short-lived ring-buffers,
+
+the cost of the system calls required to set up and grow the [`SliceDeque`]s
+might not be amortized by your application. Whether any of these trade-offs are
+worth it or not is application dependent, so don't take my word for it: measure.
 
 ## How it works
 
