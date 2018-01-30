@@ -36,7 +36,6 @@ untested). The following targets are known to work and pass all tests:
 * powerpc-unknown-linux-gnu
 * powerpc64-unknown-linux-gnu
 * powerpc64le-unknown-linux-gnu
-* sparc64-unknown-linux-gnu
 * x86_64-unknown-linux-gnu
 * x86_64-unknown-linux-musl
 * aarch64-linux-android
@@ -52,10 +51,6 @@ untested). The following targets are known to work and pass all tests:
 ### Windows
 
 * x86_64-pc-windows-msvc
-
-### asmjs/wasm
-
-* asmjs-unknown-emscripten
 
 ## Drawbacks
 
