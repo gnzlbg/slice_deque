@@ -1,96 +1,84 @@
 language: rust
 rust: nightly
 services: docker
-
 matrix:
   fast_finish: true
   allow_failures:
-    - env: NAME='cargo-travis'
-    - env: TARGET=wasm32-unknown-emscripten
-    - env: CARGO_TRAVIS
+  - env: NAME='cargo-travis'
+  - env: TARGET=wasm32-unknown-emscripten
+  - env: CARGO_TRAVIS
   include:
-    - env: RUSTFMT
-      before_script:
-        - cargo install rustfmt-nightly --force
-      script:
-        - cargo fmt -- --write-mode=diff
-    - env: CARGO_TRAVIS
-      sudo: required
-      before_script:
-        - export PATH=$HOME/.cargo/bin:$PATH
-        - cargo install cargo-update || echo "cargo-update already installed"
-        - cargo install cargo-travis || echo "cargo-travis already installed"
-        - cargo install-update -a
-      script:
-        - |
-          cargo build    --verbose &&
-          cargo coverage --verbose &&
-          bash <(curl -s https://codecov.io/bash) -s target/kcov
-        - |
-          cargo doc --verbose --no-deps &&
-          cargo doc-upload
-      addons:
-        apt:
-          packages:
-            - libcurl4-openssl-dev
-            - libelf-dev
-            - libdw-dev
-            - binutils-dev
-            - cmake
-    # Linux
-    - env: TARGET=aarch64-unknown-linux-gnu
-    - env: TARGET=arm-unknown-linux-gnueabi
-    - env: TARGET=arm-unknown-linux-musleabi
-    - env: TARGET=armv7-unknown-linux-gnueabihf
-    - env: TARGET=armv7-unknown-linux-musleabihf
-    - env: TARGET=i586-unknown-linux-gnu
-    - env: TARGET=i686-unknown-linux-gnu
-    - env: TARGET=i686-unknown-linux-musl
-    - env: TARGET=mips-unknown-linux-gnu
-    - env: TARGET=mips64-unknown-linux-gnuabi64
-    - env: TARGET=mips64el-unknown-linux-gnuabi64
-    - env: TARGET=mipsel-unknown-linux-gnu
-    - env: TARGET=powerpc-unknown-linux-gnu
-    - env: TARGET=powerpc64-unknown-linux-gnu
-    - env: TARGET=powerpc64le-unknown-linux-gnu
-    - env: TARGET=sparc64-unknown-linux-gnu
-    - env: TARGET=x86_64-unknown-linux-gnu
-    - env: TARGET=x86_64-unknown-linux-musl
-
-    # Android
-    - env: TARGET=aarch64-linux-android
-    - env: TARGET=arm-linux-androideabi
-    - env: TARGET=armv7-linux-androideabi
-    - env: TARGET=x86_64-linux-android
-
-    # OSX
-    - env: TARGET=i686-apple-darwin
-      os: osx
-    - env: TARGET=x86_64-apple-darwin
-      os: osx
-
-    # Emscripten
-    - env: TARGET=asmjs-unknown-emscripten
-    - env: TARGET=wasm32-unknown-emscripten
-
-      before_script:
-        - cargo install cross
-        - cargo install clippy --force
-      script:
-        - cross build --target=$TARGET
-        - cross test --target=$TARGET
-        - cross test --release --target=$TARGET
-        - cross test --features "bytes_buf" --target=$TARGET
-        - cargo clippy --target=$TARGET -- -D clippy-pedantic
-
+  - env: RUSTFMT
+    before_script:
+    - cargo install rustfmt-nightly --force
+    script:
+    - cargo fmt -- --write-mode=diff
+  - env: CARGO_TRAVIS
+    sudo: required
+    before_script:
+    - export PATH=$HOME/.cargo/bin:$PATH
+    - cargo install cargo-update || echo "cargo-update already installed"
+    - cargo install cargo-travis || echo "cargo-travis already installed"
+    - cargo install-update -a
+    script:
+    - |
+      cargo build    --verbose &&
+      cargo coverage --verbose &&
+      bash <(curl -s https://codecov.io/bash) -s target/kcov
+    - |
+      cargo doc --verbose --no-deps &&
+      cargo doc-upload
+    addons:
+      apt:
+        packages:
+        - libcurl4-openssl-dev
+        - libelf-dev
+        - libdw-dev
+        - binutils-dev
+        - cmake
+  - env: TARGET=aarch64-unknown-linux-gnu
+  - env: TARGET=arm-unknown-linux-gnueabi
+  - env: TARGET=arm-unknown-linux-musleabi
+  - env: TARGET=armv7-unknown-linux-gnueabihf
+  - env: TARGET=armv7-unknown-linux-musleabihf
+  - env: TARGET=i586-unknown-linux-gnu
+  - env: TARGET=i686-unknown-linux-gnu
+  - env: TARGET=i686-unknown-linux-musl
+  - env: TARGET=mips-unknown-linux-gnu
+  - env: TARGET=mips64-unknown-linux-gnuabi64
+  - env: TARGET=mips64el-unknown-linux-gnuabi64
+  - env: TARGET=mipsel-unknown-linux-gnu
+  - env: TARGET=powerpc-unknown-linux-gnu
+  - env: TARGET=powerpc64-unknown-linux-gnu
+  - env: TARGET=powerpc64le-unknown-linux-gnu
+  - env: TARGET=sparc64-unknown-linux-gnu
+  - env: TARGET=x86_64-unknown-linux-gnu
+  - env: TARGET=x86_64-unknown-linux-musl
+  - env: TARGET=aarch64-linux-android
+  - env: TARGET=arm-linux-androideabi
+  - env: TARGET=armv7-linux-androideabi
+  - env: TARGET=x86_64-linux-android
+  - env: TARGET=i686-apple-darwin
+    os: osx
+  - env: TARGET=x86_64-apple-darwin
+    os: osx
+  - env: TARGET=asmjs-unknown-emscripten
+  - env: TARGET=wasm32-unknown-emscripten
+    before_script:
+    - cargo install cross
+    - cargo install clippy --force
+    script:
+    - cross build --target=$TARGET
+    - cross test --target=$TARGET
+    - cross test --release --target=$TARGET
+    - cross test --features "bytes_buf" --target=$TARGET
+    - cargo clippy --target=$TARGET -- -D clippy-pedantic
 env:
   global:
-  - secure: "CBkbWUVQ1pvKRYqgbpqmNnvpOXgmlyNoeprMhIQjNIDfKh/CW0EPeso2IvbgfwJFGPWwcmmwdl1K8NXR0J9oIGY0VD449p4K4ZAHV9W0TMoTfth5LNrls7NNQxMEABl7U/3mAEFpK1SxwS/CWCtHhGrOnZlLsbabTERJkHYK+ui9RFb8NYhwxm5me3GSEdTc3JNQ/4DfNaBEIcus67xY3FQU0VphkTDxhDOHnGzgj4+fU9UWldvdkWru9in2D4mmT82FZSPOKBQpRTe5twaTxPDvAU4uFanIw3G1Hxl5/m9EYkMx1ppwOLswp4DZxzVdcJbk/k7ZKcz5FSZVckoRx3C6O8ItHe0prNRp2YUbVY2P+1TOyuKISq5P1cEtGQW+K4cNtBD/sg68HUzJpcemG/5CYJpsHK2yLPV0F/oJLpdP7kqlatYFCg/mpoO/sgjUD6ChhghMm/JR/Ifcfdfic8t8gLm9tRxL4axek2sNNXMi7GDlnM8rIfOCdr8SIFDu53hyovZb7MDzLleeV66CIKpMqluDFThkb4dvuzeGyIDXnJRd9bRaMCGSw2qPX+Iyhm4vnPhYfHmcV9/C0nlqrTJTuDnrNGvjv6umIHK92mTaasjwIpnCaJ6kGAZq/COgz/bHU8XB4/Z3DPe7pnq+9qR4GwdybgeCp2raKey/WZI="
-
+  - secure: i5Am1bhaK+6Zw/7b6uBxCPW+TYsPQ1EHaL8FMp0+KBeGtvpOIT1HsZd31C2gdvWouOVB/vjhS5qWa9YtkUw47Z7skiVRXdJfO+8ZUbH3ac8MUDc2uMrIRtEn37ncdn6IdsedD0MfqJc5BmGu9DUztHQ2oMokzEXGJINOdbadrZv8XUKNx+nlXOFXq6wQln8XhjBIFCP/JTkOr8zeuQdSH/TpaYMxsgfxwy4TSSQFRUmgUOevegcbjakeWvfd6pPiis0h275Ppykm9Jjkf7/RxL6C6uVgOZKcO7qVT/22PbrJwl5kucYelZr+gWXnxh65wyLXIy+t//6B1/3dhwuyr6U/LlxesvB8ZnS8Bt0cA4Loxh6yX/TTYTg734O56hjXRU6rlJW6RaaO6Vukv2s8kU+LhCSWijMtwRf7c2H0K1tksBT9wRZQZ06QxnR7P7jN48/QqAp1QZdT7jhXvOr8s7ROsJhbku0scUAOoNfTZ47SHjbMxGc7klI31BhaxFeaNsWAZMyIeigebhJ8gnZcPDO78J/6svBb83AgMLRPaO4l9y1png4iLdtXtkxr0S8F8pAf9VnDVSJBH6SN9/d7dRa1QwpNDpVcW52GEY5OQkVJ1Xkp9xbnW5nJpOXQIeJeix8VwsUXX289MUyPfOxDQhRCzeSExqks7P1veL+TNss=
 branches:
   only:
-    - master
-
+  - master
 notifications:
   email:
     on_success: never
