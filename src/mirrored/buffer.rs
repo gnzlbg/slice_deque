@@ -2,7 +2,28 @@
 
 use super::*;
 
+#[cfg(feature = "unstable")]
 use core::nonzero::NonZero;
+
+/// Stable `core::nonzero::NonZero` wrapper that does nothing.
+#[cfg(not(feature = "unstable"))]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct NonZero<T: Copy> {
+    /// A pointer that can't be null.
+    ptr: T,
+}
+
+#[cfg(not(feature = "unstable"))]
+impl<T: Copy> NonZero<T> {
+    /// Returns the pointer.
+    pub fn get(&self) -> T {
+        self.ptr
+    }
+    /// Creates a new `NonZero` without checking that `ptr` is not null.
+    pub unsafe fn new_unchecked(ptr: T) -> Self {
+        Self { ptr }
+    }
+}
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {

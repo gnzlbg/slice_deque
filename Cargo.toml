@@ -1,6 +1,6 @@
 [package]
 name = "slice-deque"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
@@ -30,6 +30,7 @@ winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi"
 
 [features]
 bytes_buf = ["bytes"]
+unstable = []
 
 [dependencies]
 bytes = { version = "0.4.*", optional = true }
