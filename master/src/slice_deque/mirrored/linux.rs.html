@@ -185,9 +185,9 @@
 </pre><pre class="rust ">
 <span class="doccomment">//! Non-racy linux-specific mirrored memory allocation.</span>
 
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_void</span>, <span class="ident">close</span>, <span class="ident">ftruncate</span>, <span class="ident">mkstemp</span>, <span class="ident">mmap</span>, <span class="ident">munmap</span>, <span class="ident">size_t</span>,
-           <span class="ident">sysconf</span>, <span class="ident">MAP_FAILED</span>, <span class="ident">MAP_FIXED</span>, <span class="ident">MAP_SHARED</span>, <span class="ident">PROT_READ</span>, <span class="ident">PROT_WRITE</span>,
-           <span class="ident">_SC_PAGESIZE</span>};
+<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_void</span>, <span class="ident">close</span>, <span class="ident">ftruncate</span>, <span class="ident">mkstemp</span>, <span class="ident">mmap</span>, <span class="ident">munmap</span>, <span class="ident">off_t</span>,
+           <span class="ident">size_t</span>, <span class="ident">sysconf</span>, <span class="ident">MAP_FAILED</span>, <span class="ident">MAP_FIXED</span>, <span class="ident">MAP_SHARED</span>, <span class="ident">PROT_READ</span>,
+           <span class="ident">PROT_WRITE</span>, <span class="ident">_SC_PAGESIZE</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
 
 <span class="doccomment">/// Returns the size of a memory allocation unit.</span>
@@ -227,7 +227,7 @@
             <span class="ident">print_error</span>(<span class="string">&quot;mkstemp failed&quot;</span>);
             <span class="kw">return</span> <span class="prelude-val">Err</span>(());
         }
-        <span class="kw">if</span> <span class="ident">ftruncate</span>(<span class="ident">fd</span>, <span class="ident">half_size</span> <span class="kw">as</span> <span class="ident">i64</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
+        <span class="kw">if</span> <span class="ident">ftruncate</span>(<span class="ident">fd</span>, <span class="ident">half_size</span> <span class="kw">as</span> <span class="ident">off_t</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
             <span class="ident">print_error</span>(<span class="string">&quot;ftruncate failed&quot;</span>);
             <span class="kw">if</span> <span class="ident">close</span>(<span class="ident">fd</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
                 <span class="ident">print_error</span>(<span class="string">&quot;@ftruncate: close failed&quot;</span>);
