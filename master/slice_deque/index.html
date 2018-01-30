@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `slice_deque` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, slice_deque">
+
+    <title>slice_deque - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle">
+    
+    <link rel="stylesheet" type="text/css" href="../dark.css">
+    <link rel="stylesheet" type="text/css" href="../main.css" id="themeStyle">
+    <script src="../storage.js"></script>
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        <div class="sidebar-menu">&#9776;</div>
+        
+        <p class='location'>Crate slice_deque</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'slice_deque', ty: 'mod', relpath: '../'};</script></div>
+    </nav>
+
+    <div class="theme-picker">
+        <button id="theme-picker" aria-label="Pick another theme!">
+            <img src="../brush.svg" width="18" alt="Pick another theme!">
+        </button>
+        <div id="theme-choices"></div>
+    </div>
+    <script src="../theme.js"></script>
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>slice_deque</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/slice_deque/lib.rs.html#1-5262' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A double-ended queue that <code>Deref</code>s into a slice.</p>
+<p>The double-ended queue in the standard library (<a href="https://doc.rust-lang.org/std/collections/struct.VecDeque.html"><code>VecDeque</code></a>) is
+implemented using a growable ring buffer (<code>0</code> represents uninitialized
+memory, and <code>T</code> represents one element in the queue):</p>
+
+<pre class="rust rust-example-rendered">
+<span class="comment">// [ 0 | 0 | 0 | T | T | T | 0 ]</span>
+<span class="comment">//               ^:head  ^:tail</span></pre>
+<p>When the queue grows beyond the end of the allocated buffer, its tail wraps
+around:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="comment">// [ T | T | 0 | T | T | T | T ]</span>
+<span class="comment">//       ^:tail  ^:head</span></pre>
+<p>As a consequence, <a href="https://doc.rust-lang.org/std/collections/struct.VecDeque.html"><code>VecDeque</code></a> cannot <code>Deref</code> into a slice, since its
+elements do not, in general, occupy a contiguous memory region. This
+complicates the implementation and its interface (for example, there is no
+<code>as_slice</code> method, but <a href="https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices"><code>as_slices</code></a> returns a pair of slices) and has
+negative performance consequences (e.g. need to account for wrap around
+while iterating over the elements).</p>
+<p>This crates provides <a href="struct.SliceDeque.html"><code>SliceDeque</code></a>, a double-ended queue implemented with
+a growable <em>virtual</em> ring-buffer.</p>
+<p>A virtual ring-buffer implementation is very similar to the one used in
+<code>VecDeque</code>. The main difference is that a virtual ring-buffer maps two
+adjacent regions of virtual memory to the same region of physical memory:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="comment">// Virtual memory:</span>
+<span class="comment">//</span>
+<span class="comment">//  __________region_0_________ __________region_1_________</span>
+<span class="comment">// [ 0 | 0 | 0 | T | T | T | 0 | 0 | 0 | 0 | T | T | T | 0 ]</span>
+<span class="comment">//               ^:head  ^:tail</span>
+<span class="comment">//</span>
+<span class="comment">// Physical memory:</span>
+<span class="comment">//</span>
+<span class="comment">// [ 0 | 0 | 0 | T | T | T | 0 ]</span>
+<span class="comment">//               ^:head  ^:tail</span></pre>
+<p>That is, both the virtual memory regions <code>0</code> and <code>1</code> above (top) map to
+the same physical memory (bottom). Just like <code>VecDeque</code>, when the queue
+grows beyond the end of the allocated physical memory region, the queue
+wraps around, and new elements continue to be appended at the beginning of
+the queue. However, because <code>SliceDeque</code> maps the physical memory to two
+adjacent memory regions, in virtual memory space the queue maintais the
+ilusion of a contiguous memory layout:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="comment">// Virtual memory:</span>
+<span class="comment">//</span>
+<span class="comment">//  __________region_0_________ __________region_1_________</span>
+<span class="comment">// [ T | T | 0 | T | T | T | T | T | T | 0 | T | T | T | T ]</span>
+<span class="comment">//               ^:head              ^:tail</span>
+<span class="comment">//</span>
+<span class="comment">// Physical memory:</span>
+<span class="comment">//</span>
+<span class="comment">// [ T | T | 0 | T | T | T | T ]</span>
+<span class="comment">//       ^:tail  ^:head</span></pre>
+<p>Since processes in many Operating Systems only deal with virtual memory
+addresses, leaving the mapping to physical memory to the CPU Memory
+Management Unit (MMU), <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> is able to <code>Deref</code>s into a slice in
+those systems.</p>
+<p>This simplifies <a href="struct.SliceDeque.html"><code>SliceDeque</code></a>'s API and implementation, giving it a
+performance advantage over <a href="https://doc.rust-lang.org/std/collections/struct.VecDeque.html"><code>VecDeque</code></a> in some situations.</p>
+<p>In general, you can think of <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> as a <code>Vec</code> with <code>O(1)</code>
+<code>pop_front</code> and amortized <code>O(1)</code> <code>push_front</code> methods.</p>
+<p>The main drawbacks of <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> are:</p>
+<ul>
+<li>
+<p>constrained platform support: by necessity <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> must use the
+platform-specific virtual memory facilities of the underlying operating
+system. While <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> can work on all major operating systems,
+currently only <code>MacOS X</code> is supported.</p>
+</li>
+<li>
+<p>no global allocator support: since the <code>Alloc</code>ator API does not support
+virtual memory, to use platform-specific virtual memory support
+<a href="struct.SliceDeque.html"><code>SliceDeque</code></a> must bypass the global allocator and talk directly to the
+operating system. This can have negative performance consequences since
+growing <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> is always going to incur the cost of some system
+calls.</p>
+</li>
+<li>
+<p>capacity constrained by virtual memory facilities: <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> must
+allocate two adjacent memory regions that map to the same region of
+physical memory. Most operating systems allow this operation to be
+performed exclusively on memory pages (or memory allocations that are
+multiples of a memory page). As a consequence, the smalles <a href="struct.SliceDeque.html"><code>SliceDeque</code></a>
+that can be created has typically a capacity of 2 memory pages, and it can
+grow only to capacities that are a multiple of a memory page.</p>
+</li>
+</ul>
+<p>The main advantages of <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> are:</p>
+<ul>
+<li>
+<p>nicer API: since it <code>Deref</code>s to a slice, all operations that work on
+slices are available for <code>SliceDeque</code>.</p>
+</li>
+<li>
+<p>efficient iteration: as efficient as for slices.</p>
+</li>
+<li>
+<p>simpler serialization: since one can just serialize/deserialize a single
+slice.</p>
+</li>
+</ul>
+<p>All in all, if your double-ended queues are small (smaller than a memory
+page) or they get resized very often, <code>VecDeque</code> can perform better than
+<a href="struct.SliceDeque.html"><code>SliceDeque</code></a>. Otherwise, <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> typically performs better (see
+the benchmarks), but platform support and global allocator bypass are two
+reasons to weight in against its usage.</p>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="macro" href="macro.sdeq.html"
+                                  title='macro slice_deque::sdeq'>sdeq</a></td>
+                           <td class='docblock-short'>
+                                <p>Creates a <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> containing the arguments.</p>
+
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Buffer.html"
+                                  title='struct slice_deque::Buffer'>Buffer</a></td>
+                           <td class='docblock-short'>
+                                <p>Mirrored memory buffer of length <code>len</code>.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Drain.html"
+                                  title='struct slice_deque::Drain'>Drain</a></td>
+                           <td class='docblock-short'>
+                                <p>A draining iterator for <code>SliceDeque&lt;T&gt;</code>.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.DrainFilter.html"
+                                  title='struct slice_deque::DrainFilter'>DrainFilter</a></td>
+                           <td class='docblock-short'>
+                                <p>An iterator produced by calling <code>drain_filter</code> on <code>SliceDeque</code>.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.IntoIter.html"
+                                  title='struct slice_deque::IntoIter'>IntoIter</a></td>
+                           <td class='docblock-short'>
+                                <p>An iterator that moves out of a deque.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.SliceDeque.html"
+                                  title='struct slice_deque::SliceDeque'>SliceDeque</a></td>
+                           <td class='docblock-short'>
+                                <p>A double-ended queue that derefs into a slice.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Splice.html"
+                                  title='struct slice_deque::Splice'>Splice</a></td>
+                           <td class='docblock-short'>
+                                <p>A splicing iterator for <code>SliceDeque</code>.</p>
+
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt><kbd>?</kbd></dt>
+                    <dd>Show this help dialog</dd>
+                    <dt><kbd>S</kbd></dt>
+                    <dd>Focus the search field</dd>
+                    <dt><kbd>↑</kbd></dt>
+                    <dd>Move up in search results</dd>
+                    <dt><kbd>↓</kbd></dt>
+                    <dd>Move down in search results</dd>
+                    <dt><kbd>↹</kbd></dt>
+                    <dd>Switch tab</dd>
+                    <dt><kbd>&#9166;</kbd></dt>
+                    <dd>Go to active search result</dd>
+                    <dt><kbd>+</kbd></dt>
+                    <dd>Expand all sections</dd>
+                    <dt><kbd>-</kbd></dt>
+                    <dd>Collapse all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "slice_deque";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
