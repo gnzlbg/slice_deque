@@ -118,21 +118,20 @@
 //! [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
 //! [`SliceDeque`]: struct.SliceDeque.html
 
-#![feature(nonzero, slice_get_slice, fused, core_intrinsics, shared,
-           exact_size_is_empty, collections_range, dropck_eyepatch,
-           generic_param_attrs, trusted_len, offset_to, i128_type,
-           specialization)]
+#![cfg_attr(feature = "unstable",
+            feature(nonzero, slice_get_slice, fused, core_intrinsics,
+                    shared, exact_size_is_empty, collections_range,
+                    dropck_eyepatch, generic_param_attrs, trusted_len,
+                    offset_to, i128_type, specialization))]
 #![cfg_attr(test,
             feature(conservative_impl_trait, const_atomic_usize_new,
                     box_syntax, placement_in_syntax, attr_literals,
-                    inclusive_range_syntax, repr_align, iterator_step_by))]
+                    inclusive_range_syntax, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
-                  cast_sign_loss, cast_possible_truncation))]
+                  cast_sign_loss, cast_possible_truncation, inline_always))]
 
 extern crate core;
-
-use core::intrinsics::unlikely;
 
 #[cfg(target_os = "macos")]
 extern crate mach;
@@ -146,11 +145,119 @@ extern crate winapi;
 #[cfg(feature = "bytes_buf")]
 extern crate bytes;
 
-#[cfg(feature = "bytes_buf")]
-use std::slice;
-
 mod mirrored;
 pub use mirrored::Buffer;
+
+#[cfg(feature = "bytes_buf")]
+use std::io;
+
+use core::{cmp, convert, fmt, hash, iter, mem, ptr, slice};
+
+#[cfg(feature = "unstable")]
+use std::collections;
+
+#[cfg(feature = "unstable")]
+use core::intrinsics;
+
+/// A stable version of the `core::intrinsics` module.
+#[cfg(not(feature = "unstable"))]
+mod intrinsics {
+    /// Like `core::intrinsics::unlikely` but does nothing.
+    #[inline(always)]
+    pub unsafe fn unlikely<T>(x: T) -> T {
+        x
+    }
+
+    /// Like `core::intrinsics::assume` but does nothing.
+    #[inline(always)]
+    pub unsafe fn assume<T>(x: T) -> T {
+        x
+    }
+
+    /// Like `core::intrinsics::arith_offset` but doing pointer to integer
+    /// conversions.
+    #[inline(always)]
+    pub unsafe fn arith_offset<T>(dst: *const T, offset: isize) -> *const T {
+        let r = if offset >= 0 {
+            (dst as usize).wrapping_add(offset as usize)
+        } else {
+            (dst as usize).wrapping_sub((-offset) as usize)
+        };
+        r as *const T
+    }
+}
+
+/// Stable implementation of `.offset_to` for pointers.
+trait OffsetTo {
+    /// Stable implementation of `.offset_to` for pointers.
+    fn offset_to_(self, other: Self) -> Option<isize>;
+}
+
+/// Stable implementation of `.offset_to` for pointers.
+trait OffsetToMut {
+    /// A const pointer type.
+    type Other;
+    /// Stable implementation of `.offset_to` for pointers.
+    fn offset_to_(self, other: Self::Other) -> Option<isize>;
+}
+
+#[cfg(not(feature = "unstable"))]
+impl<T: Sized> OffsetTo for *const T {
+    #[inline(always)]
+    fn offset_to_(self, other: Self) -> Option<isize>
+    where
+        T: Sized,
+    {
+        let size = mem::size_of::<T>();
+        if size == 0 {
+            None
+        } else {
+            let diff = (other as isize).wrapping_sub(self as isize);
+            Some(diff / size as isize)
+        }
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl<T: Sized> OffsetTo for *const T {
+    #[inline(always)]
+    fn offset_to_(self, other: Self) -> Option<isize>
+    where
+        T: Sized,
+    {
+        self.offset_to(other)
+    }
+}
+
+#[cfg(not(feature = "unstable"))]
+impl<T: Sized> OffsetToMut for *mut T {
+    type Other = *const T;
+    #[inline(always)]
+    fn offset_to_(self, other: Self::Other) -> Option<isize>
+    where
+        T: Sized,
+    {
+        let size = mem::size_of::<T>();
+        if size == 0 {
+            None
+        } else {
+            let diff = (other as isize).wrapping_sub(self as isize);
+            Some(diff / size as isize)
+        }
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl<T: Sized> OffsetToMut for *mut T {
+    type Other = *const T;
+    #[inline(always)]
+    fn offset_to_(self, other: Self::Other) -> Option<isize>
+    where
+        T: Sized,
+    {
+        self.offset_to(other)
+    }
+}
 
 /// A double-ended queue that derefs into a slice.
 ///
@@ -351,7 +458,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             let ptr = self.buf.ptr().get();
             let ptr = ptr.offset(self.head as isize);
-            ::std::slice::from_raw_parts(ptr, self.len())
+            slice::from_raw_parts(ptr, self.len())
         }
     }
 
@@ -361,7 +468,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             let ptr = self.buf.ptr().get();
             let ptr = ptr.offset(self.head as isize);
-            ::std::slice::from_raw_parts_mut(ptr, self.len())
+            slice::from_raw_parts_mut(ptr, self.len())
         }
     }
 
@@ -371,10 +478,8 @@ impl<T> SliceDeque<T> {
     pub fn as_slices(&self) -> (&[T], &[T]) {
         unsafe {
             let left = self.as_slice();
-            let right = ::std::slice::from_raw_parts(
-                usize::max_value() as *const _,
-                0,
-            );
+            let right =
+                slice::from_raw_parts(usize::max_value() as *const _, 0);
             (left, right)
         }
     }
@@ -385,10 +490,8 @@ impl<T> SliceDeque<T> {
     pub fn as_mut_slices(&mut self) -> (&mut [T], &mut [T]) {
         unsafe {
             let left = self.as_mut_slice();
-            let right = ::std::slice::from_raw_parts_mut(
-                usize::max_value() as *mut _,
-                0,
-            );
+            let right =
+                slice::from_raw_parts_mut(usize::max_value() as *mut _, 0);
             (left, right)
         }
     }
@@ -433,7 +536,7 @@ impl<T> SliceDeque<T> {
             }
 
             // Exchange buffers
-            ::std::mem::swap(&mut self.buf, &mut new_buffer);
+            mem::swap(&mut self.buf, &mut new_buffer);
 
             // Correct head and tail (we copied to the
             // beginning of the of the new buffer)
@@ -475,7 +578,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     fn grow_policy(&self) -> usize {
         unsafe {
-            if unlikely(self.capacity() == 0) {
+            if intrinsics::unlikely(self.capacity() == 0) {
                 4
             } else {
                 self.capacity() * 2
@@ -507,7 +610,7 @@ impl<T> SliceDeque<T> {
         // If the new head is negative we shift the range by capacity to
         // move it towards the second mirrored memory region.
 
-        if unlikely(new_head < 0) {
+        if intrinsics::unlikely(new_head < 0) {
             debug_assert!(tail < cap as isize);
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
@@ -532,7 +635,7 @@ impl<T> SliceDeque<T> {
         // shift the range by -capacity to move it towards the first mirrored
         // memory region.
 
-        if unlikely(new_tail >= 2 * cap) {
+        if intrinsics::unlikely(new_tail >= 2 * cap) {
             debug_assert!(head >= cap);
             self.head -= cap as usize;
             new_tail -= cap as isize;
@@ -549,7 +652,7 @@ impl<T> SliceDeque<T> {
         let count = (*other).len();
         self.reserve(count);
         let len = self.len();
-        ::std::ptr::copy_nonoverlapping(
+        ptr::copy_nonoverlapping(
             other as *const T,
             self.get_unchecked_mut(len),
             count,
@@ -693,12 +796,12 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn push_front(&mut self, value: T) {
         unsafe {
-            if unlikely(self.is_full()) {
+            if intrinsics::unlikely(self.is_full()) {
                 self.grow();
             }
 
             self.move_head(-1);
-            std::ptr::write(self.get_mut(0).unwrap(), value);
+            ptr::write(self.get_mut(0).unwrap(), value);
         }
     }
 
@@ -716,12 +819,12 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn push_back(&mut self, value: T) {
         unsafe {
-            if unlikely(self.is_full()) {
+            if intrinsics::unlikely(self.is_full()) {
                 self.grow();
             }
             self.move_tail(1);
             let len = self.len();
-            std::ptr::write(self.get_mut(len - 1).unwrap(), value);
+            ptr::write(self.get_mut(len - 1).unwrap(), value);
         }
     }
 
@@ -748,8 +851,8 @@ impl<T> SliceDeque<T> {
             let v = match self.get_mut(0) {
                 None => return None,
                 Some(v) => {
-                    let mut o: T = ::std::mem::uninitialized();
-                    ::std::mem::swap(v, &mut o);
+                    let mut o: T = mem::uninitialized();
+                    mem::swap(v, &mut o);
                     o
                 }
             };
@@ -782,8 +885,8 @@ impl<T> SliceDeque<T> {
             let v = match self.get_mut(len.wrapping_sub(1)) {
                 None => return None,
                 Some(v) => {
-                    let mut o: T = ::std::mem::uninitialized();
-                    ::std::mem::swap(v, &mut o);
+                    let mut o: T = mem::uninitialized();
+                    mem::swap(v, &mut o);
                     o
                 }
             };
@@ -812,7 +915,7 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if unsafe { unlikely(self.is_empty()) } {
+        if unsafe { intrinsics::unlikely(self.is_empty()) } {
             return;
         }
 
@@ -825,7 +928,7 @@ impl<T> SliceDeque<T> {
             );
         }
         new_vd.tail = self.len();
-        ::std::mem::swap(self, &mut new_vd);
+        mem::swap(self, &mut new_vd);
     }
 
     /// Shortens the deque by removing excess elements from the back.
@@ -889,12 +992,13 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[cfg(feature = "unstable")]
     #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
-        R: ::std::collections::range::RangeArgument<usize>,
+        R: collections::range::RangeArgument<usize>,
     {
-        use std::collections::Bound::{Excluded, Included, Unbounded};
+        use collections::Bound::{Excluded, Included, Unbounded};
         // Memory safety
         //
         // When the Drain is first created, it shortens the length of
@@ -902,7 +1006,7 @@ impl<T> SliceDeque<T> {
         // elements are accessible at all if the Drain's destructor
         // never gets to run.
         //
-        // Drain will ::std::ptr::read out the values to remove.
+        // Drain will ptr::read out the values to remove.
         // When finished, remaining tail of the deque is copied back to cover
         // the hole, and the deque length is restored to the new length.
         //
@@ -926,7 +1030,7 @@ impl<T> SliceDeque<T> {
             self.tail = self.head + start;;
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
-            let range_slice = ::std::slice::from_raw_parts_mut(
+            let range_slice = slice::from_raw_parts_mut(
                 self.as_mut_ptr().offset(start as isize),
                 end - start,
             );
@@ -934,7 +1038,7 @@ impl<T> SliceDeque<T> {
                 tail_start: end,
                 tail_len: len - end,
                 iter: range_slice.iter(),
-                deq: ::std::ptr::Shared::from(self),
+                deq: ptr::NonNull::from(self),
             }
         }
     }
@@ -1037,13 +1141,13 @@ impl<T> SliceDeque<T> {
             let len = self.len();
             assert!(index <= len);
 
-            if unlikely(self.is_full()) {
+            if intrinsics::unlikely(self.is_full()) {
                 self.grow();
             }
 
             let p = self.as_mut_ptr().offset(index as isize);
-            ::std::ptr::copy(p, p.offset(1), len - index); // Shift elements
-            ::std::ptr::write(p, element); // Overwritte
+            ptr::copy(p, p.offset(1), len - index); // Shift elements
+            ptr::write(p, element); // Overwritte
             self.move_tail(1);
         }
     }
@@ -1073,10 +1177,10 @@ impl<T> SliceDeque<T> {
         unsafe {
             // copy element at pointer:
             let ptr = self.as_mut_ptr().offset(index as isize);
-            let ret = ::std::ptr::read(ptr);
+            let ret = ptr::read(ptr);
             // shift everything to the front overwriting the deque copy of the
             // element:
-            ::std::ptr::copy(ptr.offset(1), ptr, len - index - 1);
+            ptr::copy(ptr.offset(1), ptr, len - index - 1);
             self.move_tail(-1);
             ret
         }
@@ -1116,7 +1220,7 @@ impl<T> SliceDeque<T> {
             self.move_tail(-(other_len as isize));
             other.move_tail(other_len as isize);
 
-            ::std::ptr::copy_nonoverlapping(
+            ptr::copy_nonoverlapping(
                 self.as_ptr().offset(at as isize),
                 other.as_mut_ptr(),
                 other.len(),
@@ -1279,7 +1383,7 @@ impl<T> SliceDeque<T> {
             // Duplicate, advance r. End of deque. Truncate to w.
 
             let ln = self.len();
-            if unlikely(ln <= 1) {
+            if intrinsics::unlikely(ln <= 1) {
                 return;
             }
 
@@ -1294,7 +1398,7 @@ impl<T> SliceDeque<T> {
                 if !same_bucket(&mut *p_r, &mut *p_wm1) {
                     if r != w {
                         let p_w = p_wm1.offset(1);
-                        ::std::mem::swap(&mut *p_r, &mut *p_w);
+                        mem::swap(&mut *p_r, &mut *p_w);
                     }
                     w += 1;
                 }
@@ -1315,7 +1419,7 @@ impl<T> SliceDeque<T> {
 
             // Write all elements except the last one
             for _ in 1..n {
-                ::std::ptr::write(ptr, value.next());
+                ptr::write(ptr, value.next());
                 ptr = ptr.offset(1);
                 // Increment the length in every step in case next() panics
                 self.move_tail(1);
@@ -1324,7 +1428,7 @@ impl<T> SliceDeque<T> {
             if n > 0 {
                 // We can write the last element directly without cloning
                 // needlessly
-                ::std::ptr::write(ptr, value.last());
+                ptr::write(ptr, value.last());
                 self.move_tail(1);
             }
 
@@ -1349,7 +1453,7 @@ impl<T> SliceDeque<T> {
                 self.reserve(lower.saturating_add(1));
             }
             unsafe {
-                ::std::ptr::write(self.get_unchecked_mut(len), element);
+                ptr::write(self.get_unchecked_mut(len), element);
                 // NB can't overflow since we would have had to alloc the
                 // address space
                 self.move_tail(1);
@@ -1398,11 +1502,12 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[cfg(feature = "unstable")]
     pub fn splice<R, I>(
         &mut self, range: R, replace_with: I
     ) -> Splice<I::IntoIter>
     where
-        R: std::collections::range::RangeArgument<usize>,
+        R: collections::range::RangeArgument<usize>,
         I: IntoIterator<Item = T>,
     {
         Splice {
@@ -1649,10 +1754,8 @@ impl<T: PartialEq> SliceDeque<T> {
     }
 }
 
-impl<T: ::std::fmt::Debug> std::fmt::Debug for SliceDeque<T> {
-    fn fmt(
-        &self, f: &mut ::std::fmt::Formatter
-    ) -> Result<(), ::std::fmt::Error> {
+impl<T: fmt::Debug> fmt::Debug for SliceDeque<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.as_slice())
         /*
         write!(
@@ -1738,10 +1841,10 @@ impl<'a, T: Clone> From<&'a mut [T]> for SliceDeque<T> {
     }
 }
 
-impl<T: ::std::hash::Hash> ::std::hash::Hash for SliceDeque<T> {
+impl<T: hash::Hash> hash::Hash for SliceDeque<T> {
     #[inline]
-    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-        ::std::hash::Hash::hash(&**self, state)
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        hash::Hash::hash(&**self, state)
     }
 }
 
@@ -1788,14 +1891,14 @@ impl<T: Eq> Eq for SliceDeque<T> {}
 
 impl<T: PartialOrd> PartialOrd for SliceDeque<T> {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<::std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
 }
 
 impl<'a, T: PartialOrd> PartialOrd<&'a [T]> for SliceDeque<T> {
     #[inline]
-    fn partial_cmp(&self, other: &&'a [T]) -> Option<::std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &&'a [T]) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&**self, other)
     }
 }
@@ -1812,13 +1915,13 @@ pub struct Drain<'a, T: 'a> {
     /// Length of tail
     tail_len: usize,
     /// Current remaining range to remove
-    iter: ::std::slice::Iter<'a, T>,
+    iter: slice::Iter<'a, T>,
     /// A shared mutable pointer to the deque (with shared ownership).
-    deq: ::std::ptr::Shared<SliceDeque<T>>,
+    deq: ptr::NonNull<SliceDeque<T>>,
 }
 
-impl<'a, T: 'a + ::std::fmt::Debug> ::std::fmt::Debug for Drain<'a, T> {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
     }
 }
@@ -1833,7 +1936,7 @@ impl<'a, T> Iterator for Drain<'a, T> {
     fn next(&mut self) -> Option<T> {
         self.iter
             .next()
-            .map(|elt| unsafe { ::std::ptr::read(elt as *const _) })
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
     }
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -1846,7 +1949,7 @@ impl<'a, T> DoubleEndedIterator for Drain<'a, T> {
     fn next_back(&mut self) -> Option<T> {
         self.iter
             .next_back()
-            .map(|elt| unsafe { ::std::ptr::read(elt as *const _) })
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
     }
 }
 
@@ -1864,13 +1967,14 @@ impl<'a, T> Drop for Drain<'a, T> {
                 let tail = self.tail_start;
                 let src = source_deq.as_ptr().offset(tail as isize);
                 let dst = source_deq.as_mut_ptr().offset(start as isize);
-                ::std::ptr::copy(src, dst, self.tail_len);
+                ptr::copy(src, dst, self.tail_len);
                 source_deq.move_tail(self.tail_len as isize);
             }
         }
     }
 }
 
+#[cfg(feature = "unstable")]
 impl<'a, T> ExactSizeIterator for Drain<'a, T> {
     #[inline]
     fn is_empty(&self) -> bool {
@@ -1878,7 +1982,8 @@ impl<'a, T> ExactSizeIterator for Drain<'a, T> {
     }
 }
 
-impl<'a, T> ::std::iter::FusedIterator for Drain<'a, T> {}
+#[cfg(feature = "unstable")]
+impl<'a, T> iter::FusedIterator for Drain<'a, T> {}
 
 /// An iterator that moves out of a deque.
 ///
@@ -1888,8 +1993,8 @@ impl<'a, T> ::std::iter::FusedIterator for Drain<'a, T> {}
 /// [`SliceDeque`]: struct.SliceDeque.html
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
-    /// Shared pointer to the buffer
-    buf: ::std::ptr::Shared<T>,
+    /// NonNull pointer to the buffer
+    buf: ptr::NonNull<T>,
     /// Capacity of the buffer.
     cap: usize,
     /// Pointer to the first element.
@@ -1898,8 +2003,8 @@ pub struct IntoIter<T> {
     end: *const T,
 }
 
-impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("IntoIter").field(&self.as_slice()).finish()
     }
 }
@@ -1907,18 +2012,20 @@ impl<T: ::std::fmt::Debug> ::std::fmt::Debug for IntoIter<T> {
 impl<T> IntoIter<T> {
     /// Returns the index of the head with respect to the beginning of the
     /// buffer.
+    #[cfg(feature = "unstable")]
     #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
     #[inline]
     fn head(&self) -> usize {
-        self.buf.as_ptr().offset_to(self.ptr).unwrap() as usize
+        self.buf.as_ptr().offset_to_(self.ptr).unwrap() as usize
     }
 
     /// Returns the index of the tail with respect to the beginning of the
     /// buffer.
+    #[cfg(feature = "unstable")]
     #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
     #[inline]
     fn tail(&self) -> usize {
-        let t = self.buf.as_ptr().offset_to(self.end).unwrap() as usize;
+        let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
         debug_assert!(t >= self.head());
         t
     }
@@ -1940,7 +2047,7 @@ impl<T> IntoIter<T> {
     /// ```
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        unsafe { ::std::slice::from_raw_parts(self.ptr, self.len()) }
+        unsafe { slice::from_raw_parts(self.ptr, self.size_hint().0) }
     }
 
     /// Returns the remaining items of this iterator as a mutable slice.
@@ -1963,7 +2070,7 @@ impl<T> IntoIter<T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            ::std::slice::from_raw_parts_mut(self.ptr as *mut T, self.len())
+            slice::from_raw_parts_mut(self.ptr as *mut T, self.size_hint().0)
         }
     }
 }
@@ -1979,29 +2086,28 @@ impl<T> Iterator for IntoIter<T> {
         unsafe {
             if self.ptr as *const _ == self.end {
                 None
-            } else if ::std::mem::size_of::<T>() == 0 {
+            } else if mem::size_of::<T>() == 0 {
                 // purposefully don't use 'ptr.offset' because for
                 // deques with 0-size elements this would return the
                 // same pointer.
-                self.ptr =
-                    ::std::intrinsics::arith_offset(self.ptr as *const i8, 1)
-                        as *mut T;
+                self.ptr = intrinsics::arith_offset(self.ptr as *const i8, 1)
+                    as *mut T;
 
                 // Use a non-null pointer value
                 // (self.ptr might be null because of wrapping)
-                Some(::std::ptr::read(1 as *mut T))
+                Some(ptr::read(1 as *mut T))
             } else {
                 let old = self.ptr;
                 self.ptr = self.ptr.offset(1);
 
-                Some(::std::ptr::read(old))
+                Some(ptr::read(old))
             }
         }
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let exact = match self.ptr.offset_to(self.end) {
+        let exact = match self.ptr.offset_to_(self.end) {
             Some(x) => x as usize,
             None => (self.end as usize).wrapping_sub(self.ptr as usize),
         };
@@ -2010,7 +2116,7 @@ impl<T> Iterator for IntoIter<T> {
 
     #[inline]
     fn count(self) -> usize {
-        self.len()
+        self.size_hint().0
     }
 }
 
@@ -2020,24 +2126,24 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
         unsafe {
             if self.end == self.ptr {
                 None
-            } else if ::std::mem::size_of::<T>() == 0 {
+            } else if mem::size_of::<T>() == 0 {
                 // See above for why 'ptr.offset' isn't used
-                self.end =
-                    ::std::intrinsics::arith_offset(self.end as *const i8, -1)
-                        as *mut T;
+                self.end = intrinsics::arith_offset(self.end as *const i8, -1)
+                    as *mut T;
 
                 // Use a non-null pointer value
                 // (self.end might be null because of wrapping)
-                Some(::std::ptr::read(1 as *mut T))
+                Some(ptr::read(1 as *mut T))
             } else {
                 self.end = self.end.offset(-1);
 
-                Some(::std::ptr::read(self.end))
+                Some(ptr::read(self.end))
             }
         }
     }
 }
 
+#[cfg(feature = "unstable")]
 impl<T> ExactSizeIterator for IntoIter<T> {
     #[inline]
     fn is_empty(&self) -> bool {
@@ -2045,14 +2151,16 @@ impl<T> ExactSizeIterator for IntoIter<T> {
     }
 }
 
-impl<T> ::std::iter::FusedIterator for IntoIter<T> {}
+#[cfg(feature = "unstable")]
+impl<T> iter::FusedIterator for IntoIter<T> {}
 
-unsafe impl<T> ::std::iter::TrustedLen for IntoIter<T> {}
+#[cfg(feature = "unstable")]
+unsafe impl<T> iter::TrustedLen for IntoIter<T> {}
 
 impl<T: Clone> Clone for IntoIter<T> {
     #[inline]
     fn clone(&self) -> Self {
-        let mut deq = SliceDeque::<T>::with_capacity(self.len());
+        let mut deq = SliceDeque::<T>::with_capacity(self.size_hint().0);
         unsafe {
             deq.append_elements(self.as_slice());
         }
@@ -2060,7 +2168,21 @@ impl<T: Clone> Clone for IntoIter<T> {
     }
 }
 
+#[cfg(feature = "unstable")]
 unsafe impl<#[may_dangle] T> Drop for IntoIter<T> {
+    #[inline]
+    fn drop(&mut self) {
+        // destroy the remaining elements
+        for _x in self.by_ref() {}
+
+        // Buffer handles deallocation
+        let _ =
+            unsafe { Buffer::from_raw_parts(self.buf.as_ptr(), 2 * self.cap) };
+    }
+}
+
+#[cfg(not(feature = "unstable"))]
+impl<T> Drop for IntoIter<T> {
     #[inline]
     fn drop(&mut self) {
         // destroy the remaining elements
@@ -2099,20 +2221,20 @@ impl<T> IntoIterator for SliceDeque<T> {
     fn into_iter(self) -> IntoIter<T> {
         unsafe {
             let buf_ptr = self.buf.ptr().get();
-            ::std::intrinsics::assume(!buf_ptr.is_null());
-            assert!(::std::mem::size_of::<T>() != 0); // TODO: zero-sized types
+            intrinsics::assume(!buf_ptr.is_null());
+            assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = buf_ptr.offset(self.head as isize) as *const T;
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
-                buf: ::std::ptr::Shared::new_unchecked(buf_ptr),
+                buf: ptr::NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end: end,
             };
-            debug_assert!(self.len() == it.len());
+            debug_assert!(self.len() == it.size_hint().0);
             #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
-            ::std::mem::forget(self);
+            mem::forget(self);
             it
         }
     }
@@ -2120,18 +2242,18 @@ impl<T> IntoIterator for SliceDeque<T> {
 
 impl<'a, T> IntoIterator for &'a SliceDeque<T> {
     type Item = &'a T;
-    type IntoIter = ::std::slice::Iter<'a, T>;
+    type IntoIter = slice::Iter<'a, T>;
     #[inline]
-    fn into_iter(self) -> ::std::slice::Iter<'a, T> {
+    fn into_iter(self) -> slice::Iter<'a, T> {
         self.iter()
     }
 }
 
 impl<'a, T> IntoIterator for &'a mut SliceDeque<T> {
     type Item = &'a mut T;
-    type IntoIter = ::std::slice::IterMut<'a, T>;
+    type IntoIter = slice::IterMut<'a, T>;
     #[inline]
-    fn into_iter(self) -> ::std::slice::IterMut<'a, T> {
+    fn into_iter(self) -> slice::IterMut<'a, T> {
         self.iter_mut()
     }
 }
@@ -2155,40 +2277,62 @@ trait SpecExtend<T, I> {
     fn spec_extend(&mut self, iter: I);
 }
 
-impl<T, I> SpecExtend<T, I> for SliceDeque<T>
-where
-    I: Iterator<Item = T>,
-{
-    default fn from_iter(mut iterator: I) -> Self {
-        // Unroll the first iteration, as the deque is going to be
-        // expanded on this iteration in every case when the iterable is not
-        // empty, but the loop in extend_desugared() is not going to see the
-        // deque being full in the few subsequent loop iterations.
-        // So we get better branch prediction.
-        let mut deque = match iterator.next() {
-            None => return Self::new(),
-            Some(element) => {
-                let (lower, _) = iterator.size_hint();
-                let mut deque = Self::with_capacity(lower.saturating_add(1));
-                unsafe {
-                    ::std::ptr::write(deque.get_unchecked_mut(0), element);
-                    deque.move_tail(1);
-                }
-                deque
+/// Default implementation of `SpecExtend::from_iter`.
+#[inline(always)]
+fn from_iter_default<T, I: Iterator<Item = T>>(
+    mut iterator: I
+) -> SliceDeque<T> {
+    // Unroll the first iteration, as the deque is going to be
+    // expanded on this iteration in every case when the iterable is not
+    // empty, but the loop in extend_desugared() is not going to see the
+    // deque being full in the few subsequent loop iterations.
+    // So we get better branch prediction.
+    let mut deque = match iterator.next() {
+        None => return SliceDeque::<T>::new(),
+        Some(element) => {
+            let (lower, _) = iterator.size_hint();
+            let mut deque =
+                SliceDeque::<T>::with_capacity(lower.saturating_add(1));
+            unsafe {
+                ptr::write(deque.get_unchecked_mut(0), element);
+                deque.move_tail(1);
             }
-        };
-        <Self as SpecExtend<T, I>>::spec_extend(&mut deque, iterator);
-        deque
-    }
-
-    default fn spec_extend(&mut self, iter: I) {
-        self.extend_desugared(iter)
-    }
+            deque
+        }
+    };
+    <SliceDeque<T> as SpecExtend<T, I>>::spec_extend(&mut deque, iterator);
+    deque
 }
 
 impl<T, I> SpecExtend<T, I> for SliceDeque<T>
 where
-    I: ::std::iter::TrustedLen<Item = T>,
+    I: Iterator<Item = T>,
+{
+    #[cfg(feature = "unstable")]
+    default fn from_iter(iterator: I) -> Self {
+        from_iter_default(iterator)
+    }
+
+    #[cfg(feature = "unstable")]
+    default fn spec_extend(&mut self, iter: I) {
+        self.extend_desugared(iter)
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    fn from_iter(iterator: I) -> Self {
+        from_iter_default(iterator)
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    fn spec_extend(&mut self, iter: I) {
+        self.extend_desugared(iter)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl<T, I> SpecExtend<T, I> for SliceDeque<T>
+where
+    I: iter::TrustedLen<Item = T>,
 {
     default fn from_iter(iterator: I) -> Self {
         let mut deque = Self::new();
@@ -2213,7 +2357,7 @@ where
             unsafe {
                 let mut ptr = self.as_mut_ptr().offset(self.len() as isize);
                 for element in iterator {
-                    ::std::ptr::write(ptr, element);
+                    ptr::write(ptr, element);
                     ptr = ptr.offset(1);
                     // NB can't overflow since we would have had to alloc the
                     // address space
@@ -2226,6 +2370,7 @@ where
     }
 }
 
+#[cfg(feature = "unstable")]
 impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
     fn from_iter(iterator: IntoIter<T>) -> Self {
         // A common case is passing a deque into a function which immediately
@@ -2240,7 +2385,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.tail(),
                 );
                 #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
-                ::std::mem::forget(iterator);
+                mem::forget(iterator);
                 deq
             }
         } else {
@@ -2258,6 +2403,22 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
     }
 }
 
+#[cfg(not(feature = "unstable"))]
+impl<'a, T: 'a, I> SpecExtend<&'a T, I> for SliceDeque<T>
+where
+    I: Iterator<Item = &'a T>,
+    T: Clone,
+{
+    fn from_iter(iterator: I) -> Self {
+        SpecExtend::from_iter(iterator.cloned())
+    }
+
+    fn spec_extend(&mut self, iterator: I) {
+        self.spec_extend(iterator.cloned())
+    }
+}
+
+#[cfg(feature = "unstable")]
 impl<'a, T: 'a, I> SpecExtend<&'a T, I> for SliceDeque<T>
 where
     I: Iterator<Item = &'a T>,
@@ -2272,11 +2433,12 @@ where
     }
 }
 
-impl<'a, T: 'a> SpecExtend<&'a T, ::std::slice::Iter<'a, T>> for SliceDeque<T>
+#[cfg(feature = "unstable")]
+impl<'a, T: 'a> SpecExtend<&'a T, slice::Iter<'a, T>> for SliceDeque<T>
 where
     T: Copy,
 {
-    fn spec_extend(&mut self, iterator: ::std::slice::Iter<'a, T>) {
+    fn spec_extend(&mut self, iterator: slice::Iter<'a, T>) {
         let slice = iterator.as_slice();
         self.reserve(slice.len());
         unsafe {
@@ -2287,7 +2449,7 @@ where
     }
 }
 
-impl<T> ::std::iter::FromIterator<T> for SliceDeque<T> {
+impl<T> iter::FromIterator<T> for SliceDeque<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         <Self as SpecExtend<T, I::IntoIter>>::from_iter(iter.into_iter())
     }
@@ -2337,19 +2499,28 @@ trait SpecFromElem: Sized {
 }
 
 impl<T: Clone> SpecFromElem for T {
+    #[cfg(feature = "unstable")]
     default fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
+        let mut v = SliceDeque::with_capacity(n);
+        v.extend_with(n, ExtendElement(elem));
+        v
+    }
+
+    #[cfg(not(feature = "unstable"))]
+    fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
         let mut v = SliceDeque::with_capacity(n);
         v.extend_with(n, ExtendElement(elem));
         v
     }
 }
 
+#[cfg(feature = "unstable")]
 impl SpecFromElem for u8 {
     #[inline]
     fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
         unsafe {
             let mut v = SliceDeque::with_capacity(n);
-            ::std::ptr::write_bytes(v.as_mut_ptr(), elem, n);
+            ptr::write_bytes(v.as_mut_ptr(), elem, n);
             v.move_tail(n as isize);
             v
         }
@@ -2358,6 +2529,7 @@ impl SpecFromElem for u8 {
 
 macro_rules! impl_spec_from_elem {
     ($t: ty, $is_zero: expr) => {
+        #[cfg(feature = "unstable")]
         impl SpecFromElem for $t {
             #[inline]
             fn from_elem(elem: $t, n: usize) -> SliceDeque<$t> {
@@ -2373,12 +2545,14 @@ impl_spec_from_elem!(i8, |x| x == 0);
 impl_spec_from_elem!(i16, |x| x == 0);
 impl_spec_from_elem!(i32, |x| x == 0);
 impl_spec_from_elem!(i64, |x| x == 0);
+#[cfg(feature = "unstable")]
 impl_spec_from_elem!(i128, |x| x == 0);
 impl_spec_from_elem!(isize, |x| x == 0);
 
 impl_spec_from_elem!(u16, |x| x == 0);
 impl_spec_from_elem!(u32, |x| x == 0);
 impl_spec_from_elem!(u64, |x| x == 0);
+#[cfg(feature = "unstable")]
 impl_spec_from_elem!(u128, |x| x == 0);
 impl_spec_from_elem!(usize, |x| x == 0);
 
@@ -2432,10 +2606,12 @@ impl<'a, I: Iterator> DoubleEndedIterator for Splice<'a, I> {
     }
 }
 
+#[cfg(feature = "unstable")]
 impl<'a, I: Iterator> ExactSizeIterator for Splice<'a, I> {}
 
 // TODO: re-evaluate this
-impl<'a, I: Iterator> ::std::iter::FusedIterator for Splice<'a, I> {}
+#[cfg(feature = "unstable")]
+impl<'a, I: Iterator> iter::FusedIterator for Splice<'a, I> {}
 
 impl<'a, I: Iterator> Drop for Splice<'a, I> {
     fn drop(&mut self) {
@@ -2471,11 +2647,11 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
                 .collect::<SliceDeque<I::Item>>()
                 .into_iter();
             // Now we have an exact count.
-            if collected.len() > 0 {
-                self.drain.move_tail(collected.len());
+            if collected.size_hint().0 > 0 {
+                self.drain.move_tail(collected.size_hint().0);
                 let filled = self.drain.fill(&mut collected);
                 debug_assert!(filled);
-                debug_assert_eq!(collected.len(), 0);
+                debug_assert_eq!(collected.size_hint().0, 0);
             }
         }
         // Let `Drain::drop` move the tail back if necessary and restore
@@ -2496,14 +2672,14 @@ impl<'a, T> Drain<'a, T> {
         let deq = self.deq.as_mut();
         let range_start = deq.len();
         let range_end = self.tail_start;
-        let range_slice = ::std::slice::from_raw_parts_mut(
+        let range_slice = slice::from_raw_parts_mut(
             deq.as_mut_ptr().offset(range_start as isize),
             range_end - range_start,
         );
 
         for place in range_slice {
             if let Some(new_item) = replace_with.next() {
-                ::std::ptr::write(place, new_item);
+                ptr::write(place, new_item);
                 deq.move_tail(1);
             } else {
                 return false;
@@ -2521,7 +2697,7 @@ impl<'a, T> Drain<'a, T> {
         let new_tail_start = self.tail_start + extra_capacity;
         let src = deq.as_ptr().offset(self.tail_start as isize);
         let dst = deq.as_mut_ptr().offset(new_tail_start as isize);
-        ::std::ptr::copy(src, dst, self.tail_len);
+        ptr::copy(src, dst, self.tail_len);
         self.tail_start = new_tail_start;
     }
 }
@@ -2555,13 +2731,13 @@ where
             while self.idx != self.old_len {
                 let i = self.idx;
                 self.idx += 1;
-                let v = ::std::slice::from_raw_parts_mut(
+                let v = slice::from_raw_parts_mut(
                     self.deq.as_mut_ptr(),
                     self.old_len,
                 );
                 if (self.pred)(&mut v[i]) {
                     self.del += 1;
-                    return Some(::std::ptr::read(&v[i]));
+                    return Some(ptr::read(&v[i]));
                 } else if self.del > 0 {
                     let del = self.del;
                     let src: *const T = &v[i];
@@ -2569,7 +2745,7 @@ where
                     // This is safe because self.deq has length 0
                     // thus its elements will not have Drop::drop
                     // called on them in the event of a panic.
-                    ::std::ptr::copy_nonoverlapping(src, dst, 1);
+                    ptr::copy_nonoverlapping(src, dst, 1);
                 }
             }
             None
@@ -2597,13 +2773,13 @@ where
     }
 }
 
-impl<T> ::std::convert::AsRef<[T]> for SliceDeque<T> {
+impl<T> convert::AsRef<[T]> for SliceDeque<T> {
     fn as_ref(&self) -> &[T] {
         &*self
     }
 }
 
-impl<T> ::std::convert::AsMut<[T]> for SliceDeque<T> {
+impl<T> convert::AsMut<[T]> for SliceDeque<T> {
     fn as_mut(&mut self) -> &mut [T] {
         &mut *self
     }
@@ -2613,7 +2789,7 @@ impl<T> ::std::convert::AsMut<[T]> for SliceDeque<T> {
 impl ::bytes::BufMut for SliceDeque<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
-        ::std::usize::MAX - self.len()
+        usize::max_value() - self.len()
     }
     #[inline]
     unsafe fn bytes_mut(&mut self) -> &mut [u8] {
@@ -2643,19 +2819,19 @@ impl ::bytes::BufMut for SliceDeque<u8> {
 
 #[cfg(feature = "bytes_buf")]
 impl ::bytes::IntoBuf for SliceDeque<u8> {
-    type Buf = ::std::io::Cursor<SliceDeque<u8>>;
+    type Buf = io::Cursor<SliceDeque<u8>>;
 
     fn into_buf(self) -> Self::Buf {
-        ::std::io::Cursor::new(self)
+        io::Cursor::new(self)
     }
 }
 
 #[cfg(feature = "bytes_buf")]
 impl<'a> ::bytes::IntoBuf for &'a SliceDeque<u8> {
-    type Buf = ::std::io::Cursor<&'a [u8]>;
+    type Buf = io::Cursor<&'a [u8]>;
 
     fn into_buf(self) -> Self::Buf {
-        ::std::io::Cursor::new(&self[..])
+        io::Cursor::new(&self[..])
     }
 }
 
@@ -2676,6 +2852,7 @@ impl ::bytes::buf::FromBuf for SliceDeque<u8> {
 #[cfg(test)]
 mod tests {
     use super::SliceDeque;
+    use std::{fmt, hash, mem};
     use std::rc::Rc;
     use std::cell::RefCell;
 
@@ -2727,7 +2904,7 @@ mod tests {
         v
     }
 
-    fn constant_deque<T: Clone + ::std::fmt::Debug>(
+    fn constant_deque<T: Clone + fmt::Debug>(
         size: usize, val: &T
     ) -> SliceDeque<T> {
         let mut v: SliceDeque<T> = SliceDeque::with_capacity(size);
@@ -3021,7 +3198,7 @@ mod tests {
             // If SliceDeque had a drop flag, here is where it would be zeroed.
             // Instead, it should rely on its internal state to prevent
             // doing anything significant when dropped multiple times.
-            ::std::mem::drop(tv.x);
+            mem::drop(tv.x);
 
             // Here tv goes out of scope, tv.y should be dropped, but not tv.x.
         }
@@ -3476,6 +3653,7 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_drain_items() {
         let mut deq = sdeq![1, 2, 3];
@@ -3487,6 +3665,7 @@ mod tests {
         assert_eq!(deq2, [1, 2, 3]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_drain_items_reverse() {
         let mut deq = sdeq![1, 2, 3];
@@ -3498,6 +3677,7 @@ mod tests {
         assert_eq!(deq2, [3, 2, 1]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic]
     fn vec_drain_items_zero_sized() {
@@ -3510,6 +3690,7 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic]
     fn vec_drain_out_of_bounds() {
@@ -3517,6 +3698,7 @@ mod tests {
         v.drain(5..6);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_drain_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3532,6 +3714,7 @@ mod tests {
         assert_eq!(v, &[1.to_string(), 5.to_string()]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic] // TODO: zero-sized types
     fn vec_drain_range_zst() {
@@ -3540,6 +3723,7 @@ mod tests {
         assert_eq!(v, &[(), ()]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_drain_inclusive_range() {
         let mut v = sdeq!['a', 'b', 'c', 'd', 'e'];
@@ -3583,6 +3767,7 @@ mod tests {
         assert_eq!(v.len(), usize::max_value() - 1);
     }*/
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic]
     fn vec_drain_inclusive_out_of_bounds() {
@@ -3590,6 +3775,7 @@ mod tests {
         v.drain(5..=5);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_splice() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3600,6 +3786,7 @@ mod tests {
         assert_eq!(v, &[1, 20, 11, 12, 5]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_splice_inclusive_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3612,6 +3799,7 @@ mod tests {
         assert_eq!(t2, &[2, 10]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic]
     fn vec_splice_out_of_bounds() {
@@ -3620,6 +3808,7 @@ mod tests {
         v.splice(5..6, a.iter().cloned());
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic]
     fn vec_splice_inclusive_out_of_bounds() {
@@ -3628,6 +3817,7 @@ mod tests {
         v.splice(5..=5, a.iter().cloned());
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     #[should_panic] // TODO: zero-sized
     fn vec_splice_items_zero_sized() {
@@ -3639,6 +3829,7 @@ mod tests {
         assert_eq!(t, &[()]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_splice_unbounded() {
         let mut deq = sdeq![1, 2, 3, 4, 5];
@@ -3647,11 +3838,12 @@ mod tests {
         assert_eq!(t, &[1, 2, 3, 4, 5]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_splice_forget() {
         let mut v = sdeq![1, 2, 3, 4, 5];
         let a = [10, 11, 12];
-        ::std::mem::forget(v.splice(2..4, a.iter().cloned()));
+        mem::forget(v.splice(2..4, a.iter().cloned()));
         assert_eq!(v, &[1, 2]);
     }
 
@@ -3798,10 +3990,14 @@ fn vec_placement() {
     #[test]
     fn from_into_inner() {
         let deq = sdeq![1, 2, 3];
+        #[allow(unused_variables)]
         let ptr = deq.as_ptr();
         let deq = deq.into_iter().collect::<SliceDeque<_>>();
         assert_eq!(deq, [1, 2, 3]);
-        assert_eq!(deq.as_ptr(), ptr);
+        #[cfg(feature = "unstable")]
+        {
+            assert_eq!(deq.as_ptr(), ptr);
+        }
 
         let ptr = &deq[1] as *const _;
         let mut it = deq.into_iter();
@@ -4035,7 +4231,7 @@ fn vec_placement() {
     }
 
     #[cfg(test)]
-    fn vecdeque_parameterized<T: Clone + PartialEq + ::std::fmt::Debug>(
+    fn vecdeque_parameterized<T: Clone + PartialEq + fmt::Debug>(
         a: T, b: T, c: T, d: T
     ) {
         let mut deq = SliceDeque::new();
@@ -4132,7 +4328,7 @@ fn vec_placement() {
     use tests::Taggy::*;
     use tests::Taggypar::*;
 
-    fn hash<T: ::std::hash::Hash>(t: &T) -> u64 {
+    fn hash<T: hash::Hash>(t: &T) -> u64 {
         let mut s = ::std::collections::hash_map::DefaultHasher::new();
         use std::hash::Hasher;
         t.hash(&mut s);
@@ -4443,6 +4639,7 @@ fn vec_placement() {
         }
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vecdeque_drain() {
         // Empty iter
@@ -4696,7 +4893,7 @@ fn vec_placement() {
         ring.push_front(Elem);
         ring.push_back(Elem);
         ring.push_front(Elem);
-        ::std::mem::drop(ring);
+        mem::drop(ring);
 
         assert_eq!(unsafe { DROPS }, 4);
     }
@@ -4719,7 +4916,7 @@ fn vec_placement() {
         ring.push_front(Elem(1));
         ring.push_back(Elem(2));
         ring.push_front(Elem(3));
-        ::std::mem::drop(ring);
+        mem::drop(ring);
 
         assert_eq!(unsafe { DROPS }, 4);
     }
@@ -4743,11 +4940,11 @@ fn vec_placement() {
         ring.push_back(Elem);
         ring.push_front(Elem);
 
-        ::std::mem::drop(ring.pop_back());
-        ::std::mem::drop(ring.pop_front());
+        mem::drop(ring.pop_back());
+        mem::drop(ring.pop_front());
         assert_eq!(unsafe { DROPS }, 2);
 
-        ::std::mem::drop(ring);
+        mem::drop(ring);
         assert_eq!(unsafe { DROPS }, 4);
     }
 
@@ -4769,11 +4966,11 @@ fn vec_placement() {
         ring.push_back(Elem(0));
         ring.push_front(Elem(0));
 
-        ::std::mem::drop(ring.pop_back());
-        ::std::mem::drop(ring.pop_front());
+        mem::drop(ring.pop_back());
+        mem::drop(ring.pop_front());
         assert_eq!(unsafe { DROPS }, 2);
 
-        ::std::mem::drop(ring);
+        mem::drop(ring);
         assert_eq!(unsafe { DROPS }, 4);
     }
 
@@ -4798,7 +4995,7 @@ fn vec_placement() {
         ring.clear();
         assert_eq!(unsafe { DROPS }, 4);
 
-        ::std::mem::drop(ring);
+        mem::drop(ring);
         assert_eq!(unsafe { DROPS }, 4);
     }
 
@@ -4822,7 +5019,7 @@ fn vec_placement() {
         ring.clear();
         assert_eq!(unsafe { DROPS }, 4);
 
-        ::std::mem::drop(ring);
+        mem::drop(ring);
         assert_eq!(unsafe { DROPS }, 4);
     }
 
@@ -5071,6 +5268,7 @@ fn assert_covariance() {
 }
     */
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vecdeque_is_empty() {
         let mut v = SliceDeque::<i32>::new();

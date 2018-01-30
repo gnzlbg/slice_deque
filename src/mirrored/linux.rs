@@ -1,8 +1,8 @@
 //! Non-racy linux-specific mirrored memory allocation.
 
-use libc::{c_char, c_void, close, ftruncate, mkstemp, mmap, munmap, size_t,
-           sysconf, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
-           _SC_PAGESIZE};
+use libc::{c_char, c_void, close, ftruncate, mkstemp, mmap, munmap, off_t,
+           size_t, sysconf, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ,
+           PROT_WRITE, _SC_PAGESIZE};
 use std::ptr;
 
 /// Returns the size of a memory allocation unit.
@@ -42,7 +42,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             print_error("mkstemp failed");
             return Err(());
         }
-        if ftruncate(fd, half_size as i64) == -1 {
+        if ftruncate(fd, half_size as off_t) == -1 {
             print_error("ftruncate failed");
             if close(fd) == -1 {
                 print_error("@ftruncate: close failed");

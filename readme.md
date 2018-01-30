@@ -36,7 +36,6 @@ untested). The following targets are known to work and pass all tests:
 * powerpc-unknown-linux-gnu
 * powerpc64-unknown-linux-gnu
 * powerpc64le-unknown-linux-gnu
-* sparc64-unknown-linux-gnu
 * x86_64-unknown-linux-gnu
 * x86_64-unknown-linux-musl
 * aarch64-linux-android
@@ -52,10 +51,6 @@ untested). The following targets are known to work and pass all tests:
 ### Windows
 
 * x86_64-pc-windows-msvc
-
-### asmjs/wasm
-
-* asmjs-unknown-emscripten
 
 ## Drawbacks
 
@@ -184,7 +179,7 @@ dual licensed as above, without any additional terms or conditions.
 [codecov-shield]: https://img.shields.io/codecov/c/github/gnzlbg/slice_deque.svg?style=flat-square
 [codecov]: https://codecov.io/gh/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
-[docs]: https://docs.rs/crate/slice-deque/
+[docs]: https://gnzlbg.github.io/slice_deque/master/slice_deque/
 [license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
 [license]: https://github.com/gnzlbg/slice_deque/blob/master/license.md
 [crate-shield]: https://img.shields.io/crates/v/slice_deque.svg?style=flat-square
