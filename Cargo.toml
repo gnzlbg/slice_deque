@@ -10,7 +10,6 @@ readme = "readme.md"
 keywords = ["collection", "deque"]
 categories = ["data-structures"]
 license = "MIT/Apache-2.0"
-build = "build.rs"
 
 [badges]
 appveyor = { repository = "gnzlbg/slice_deque" }
