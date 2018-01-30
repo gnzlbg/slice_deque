@@ -11,6 +11,11 @@ matrix:
     - cargo install rustfmt-nightly --force
     script:
     - cargo fmt -- --write-mode=diff
+  - env: CLIPPY
+    before_script:
+    - cargo install clippy --force
+    script:
+    - cargo clippy -- -D clippy-pedantic
   - env: DOCS/COVERAGE
     sudo: required
     before_script:
@@ -65,8 +70,6 @@ matrix:
 
 before_script:
   - cargo install cross
-  - cargo install clippy --force
-
 script:
   - cross build --target=$TARGET
   - cross test --target=$TARGET
@@ -75,9 +78,6 @@ script:
   - cross test --features "unstable" --release --target=$TARGET
   - cross test --features "bytes_buf" --target=$TARGET
   - cross test --features "unstable,bytes_buf" --target=$TARGET
-  - cross clippy --target=$TARGET -- -D clippy-pedantic
-  - cross clippy --features "unstable" --target=$TARGET -- -D clippy-pedantic
-  - cross clippy --features "bytes_buf" --target=$TARGET -- -D clippy-pedantic
 
 env:
   global:
