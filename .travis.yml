@@ -75,9 +75,9 @@ script:
   - cross test --features "unstable" --release --target=$TARGET
   - cross test --features "bytes_buf" --target=$TARGET
   - cross test --features "unstable,bytes_buf" --target=$TARGET
-  - cargo clippy --target=$TARGET -- -D clippy-pedantic
-  - cargo clippy --features "unstable" --target=$TARGET -- -D clippy-pedantic
-  - cargo clippy --features "bytes_buf" --target=$TARGET -- -D clippy-pedantic
+  - cross clippy --target=$TARGET -- -D clippy-pedantic
+  - cross clippy --features "unstable" --target=$TARGET -- -D clippy-pedantic
+  - cross clippy --features "bytes_buf" --target=$TARGET -- -D clippy-pedantic
 
 env:
   global:
