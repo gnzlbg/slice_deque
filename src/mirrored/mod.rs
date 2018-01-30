@@ -1,9 +1,13 @@
 //! Mirrored memory buffer.
 mod buffer;
 
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "android", target_os = "macos"))))]
+#[cfg(all(unix,
+          not(any(target_os = "linux", target_os = "android",
+                  target_os = "macos"))))]
 mod sysv;
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "android", target_os = "macos"))))]
+#[cfg(all(unix,
+          not(any(target_os = "linux", target_os = "android",
+                  target_os = "macos"))))]
 use self::sysv::{allocate_mirrored, allocation_granularity,
                  deallocate_mirrored};
 
