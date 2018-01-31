@@ -75,12 +75,13 @@ before_script:
   - cargo install cross
 script:
   - cross build --target=$TARGET
-  - cross test --target=$TARGET
-  - cross test --release --target=$TARGET
-  - cross test --features "unstable" --target=$TARGET
-  - cross test --features "unstable" --release --target=$TARGET
-  - cross test --features "bytes_buf" --target=$TARGET
-  - cross test --features "unstable,bytes_buf" --target=$TARGET
+  - export RUST_TEST_THREADS=1
+  - cross test --target=$TARGET -- --nocapture
+  - cross test --release --target=$TARGET -- --nocapture
+  - cross test --features "unstable" --target=$TARGET -- --nocapture
+  - cross test --features "unstable" --release --target=$TARGET -- --nocapture
+  - cross test --features "bytes_buf" --target=$TARGET -- --nocapture
+  - cross test --features "unstable,bytes_buf" --target=$TARGET -- --nocapture
 
 env:
   global:

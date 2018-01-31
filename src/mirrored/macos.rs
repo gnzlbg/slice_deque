@@ -1,12 +1,22 @@
 //! Implements the allocator hooks on top of mach.
+
+#![cfg_attr(feature = "cargo-clippy", allow(shadow_unrelated))]
+
 use mach;
-use mach::kern_return::{kern_return_t, KERN_SUCCESS};
+use mach::boolean::boolean_t;
+use mach::kern_return::*;
 use mach::vm_types::mach_vm_address_t;
-use mach::vm_prot::vm_prot_t;
-use mach::vm::{mach_vm_allocate, mach_vm_deallocate, mach_vm_remap};
+use mach::vm_prot::{vm_prot_t, VM_PROT_READ, VM_PROT_WRITE};
+use mach::vm::{mach_vm_allocate, mach_vm_deallocate, mach_vm_remap,
+               mach_make_memory_entry_64};
 use mach::traps::mach_task_self;
-use mach::vm_statistics::VM_FLAGS_ANYWHERE;
-use mach::vm_inherit::VM_INHERIT_COPY;
+use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
+use mach::vm_inherit::VM_INHERIT_NONE;
+use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
+use mach::types::mem_entry_name_port_t;
+
+/// TODO: not exposed by the mach crate
+const VM_FLAGS_OVERWRITE: ::std::os::raw::c_int = 0x4000_i32;
 
 /// Returns the size of an allocation unit.
 ///
@@ -35,52 +45,98 @@ pub fn allocation_granularity() -> usize {
 /// If `size` is zero or `size / 2` is not a multiple of the
 /// allocation granularity.
 pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
-    /// Maximum number of attempts to allocate in case of a race condition.
-    const MAX_NO_ALLOC_ITERS: usize = 3;
     unsafe {
-        let half_size = size / 2;
         assert!(size != 0);
+        let half_size = size / 2;
         assert!(half_size % allocation_granularity() == 0);
 
-        let mut no_iters = 0;
-        let ptr = loop {
-            if no_iters > MAX_NO_ALLOC_ITERS {
-                panic!("number of iterations exceeded!");
+        let task = mach_task_self();
+
+        // Allocate memory to hold the whole buffer:
+        let mut addr: mach_vm_address_t = 0;
+        let r: kern_return_t = mach_vm_allocate(
+            task,
+            &mut addr as *mut mach_vm_address_t,
+            size as u64,
+            VM_FLAGS_ANYWHERE,
+        );
+        if r != KERN_SUCCESS {
+            // If the first allocation fails, there is nothing to
+            // deallocate and we can just fail to allocate:
+            print_error("initial alloc", r);
+            return Err(());
+        }
+        debug_assert!(addr != 0);
+
+        // Set the size of the first half to size/2:
+        let r: kern_return_t = mach_vm_allocate(
+            task,
+            &mut addr as *mut mach_vm_address_t,
+            half_size as u64,
+            VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+        );
+        if r != KERN_SUCCESS {
+            // If the first allocation fails, there is nothing to
+            // deallocate and we can just fail to allocate:
+            print_error("first half alloc", r);
+            return Err(());
+        }
+
+        // Get an object handle to the first memory region:
+        let mut memory_object_size = half_size as memory_object_size_t;
+        let mut object_handle: mem_entry_name_port_t =
+            ::std::mem::uninitialized();
+        let parent_handle: mem_entry_name_port_t = 0;
+        let r: kern_return_t = mach_make_memory_entry_64(
+            task,
+            &mut memory_object_size as *mut memory_object_size_t,
+            addr as memory_object_offset_t,
+            VM_PROT_READ | VM_PROT_WRITE,
+            &mut object_handle as *mut mem_entry_name_port_t,
+            parent_handle,
+        );
+
+        if r != KERN_SUCCESS {
+            // If making the memory entry fails we should deallocate the first
+            // allocation:
+            print_error("make memory entry", r);
+            if dealloc(addr as *mut u8, size).is_err() {
+                panic!("failed to deallocate after error");
             }
+            return Err(());
+        }
 
-            // If the first allocation fails we are done:
-            let ptr = alloc(size)?;
+        // Map the first half to the second half using the object handle:
+        let mut to =
+            (addr as *mut u8).offset(half_size as isize) as mach_vm_address_t;
+        let mut current_prot: vm_prot_t = ::std::mem::uninitialized();
+        let mut out_prot: vm_prot_t = ::std::mem::uninitialized();
+        let r: kern_return_t = mach_vm_remap(
+            task,
+            &mut to as *mut mach_vm_address_t,
+            half_size as u64,
+            /* mask: */ 0,
+            VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+            task,
+            addr,
+            /* copy: */ 0 as boolean_t,
+            &mut current_prot as *mut vm_prot_t,
+            &mut out_prot as *mut vm_prot_t,
+            VM_INHERIT_NONE,
+        );
 
-            // This cannot overflow isize: the worst case size is
-            // usize::MAX, where size / 2 == isize::MAX.
-            let ptr_2nd_half = ptr.offset(half_size as isize);
-            dealloc(ptr_2nd_half, half_size).map_err(|()| {
-                // If deallocating the second half fails we deallocate
-                // everything and fail:
-                if dealloc(ptr, size).is_err() {
-                    // If deallocating everything also fails returning an
-                    // Error would leak memory so panic:
-                    panic!("failed to deallocate the 2nd half and then failed to clean up");
-                }
-                ()
-            })?;
-
-            // Mirror the first half into the second half:
-            if mirror(ptr, ptr_2nd_half, half_size).is_ok() {
-                // If this succeeds, we are done:
-                break ptr;
+        if r != KERN_SUCCESS {
+            print_error("map first to second half", r);
+            // If making the memory entry fails we deallocate all the memory
+            if dealloc(addr as *mut u8, size).is_err() {
+                panic!("failed to deallocate after error");
             }
+            return Err(());
+        }
 
-            // Otherwise, we deallocate everything and try again:
-            if dealloc(ptr, half_size).is_err() {
-                // If deallocating everything also fails returning an
-                // Error would leak memory so panic:
-                panic!("failed to deallocate the 2nd half and then failed to clean up");
-            }
-            no_iters += 1;
-        };
+        // TODO: object_handle is leaked here. Investigate whether this is ok.
 
-        Ok(ptr)
+        Ok(addr as *mut u8)
     }
 }
 
@@ -100,32 +156,6 @@ pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
     assert!(size != 0);
     assert!(size % allocation_granularity() == 0);
     dealloc(ptr, size).expect("deallocating mirrored buffer failed");
-}
-
-/// Tries to allocates `size` bytes of memory.
-///
-/// # Panics
-///
-/// If `size` is zero or not a multiple of the `allocation_granularity`.
-fn alloc(size: usize) -> Result<*mut u8, ()> {
-    assert!(size != 0);
-    assert!(size % allocation_granularity() == 0);
-    unsafe {
-        let mut addr: mach_vm_address_t = 0;
-        let r: kern_return_t = mach_vm_allocate(
-            mach_task_self(),
-            &mut addr as *mut mach_vm_address_t,
-            size as u64,
-            VM_FLAGS_ANYWHERE,
-        );
-        if r != KERN_SUCCESS {
-            // If the first allocation fails, there is nothing to
-            // deallocate and we can just fail to allocate:
-            print_error("alloc", r);
-            return Err(());
-        }
-        Ok(addr as *mut u8)
-    }
 }
 
 /// Tries to deallocates `size` bytes of memory starting at `ptr`.
@@ -153,46 +183,6 @@ unsafe fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
     Ok(())
 }
 
-/// Mirrors `size` bytes of memory starting at `from` to a memory region
-/// starting at `to`.
-///
-/// # Unsafety
-///
-/// The `from` pointer must have been obtained from a previous call to `alloc`
-/// and point to a memory region containing at least `size` bytes.
-///
-/// # Panics
-///
-/// If `size` zero or ot a multiple of the `allocation_granularity`, or if
-/// `from` or `to` are null.
-unsafe fn mirror(from: *mut u8, to: *mut u8, size: usize) -> Result<(), ()> {
-    assert!(!from.is_null());
-    assert!(!to.is_null());
-    assert!(size != 0);
-    assert!(size % allocation_granularity() == 0);
-    let mut cur_protection: vm_prot_t = 0;
-    let mut max_protection: vm_prot_t = 0;
-    let mut to = to as mach_vm_address_t;
-    let r: kern_return_t = mach_vm_remap(
-        mach_task_self(),
-        &mut to,
-        size as u64,
-        /* mask: */ 0,
-        /* anywhere: */ 0,
-        mach_task_self(),
-        from as u64,
-        /* copy */ 0,
-        &mut cur_protection,
-        &mut max_protection,
-        VM_INHERIT_COPY,
-    );
-    if r != KERN_SUCCESS {
-        print_error("mirror", r);
-        return Err(());
-    }
-    Ok(())
-}
-
 /// Prints last os error at `location`.
 #[cfg(not(debug_assertions))]
 fn print_error(_msg: &str, _code: kern_return_t) {}
@@ -200,7 +190,7 @@ fn print_error(_msg: &str, _code: kern_return_t) {}
 /// Prints last os error at `location`.
 #[cfg(debug_assertions)]
 fn print_error(msg: &str, code: kern_return_t) {
-    eprintln!("ERROR at {}: {}", msg, report_error(code));
+    eprintln!("ERROR at \"{}\": {}", msg, report_error(code));
 }
 
 /// Maps a vm `kern_return_t` to an error string.
@@ -261,6 +251,9 @@ fn report_error(error: kern_return_t) -> &'static str {
         KERN_SUCCESS => "KERN_SUCCESS",
         KERN_TERMINATED => "KERN_TERMINATED",
         KERN_UREFS_OVERFLOW => "KERN_UREFS_OVERFLOW",
-        _ => "UNKNOWN_KERN_ERROR",
+        v => {
+            eprintln!("unknown kernel error: {}", v);
+            "UNKNOWN_KERN_ERROR"
+        }
     }
 }
