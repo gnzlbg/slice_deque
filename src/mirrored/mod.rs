@@ -2,22 +2,18 @@
 mod buffer;
 
 #[cfg(all(unix,
-          not(any(all(target_os = "linux", not(target_arch = "sparc64")),
-                  target_os = "android",
+          not(any(target_os = "linux", target_os = "android",
                   target_os = "macos"))))]
 mod sysv;
 #[cfg(all(unix,
-          not(any(all(target_os = "linux", not(target_arch = "sparc64")),
-                  target_os = "android",
+          not(any(target_os = "linux", target_os = "android",
                   target_os = "macos"))))]
 use self::sysv::{allocate_mirrored, allocation_granularity,
                  deallocate_mirrored};
 
-#[cfg(any(all(target_os = "linux", not(target_arch = "sparc64")),
-          target_os = "android"))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod linux;
-#[cfg(any(all(target_os = "linux", not(target_arch = "sparc64")),
-          target_os = "android"))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use self::linux::{allocate_mirrored, allocation_granularity,
                   deallocate_mirrored};
 
