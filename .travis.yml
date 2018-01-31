@@ -46,6 +46,12 @@ matrix:
         - libdw-dev
         - binutils-dev
         - cmake
+  - env: SANITIZER=address
+    script: ci/run_san.sh 
+  - env: SANITIZER=memory
+    script: ci/run_san.sh
+  - env: SANITIZER=thread
+    script: ci/run_san.sh
   - env: TARGET=aarch64-unknown-linux-gnu
   - env: TARGET=aarch64-unknown-linux-gnu SYSV=1
   - env: TARGET=arm-unknown-linux-gnueabi
@@ -98,8 +104,6 @@ matrix:
   - env: TARGET=x86_64-unknown-freebsd NORUN=1
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
   - env: TARGET=x86_64-sun-solaris NORUN=1
-  # Can't find crate core:
-  # - env: TARGET=x86_64-unknown-dragonfly NOSTD=1 NORUN=1
 
 script:
   - ci/run.sh
