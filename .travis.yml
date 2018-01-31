@@ -7,6 +7,7 @@ matrix:
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
   - env: TARGET=sparc64-unknown-linux-gnu
+  - env: DOCS/COVERAGE
   include:
   - env: RUSTFMT
     before_script:
