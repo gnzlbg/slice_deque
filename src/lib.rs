@@ -130,7 +130,12 @@
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
                   cast_sign_loss, cast_possible_truncation, inline_always))]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
+#[macro_use]
+mod macros;
+
+#[cfg(any(feature = "std", test))]
 extern crate core;
 
 #[cfg(target_os = "macos")]
@@ -151,7 +156,7 @@ pub use mirrored::Buffer;
 #[cfg(feature = "bytes_buf")]
 use std::io;
 
-use core::{cmp, convert, fmt, hash, iter, mem, ptr, slice};
+use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
 #[cfg(feature = "unstable")]
 use std::collections;
@@ -271,6 +276,10 @@ pub struct SliceDeque<T> {
     buf: Buffer<T>,
 }
 
+/// Implementation detail of the sdeq! macro.
+#[doc(hidden)]
+pub use mem::forget as __mem_forget;
+
 /// Creates a [`SliceDeque`] containing the arguments.
 ///
 /// `sdeq!` allows `SliceDeque`s to be defined with the same syntax as array
@@ -339,7 +348,7 @@ macro_rules! sdeq {
             unsafe {
                 let slice = [$($x),*];
                 let deq = $crate::SliceDeque::steal_from_slice(&slice);
-                ::std::mem::forget(slice);
+                $crate::__mem_forget(slice);
                 deq
             }
         }
@@ -392,13 +401,18 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
-        Self {
-            head: 0,
-            tail: 0,
-            buf: Buffer::uninitialized(2 * n).expect(&format!(
-                "failed to allocate a buffer with capacity: {}",
-                n
-            )),
+        unsafe {
+            Self {
+                head: 0,
+                tail: 0,
+                buf: Buffer::uninitialized(2 * n).unwrap_or_else(|()| {
+                    let s = tiny_str!(
+                        "failed to allocate a buffer with capacity: {}",
+                        n
+                    );
+                    panic!("{}", s.as_str())
+                }),
+            }
         }
     }
 
@@ -1565,7 +1579,7 @@ impl<T> SliceDeque<T> {
     /// # fn main() {
     /// let mut numbers = sdeq![1, 2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15];
     ///
-    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
+    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
     /// let odds = numbers;
     ///
     /// assert_eq!(sdeq![2, 4, 6, 8, 14], evens);
@@ -1779,7 +1793,7 @@ impl<T> Drop for SliceDeque<T> {
     }
 }
 
-impl<T> core::ops::Deref for SliceDeque<T> {
+impl<T> ops::Deref for SliceDeque<T> {
     type Target = [T];
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -1787,7 +1801,7 @@ impl<T> core::ops::Deref for SliceDeque<T> {
     }
 }
 
-impl<T> core::ops::DerefMut for SliceDeque<T> {
+impl<T> ops::DerefMut for SliceDeque<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
@@ -1866,6 +1880,8 @@ macro_rules! __impl_slice_eq1 {
 __impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
 __impl_slice_eq1! { SliceDeque<A>, &'b [B] }
 __impl_slice_eq1! { SliceDeque<A>, &'b mut [B] }
+
+#[cfg(feature = "std")]
 __impl_slice_eq1! { SliceDeque<A>, Vec<B> }
 
 macro_rules! array_impls {
@@ -2852,7 +2868,8 @@ impl ::bytes::buf::FromBuf for SliceDeque<u8> {
 #[cfg(test)]
 mod tests {
     use super::SliceDeque;
-    use std::{fmt, hash, mem};
+    use std::{collections, fmt, hash, mem};
+    use self::collections::HashMap;
     use std::rc::Rc;
     use std::cell::RefCell;
 
@@ -3131,7 +3148,6 @@ mod tests {
 
     #[test]
     fn hash_map() {
-        use std::collections::HashMap;
         let mut hm: HashMap<SliceDeque<u32>, u32> = HashMap::new();
         let mut a = SliceDeque::new();
         a.push_back(1);
@@ -4329,8 +4345,8 @@ fn vec_placement() {
     use tests::Taggypar::*;
 
     fn hash<T: hash::Hash>(t: &T) -> u64 {
-        let mut s = ::std::collections::hash_map::DefaultHasher::new();
-        use std::hash::Hasher;
+        let mut s = collections::hash_map::DefaultHasher::new();
+        use hash::Hasher;
         t.hash(&mut s);
         s.finish()
     }

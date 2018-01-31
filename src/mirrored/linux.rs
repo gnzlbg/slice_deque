@@ -4,7 +4,7 @@ use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
            mmap, munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create,
            ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
            _SC_PAGESIZE};
-use std::ptr;
+use super::ptr;
 
 /// [`memfd_create`] - create an anonymous file
 ///
@@ -135,7 +135,7 @@ pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -145,5 +145,5 @@ fn print_error(location: &str) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(debug_assertions))]
+#[cfg(not(all(debug_assertions, feature = "std")))]
 fn print_error(_location: &str) {}

@@ -32,3 +32,5 @@ use self::winapi::{allocate_mirrored, allocation_granularity,
                    deallocate_mirrored};
 
 pub use self::buffer::Buffer;
+
+use super::*;

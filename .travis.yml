@@ -76,12 +76,15 @@ before_script:
 script:
   - cross build --target=$TARGET
   - export RUST_TEST_THREADS=1
-  - cross test --target=$TARGET -- --nocapture
-  - cross test --release --target=$TARGET -- --nocapture
-  - cross test --features "unstable" --target=$TARGET -- --nocapture
-  - cross test --features "unstable" --release --target=$TARGET -- --nocapture
-  - cross test --features "bytes_buf" --target=$TARGET -- --nocapture
-  - cross test --features "unstable,bytes_buf" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --target=$TARGET -- --nocapture
+  - cross test --no-default-features --release --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "std" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "std" --release --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable" --release --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "bytes_buf" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,bytes_buf" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,bytes_buf,std" --target=$TARGET -- --nocapture
 
 env:
   global:

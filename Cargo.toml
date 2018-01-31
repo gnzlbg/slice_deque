@@ -32,6 +32,9 @@ mach = "0.1.*"
 winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
 
 [features]
+default = [ "std" ]
+
+std = []
 bytes_buf = ["bytes"]
 unstable = []
 

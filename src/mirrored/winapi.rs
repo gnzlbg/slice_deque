@@ -175,12 +175,8 @@ fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         );
 
         if h.is_null() {
-            print_error("create_file_mapping");
-            #[cfg(build = "debug")]
-            eprintln!(
-                "failed to create a file mapping with size {} bytes",
-                size
-            );
+            let s = tiny_str!("create_file_mapping (with size: {})", size);
+            print_error(s.as_str());
             return Err(());
         }
         Ok(h)
@@ -305,7 +301,7 @@ unsafe fn unmap_view_of_file(address: *mut u8) -> Result<(), ()> {
 }
 
 /// Prints last os error at `location`.
-#[cfg(debug_assertions)]
+#[cfg(not(all(debug_assertions, feature = "std")))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -315,5 +311,5 @@ fn print_error(location: &str) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(debug_assertions))]
+#[cfg(all(debug_assertions, feature = "std"))]
 fn print_error(_location: &str) {}
