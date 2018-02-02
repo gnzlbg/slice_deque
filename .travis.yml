@@ -43,12 +43,15 @@ matrix:
         - binutils-dev
         - cmake
   - env: TARGET=aarch64-unknown-linux-gnu
+  - env: TARGET=aarch64-unknown-linux-gnu SYSV=1
   - env: TARGET=arm-unknown-linux-gnueabi
   - env: TARGET=arm-unknown-linux-musleabi
   - env: TARGET=armv7-unknown-linux-gnueabihf
   - env: TARGET=armv7-unknown-linux-musleabihf
   - env: TARGET=i586-unknown-linux-gnu
+  - env: TARGET=i586-unknown-linux-gnu SYSV=1
   - env: TARGET=i686-unknown-linux-gnu
+  - env: TARGET=i686-unknown-linux-gnu SYSV=1
   - env: TARGET=i686-unknown-linux-musl
   - env: TARGET=mips-unknown-linux-gnu
   - env: TARGET=mips64-unknown-linux-gnuabi64
@@ -56,11 +59,15 @@ matrix:
   - env: TARGET=mipsel-unknown-linux-gnu
   - env: TARGET=powerpc-unknown-linux-gnu
   - env: TARGET=powerpc64-unknown-linux-gnu
+  - env: TARGET=powerpc64-unknown-linux-gnu SYSV=1
   - env: TARGET=powerpc64le-unknown-linux-gnu
   - env: TARGET=sparc64-unknown-linux-gnu
   - env: TARGET=x86_64-unknown-linux-gnu
+  - env: TARGET=x86_64-unknown-linux-gnu SYSV=1
   - env: TARGET=x86_64-unknown-linux-musl
+  - env: TARGET=x86_64-unknown-linux-musl SYSV=1
   - env: TARGET=aarch64-linux-android
+  - env: TARGET=aarch64-linux-android SYSV=1
   - env: TARGET=arm-linux-androideabi
   - env: TARGET=armv7-linux-androideabi
   - env: TARGET=x86_64-linux-android
@@ -76,15 +83,17 @@ before_script:
 script:
   - cross build --target=$TARGET
   - export RUST_TEST_THREADS=1
+  - export FEATURES=""
+  - if [[ $SYSV == "1" ]]; then export FEATURES="unix_sysv"; fi
   - cross test --no-default-features --target=$TARGET -- --nocapture
   - cross test --no-default-features --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "std" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "std" --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable" --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "bytes_buf" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,bytes_buf" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,bytes_buf,std" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "std,${FEATURES}" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "std,${FEATURES}" --release --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,${FEATURES}" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,${FEATURES}" --release --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "bytes_buf,${FEATURES}" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,bytes_buf,${FEATURES}" --target=$TARGET -- --nocapture
+  - cross test --no-default-features --features "unstable,bytes_buf,std,${FEATURES}" --target=$TARGET -- --nocapture
 
 env:
   global:

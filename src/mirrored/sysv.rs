@@ -2,7 +2,13 @@
 use super::mem;
 use libc::{c_int, c_void, mmap, munmap, shmat, shmctl, shmdt, shmget,
            shmid_ds, sysconf, IPC_CREAT, IPC_PRIVATE, IPC_RMID,
-           MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_NONE, _SC_PAGESIZE};
+           MAP_FAILED, MAP_PRIVATE, PROT_NONE, _SC_PAGESIZE};
+
+#[cfg(not(target_os = "macos"))]
+use libc::MAP_ANONYMOUS;
+
+#[cfg(target_os = "macos")]
+use libc::MAP_ANON as MAP_ANONYMOUS;
 
 /// Returns the size of an allocation unit.
 ///
