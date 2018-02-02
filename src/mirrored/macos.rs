@@ -2,7 +2,7 @@
 
 #![cfg_attr(feature = "cargo-clippy", allow(shadow_unrelated))]
 
-use ::mem;
+use mem;
 
 use mach;
 use mach::boolean::boolean_t;
@@ -86,8 +86,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
 
         // Get an object handle to the first memory region:
         let mut memory_object_size = half_size as memory_object_size_t;
-        let mut object_handle: mem_entry_name_port_t =
-            mem::uninitialized();
+        let mut object_handle: mem_entry_name_port_t = mem::uninitialized();
         let parent_handle: mem_entry_name_port_t = 0;
         let r: kern_return_t = mach_make_memory_entry_64(
             task,
