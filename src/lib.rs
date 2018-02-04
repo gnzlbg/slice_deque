@@ -158,6 +158,15 @@ use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
+#[cfg(feature = "unstable")]
+use core::ptr::NonNull;
+
+#[cfg(not(feature = "unstable"))]
+mod nonnull;
+
+#[cfg(not(feature = "unstable"))]
+use nonnull::NonNull;
+
 #[cfg(all(feature = "unstable", feature = "std"))]
 use std::collections;
 
@@ -1052,7 +1061,7 @@ impl<T> SliceDeque<T> {
                 tail_start: end,
                 tail_len: len - end,
                 iter: range_slice.iter(),
-                deq: ptr::NonNull::from(self),
+                deq: NonNull::from(self),
             }
         }
     }
@@ -1933,7 +1942,7 @@ pub struct Drain<'a, T: 'a> {
     /// Current remaining range to remove
     iter: slice::Iter<'a, T>,
     /// A shared mutable pointer to the deque (with shared ownership).
-    deq: ptr::NonNull<SliceDeque<T>>,
+    deq: NonNull<SliceDeque<T>>,
 }
 
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
@@ -2010,7 +2019,7 @@ impl<'a, T> iter::FusedIterator for Drain<'a, T> {}
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
     /// NonNull pointer to the buffer
-    buf: ptr::NonNull<T>,
+    buf: NonNull<T>,
     /// Capacity of the buffer.
     cap: usize,
     /// Pointer to the first element.
@@ -2243,7 +2252,7 @@ impl<T> IntoIterator for SliceDeque<T> {
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
-                buf: ptr::NonNull::new_unchecked(buf_ptr),
+                buf: NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end,

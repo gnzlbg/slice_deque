@@ -60,13 +60,18 @@ if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
 
     $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
     $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
+
+    if [[ $SYSV == "1" ]]; then
+        $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT
+        $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT_RELEASE_ND
+    fi
 fi
 
 if [[ $SYSV == "1" ]]; then
     $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_ND
     $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_RELEASE_ND
-    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT
-    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT_RELEASE_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unix_sysv" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unix_sysv" $OPT_RELEASE_ND
 fi
 
 # Run documentation and clippy:
