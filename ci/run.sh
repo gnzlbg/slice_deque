@@ -4,7 +4,7 @@ set -ex
 
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
-export OPT="--target=$TARGET -- --nocapture"
+export OPT="--target=$TARGET"
 export OPT_RELEASE="--release ${OPT}"
 export OPT_ND="--no-default-features ${OPT}"
 export OPT_RELEASE_ND="--no-default-features ${OPT_RELEASE}"
@@ -12,8 +12,8 @@ export OPT_RELEASE_ND="--no-default-features ${OPT_RELEASE}"
 # Select cargo command: use cross by default
 export CARGO_CMD=cross
 
-# On Appveyor and Travis native targets we use cargo (no need to cross-compile):
-if [[ $TARGET = *"windows"* ]] || [[ $TARGET == "x86_64-unknown-linux-gnu" ]]; then
+# On Appveyor (windows) and Travis (x86_64-unknown-linux-gnu and apple) native targets we use cargo (no need to cross-compile):
+if [[ $TARGET = *"windows"* ]] || [[ $TARGET == "x86_64-unknown-linux-gnu" ]] || [[ $TARGET = *"apple"* ]]; then
     export CARGO_CMD=cargo
 fi
 
@@ -24,7 +24,6 @@ fi
 
 # Use iOS simulator for those targets that support it:
 if [[ $TARGET = *"ios"* ]]; then
-    export CARGO_CMD=cargo
     export RUSTFLAGS=-Clink-arg=-mios-simulator-version-min=7.0
     rustc ./ci/deploy_and_run_on_ios_simulator.rs -o $HOME/runtest
     export CARGO_TARGET_X86_64_APPLE_IOS_RUNNER=$HOME/runtest
@@ -41,6 +40,11 @@ if [[ $NORUN == "1" ]]; then
     export CARGO_SUBCMD="build"
 else
     export CARGO_SUBCMD="test"
+    # If the tests should be run, always dump all test output.
+    export OPT="${OPT} -- --nocapture"
+    export OPT_RELEASE="${OPT_RELEASE} -- --nocapture"
+    export OPT_ND="${OPT_ND} -- --nocapture"
+    export OPT_RELEASE_ND="${OPT_RELEASE_ND} -- --nocapture"
 fi
 
 # Run all the test configurations:
