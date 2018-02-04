@@ -1,5 +1,7 @@
 //! Implements the allocator hooks on top of window's virtual alloc.
 
+use ::mem;
+
 use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::ntdef::LPCWSTR;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
@@ -24,7 +26,7 @@ pub use winapi::shared::ntdef::HANDLE;
 /// size (64k vs 4k), so determining the page size here is not necessary.
 pub fn allocation_granularity() -> usize {
     unsafe {
-        let mut system_info: SYSTEM_INFO = ::std::mem::uninitialized();
+        let mut system_info: SYSTEM_INFO = mem::uninitialized();
         GetSystemInfo(&mut system_info as LPSYSTEM_INFO);
         let allocation_granularity =
             system_info.dwAllocationGranularity as usize;
@@ -153,8 +155,8 @@ fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         assert!(size % allocation_granularity() == 0);
         let dw_maximum_size_low: DWORD = size as DWORD;
         let dw_maximum_size_high: DWORD = match (
-            ::std::mem::size_of::<DWORD>(),
-            ::std::mem::size_of::<usize>(),
+            mem::size_of::<DWORD>(),
+            mem::size_of::<usize>(),
         ) {
             // If both sizes are equal, the size is passed in the lower half,
             // so the higher 32-bits are zero
@@ -301,7 +303,7 @@ unsafe fn unmap_view_of_file(address: *mut u8) -> Result<(), ()> {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(all(debug_assertions, feature = "std")))]
+#[cfg(all(debug_assertions, feature = "std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -311,5 +313,5 @@ fn print_error(location: &str) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(not(all(debug_assertions, feature = "std")))]
 fn print_error(_location: &str) {}

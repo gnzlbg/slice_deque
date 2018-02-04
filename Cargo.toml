@@ -19,23 +19,20 @@ is-it-maintained-issue-resolution = { repository = "gnzlbg/slice_deque" }
 is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
 maintenance = { status = "experimental" }
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
-
-[target.'cfg(all(target_os = "macos", not(feature = "unix_sysv")))'.dependencies]
+[target.'cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))'.dependencies]
 mach = "0.1.*"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
 
 [features]
-default = [ "std" ]
+default = [ "use_std" ]
 
 # Enables features that require the standard library
-std = []
+use_std = [ "libc/use_std" ]
 # Enables support for the bytes_buf trait. That is,
 # SliceDeque implements the Buf and BufMut traits.
-bytes_buf = ["bytes", "std"]
+bytes_buf = ["bytes", "use_std"]
 # Enable features that require unstable Rust (nightly).
 unstable = []
 # Uses a super-portable but potentially slower System V interprocess
@@ -45,6 +42,10 @@ unix_sysv = []
 
 [dependencies]
 bytes = { version = "0.4.*", optional = true }
+
+[target.'cfg(unix)'.dependencies.libc]
+version = "0.2"
+default-features = false
 
 [profile.dev]
 opt-level = 0
