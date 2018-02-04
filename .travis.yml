@@ -7,7 +7,7 @@ matrix:
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
   - env: TARGET=aarch64-linux-android SYSV=1
-  - env: TARGET=sparc64-unknown-linux-gnu
+  - env: TARGET=sparc64-unknown-linux-gnu NOSTD=1
   - env: TARGET=i386-apple-ios
   - env: TARGET=x86_64-apple-ios
   - env: TARGET=aarch64-apple-ios NORUN=1
@@ -101,7 +101,7 @@ matrix:
   - env: TARGET=x86_64-unknown-freebsd NORUN=1
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
   - env: TARGET=x86_64-sun-solaris NORUN=1
-  - env: TARGET=x86_64-unknown-dragonfly
+  - env: TARGET=x86_64-unknown-dragonfly NOSTD=1
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
 
