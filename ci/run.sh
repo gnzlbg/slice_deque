@@ -4,6 +4,10 @@ set -ex
 
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
+export OPT="--target=$TARGET -- --nocapture"
+export OPT_RELEASE="--release ${OPT}"
+export OPT_ND="--no-default-features ${OPT}"
+export OPT_RELEASE_ND="--no-default-features ${OPT_RELEASE}"
 
 # Select cargo command: use cross by default
 export CARGO_CMD=cross
@@ -18,34 +22,54 @@ if [[ $CARGO_CMD == "cross" ]]; then
     cargo install cross
 fi
 
-$CARGO_CMD test --target=$TARGET -- --nocapture
-$CARGO_CMD test --target=$TARGET --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features --features "std" -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --features "std" --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features --features "unstable" -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --features "unstable" --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features --features "bytes_buf" -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --features "bytes_buf" --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features --features "std,unstable" -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --features "std,unstable" --release -- --nocapture
-
-$CARGO_CMD test --target=$TARGET --no-default-features --features "unstable,bytes_buf" -- --nocapture
-$CARGO_CMD test --target=$TARGET --no-default-features --features "unstable,bytes_buf" --release -- --nocapture
-
-if [[ $SYSV == "1" ]]; then
-    $CARGO_CMD test --target=$TARGET --no-default-features --features "unix_sysv" -- --nocapture
-    $CARGO_CMD test --target=$TARGET --no-default-features --features "unix_sysv" --release -- --nocapture
-    $CARGO_CMD test --target=$TARGET --no-default-features --features "std,unstable,unix_sysv" -- --nocapture
-    $CARGO_CMD test --target=$TARGET --no-default-features --features "std,unstable,unix_sysv" --release -- --nocapture
+# Use iOS simulator for those targets that support it:
+if [[ $TARGET = *"ios" ]]; then
+    export CARGO_CMD=cargo
+    export RUSTFLAGS=-Clink-arg=-mios-simulator-version-min=7.0
+    rustc ./ci/deploy_and_run_on_ios_simulator.rs -o $HOME/runtest
+    export CARGO_TARGET_X86_64_APPLE_IOS_RUNNER=$HOME/runtest
+    export CARGO_TARGET_I386_APPLE_IOS_RUNNER=$HOME/runtest
 fi
 
+# If the build should not run tests, just check that the code builds:
+if [[ $NORUN == "1" ]]; then
+    export CARGO_SUBCMD="build"
+else
+    export CARGO_SUBCMD="test"
+fi
+
+# Run all the test configurations:
+$CARGO_CMD $CARGO_SUBCMD $OPT
+$CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE
+
+$CARGO_CMD $CARGO_SUBCMD $OPT_ND
+$CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE_ND
+
+$CARGO_CMD $CARGO_SUBCMD --features "std" $OPT_ND
+$CARGO_CMD $CARGO_SUBCMD --features "std" $OPT_RELEASE_ND
+
+$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
+$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
+
+if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
+    $CARGO_CMD $CARGO_SUBCMD --features "unstable" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "unstable" $OPT_RELEASE_ND
+
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable" $OPT_RELEASE_ND
+
+    $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
+fi
+
+if [[ $SYSV == "1" ]]; then
+    $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_RELEASE_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT
+    $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT_RELEASE_ND
+fi
+
+# Run documentation and clippy:
 if [[ $CARGO_CMD == "cargo" ]]; then
     cargo doc
     cargo install clippy --force

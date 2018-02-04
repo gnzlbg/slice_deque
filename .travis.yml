@@ -7,6 +7,10 @@ matrix:
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
   - env: TARGET=sparc64-unknown-linux-gnu
+  - env: TARGET=i386-apple-ios
+  - env: TARGET=x86_64-apple-ios
+  - env: TARGET=aarch64-apple-ios NORUN=1
+  - env: TARGET=armv7-apple-ios NORUN=1
   - env: DOCS/COVERAGE
   include:
   - env: RUSTFMT
@@ -64,6 +68,8 @@ matrix:
   - env: TARGET=sparc64-unknown-linux-gnu
   - env: TARGET=x86_64-unknown-linux-gnu
   - env: TARGET=x86_64-unknown-linux-gnu SYSV=1
+  - env: TARGET=x86_64-unknown-linux-gnu
+    rust: stable
   - env: TARGET=x86_64-unknown-linux-musl
   - env: TARGET=x86_64-unknown-linux-musl SYSV=1
   - env: TARGET=aarch64-linux-android
@@ -74,6 +80,16 @@ matrix:
   - env: TARGET=i686-apple-darwin
     os: osx
   - env: TARGET=x86_64-apple-darwin
+    os: osx
+  - env: TARGET=i386-apple-ios
+    os: osx
+    osx_image: xcode8.2
+  - env: TARGET=x86_64-apple-ios
+    os: osx
+    osx_image: xcode8.2
+  - env: TARGET=aarch64-apple-ios NORUN=1
+    os: osx
+  - env: TARGET=armv7-apple-ios NORUN=1
     os: osx
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
