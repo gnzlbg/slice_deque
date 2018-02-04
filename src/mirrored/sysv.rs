@@ -141,7 +141,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         // 1. Allocate interprocess shared memory
         let shm = SharedMemory::allocate(half_size)?;
 
-        const MAX_NO_ITERS: i32 = 5;
+        const MAX_NO_ITERS: i32 = 10;
         let mut counter = 0;
         let ptr = loop {
             counter += 1;
