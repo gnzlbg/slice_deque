@@ -91,6 +91,8 @@ fi
 # Run documentation and clippy:
 if [[ $CARGO_CMD == "cargo" ]]; then
     cargo doc
-    cargo install clippy --force
-    cargo clippy -- -D clippy-pedantic
+    if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
+        cargo install clippy --force
+        cargo clippy -- -D clippy-pedantic
+    fi
 fi
