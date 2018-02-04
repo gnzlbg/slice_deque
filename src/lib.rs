@@ -123,8 +123,8 @@
                     shared, exact_size_is_empty, collections_range,
                     dropck_eyepatch, generic_param_attrs, trusted_len,
                     offset_to, i128_type, specialization))]
-#![cfg_attr(test,
-            feature(conservative_impl_trait, const_atomic_usize_new,
+#![cfg_attr(all(test, feature = "unstable"),
+            feature(
                     box_syntax, placement_in_syntax, attr_literals,
                     inclusive_range_syntax, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
@@ -2893,7 +2893,7 @@ mod tests {
         }
     }
 
-    fn sizes_to_test() -> impl Iterator<Item = usize> {
+    fn sizes_to_test() -> Vec<usize> {
         let sample = vec![
             /* powers of 2 */ 2, 4, 8, 16, 32, 64,
             128 /*
@@ -2911,7 +2911,7 @@ mod tests {
             // powers of 10
             10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/,
         ];
-        sample.into_iter()
+        sample.into_iter().collect()
     }
 
     fn linear_usize_deque(size: usize) -> SliceDeque<usize> {
@@ -3393,6 +3393,7 @@ mod tests {
         assert!(w.as_ptr() != z.as_ptr())
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_clone_from() {
         let mut v = sdeq![];
@@ -3476,6 +3477,7 @@ mod tests {
         assert_eq!(deq, [("foo", 3), ("bar", 12)]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_dedup_unique() {
         let mut v0: SliceDeque<Box<_>> = sdeq![box 1, box 1, box 2, box 3];
@@ -4735,6 +4737,7 @@ fn vec_placement() {
         }
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vecdeque_from_iter() {
         let v = vec![1, 2, 3, 4, 5, 6, 7];
