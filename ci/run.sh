@@ -31,6 +31,11 @@ if [[ $TARGET = *"ios" ]]; then
     export CARGO_TARGET_I386_APPLE_IOS_RUNNER=$HOME/runtest
 fi
 
+# Make sure TARGET is installed when using cargo:
+if [[ $CARGO_CMD == "cargo" ]]; then
+    rustup target add $TARGET || true
+fi
+
 # If the build should not run tests, just check that the code builds:
 if [[ $NORUN == "1" ]]; then
     export CARGO_SUBCMD="build"
