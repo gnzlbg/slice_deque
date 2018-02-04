@@ -6,7 +6,7 @@ mod buffer;
                   all(target_os = "android",
                       not(feature = "unix_sysv")),
                   // FIXME: libc does not support MacOSX shared memory yet
-                  target_os = "macos"
+                  any(target_os = "macos", target_os = "ios")
           ))))]
 mod sysv;
 #[cfg(all(unix,
@@ -14,7 +14,7 @@ mod sysv;
                   all(target_os = "android",
                       not(feature = "unix_sysv")),
                   // FIXME: libc does not support MacOSX shared memory yet
-                  target_os = "macos"
+                  any(target_os = "macos", target_os = "ios")
           ))))]
 use self::sysv::{allocate_mirrored, allocation_granularity,
                  deallocate_mirrored};
@@ -28,11 +28,11 @@ use self::linux::{allocate_mirrored, allocation_granularity,
                   deallocate_mirrored};
 
 // FIXME: libc does not support MacOSX shared memory yet
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 mod macos;
 
 // FIXME: libc does not support MacOSX shared memory yet
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use self::macos::{allocate_mirrored, allocation_granularity,
                   deallocate_mirrored};
 

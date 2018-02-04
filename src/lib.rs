@@ -138,7 +138,7 @@ mod macros;
 #[cfg(any(feature = "std", test))]
 extern crate core;
 
-#[cfg(all(target_os = "macos", not(feature = "unix_sysv")))]
+#[cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))]
 extern crate mach;
 
 #[cfg(unix)]
