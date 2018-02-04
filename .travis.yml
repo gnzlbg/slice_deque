@@ -101,7 +101,7 @@ matrix:
   - env: TARGET=x86_64-unknown-freebsd NORUN=1
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
   - env: TARGET=x86_64-sun-solaris NORUN=1
-  - env: TARGET=x86_64-unknown-dragonfly NOSTD=1
+  - env: TARGET=x86_64-unknown-dragonfly NOSTD=1 NORUN=1
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
 

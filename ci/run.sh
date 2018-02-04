@@ -23,7 +23,7 @@ if [[ $CARGO_CMD == "cross" ]]; then
 fi
 
 # Use iOS simulator for those targets that support it:
-if [[ $TARGET = *"ios" ]]; then
+if [[ $TARGET = *"ios"* ]]; then
     export CARGO_CMD=cargo
     export RUSTFLAGS=-Clink-arg=-mios-simulator-version-min=7.0
     rustc ./ci/deploy_and_run_on_ios_simulator.rs -o $HOME/runtest
