@@ -78,22 +78,8 @@ matrix:
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
 
-before_script:
-  - cargo install cross
 script:
-  - cross build --target=$TARGET
-  - export RUST_TEST_THREADS=1
-  - export FEATURES=""
-  - if [[ $SYSV == "1" ]]; then export FEATURES="unix_sysv"; fi
-  - cross test --no-default-features --target=$TARGET -- --nocapture
-  - cross test --no-default-features --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "std,${FEATURES}" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "std,${FEATURES}" --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,${FEATURES}" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,${FEATURES}" --release --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "bytes_buf,${FEATURES}" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,bytes_buf,${FEATURES}" --target=$TARGET -- --nocapture
-  - cross test --no-default-features --features "unstable,bytes_buf,std,${FEATURES}" --target=$TARGET -- --nocapture
+  - ci/run.sh
 
 env:
   global:
