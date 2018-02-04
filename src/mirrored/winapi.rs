@@ -303,7 +303,7 @@ unsafe fn unmap_view_of_file(address: *mut u8) -> Result<(), ()> {
 }
 
 /// Prints last os error at `location`.
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -313,5 +313,5 @@ fn print_error(location: &str) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(all(debug_assertions, feature = "std")))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_location: &str) {}

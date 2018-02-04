@@ -135,7 +135,7 @@ pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",
@@ -145,5 +145,5 @@ fn print_error(location: &str) {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(all(debug_assertions, feature = "std")))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_location: &str) {}

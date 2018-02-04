@@ -218,10 +218,10 @@ unsafe fn unmap(ptr: *mut c_void, size: usize) -> Result<(), ()> {
     Ok(())
 }
 
-#[cfg(not(all(debug_assertions, feature = "std")))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_location: &str) {}
 
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",

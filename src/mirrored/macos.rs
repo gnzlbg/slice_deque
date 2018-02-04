@@ -185,17 +185,17 @@ unsafe fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(all(debug_assertions, feature = "std")))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_msg: &str, _code: kern_return_t) {}
 
 /// Prints last os error at `location`.
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(msg: &str, code: kern_return_t) {
     eprintln!("ERROR at \"{}\": {}", msg, report_error(code));
 }
 
 /// Maps a vm `kern_return_t` to an error string.
-#[cfg(all(debug_assertions, feature = "std"))]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn report_error(error: kern_return_t) -> &'static str {
     use mach::kern_return::*;
     match error {

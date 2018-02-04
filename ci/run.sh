@@ -53,8 +53,8 @@ $CARGO_CMD $CARGO_SUBCMD $OPT_ND
 $CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE_ND
 
 if [[ $NOSTD != "1" ]]; then # These builds require a std component
-    $CARGO_CMD $CARGO_SUBCMD --features "std" $OPT_ND
-    $CARGO_CMD $CARGO_SUBCMD --features "std" $OPT_RELEASE_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_RELEASE_ND
 
     $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
     $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
@@ -66,15 +66,15 @@ if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
 
     if [[ $NOSTD != "1" ]]; then # These builds require a std component
 
-        $CARGO_CMD $CARGO_SUBCMD --features "std,unstable" $OPT_ND
-        $CARGO_CMD $CARGO_SUBCMD --features "std,unstable" $OPT_RELEASE_ND
+        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_ND
+        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_RELEASE_ND
 
         $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
         $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
 
         if [[ $SYSV == "1" ]]; then
-            $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT
-            $CARGO_CMD $CARGO_SUBCMD --features "std,unstable,unix_sysv" $OPT_RELEASE_ND
+            $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable,unix_sysv" $OPT
+            $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable,unix_sysv" $OPT_RELEASE_ND
         fi
     fi
 fi
@@ -83,8 +83,8 @@ if [[ $SYSV == "1" ]]; then
     $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_
     $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_RELEASE_ND
     if [[ $NOSTD != "1" ]]; then # These builds require a std component
-        $CARGO_CMD $CARGO_SUBCMD --features "std,unix_sysv" $OPT_ND
-        $CARGO_CMD $CARGO_SUBCMD --features "std,unix_sysv" $OPT_RELEASE_ND
+        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unix_sysv" $OPT_ND
+        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unix_sysv" $OPT_RELEASE_ND
     fi
 fi
 
