@@ -4035,6 +4035,7 @@ fn vec_placement() {
         assert!(ptr != deq.as_ptr());
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn overaligned_allocations() {
         #[repr(align(256))]
