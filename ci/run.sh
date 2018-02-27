@@ -4,6 +4,7 @@ set -ex
 
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
+export RUST_TEST_NOCAPTURE=1
 export OPT="--target=$TARGET"
 export OPT_RELEASE="--release ${OPT}"
 export OPT_ND="--no-default-features ${OPT}"
@@ -41,10 +42,10 @@ if [[ $NORUN == "1" ]]; then
 else
     export CARGO_SUBCMD="test"
     # If the tests should be run, always dump all test output.
-    export OPT="${OPT} -- --nocapture"
-    export OPT_RELEASE="${OPT_RELEASE} -- --nocapture"
-    export OPT_ND="${OPT_ND} -- --nocapture"
-    export OPT_RELEASE_ND="${OPT_RELEASE_ND} -- --nocapture"
+    export OPT="${OPT} "
+    export OPT_RELEASE="${OPT_RELEASE} "
+    export OPT_ND="${OPT_ND} "
+    export OPT_RELEASE_ND="${OPT_RELEASE_ND} "
 fi
 
 # Run all the test configurations:
@@ -54,7 +55,10 @@ if [[ $NOSTD != "1" ]]; then # These builds require a std component
 fi
 
 $CARGO_CMD $CARGO_SUBCMD $OPT_ND
+! find target/ -name *.rlib -exec nm {} \; | grep "std"
+$CARGO_CMD clean
 $CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE_ND
+! find target/ -name *.rlib -exec nm {} \; | grep "std"
 
 if [[ $NOSTD != "1" ]]; then # These builds require a std component
     $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_ND

@@ -127,10 +127,15 @@ fn run_app_on_simulator() {
     println!("stderr --\n{}\n", String::from_utf8_lossy(&output.stderr));
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let failed = stdout.lines()
+        .find(|l| l.contains("FAILED"))
+        .map(|l| l.contains("FAILED"))
+        .unwrap_or(false);
+
     let passed = stdout.lines()
-                       .find(|l| l.contains("PASSED"))
-                       .map(|l| l.contains("tests"))
-                       .unwrap_or(false);
+        .find(|l| l.contains("test result: ok"))
+        .map(|l| l.contains("test result: ok"))
+        .unwrap_or(false);
 
     println!("Shutting down simulator");
     Command::new("xcrun")
@@ -138,7 +143,7 @@ fn run_app_on_simulator() {
         .arg("shutdown")
         .arg("rust_ios")
         .check_status();
-    if !passed {
+    if !(passed && !failed) {
         panic!("tests didn't pass");
     }
 }

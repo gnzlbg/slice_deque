@@ -4,9 +4,16 @@ services: docker
 matrix:
   fast_finish: true
   allow_failures:
+  # Libc broke musl: https://github.com/rust-lang/libc/issues/928
+  - env: TARGET=arm-unknown-linux-musleabi
+  - env: TARGET=armv7-unknown-linux-musleabihf
+  - env: TARGET=i686-unknown-linux-musl
+  - env: TARGET=x86_64-unknown-linux-musl
+  - env: TARGET=x86_64-unknown-linux-musl SYSV=1
+  # These did never work
   - env: TARGET=asmjs-unknown-emscripten
   - env: TARGET=wasm32-unknown-emscripten
-  - env: TARGET=aarch64-linux-android SYSV=1
+  
   - env: TARGET=sparc64-unknown-linux-gnu NOSTD=1
   - env: TARGET=i386-apple-ios
   - env: TARGET=x86_64-apple-ios
@@ -14,7 +21,10 @@ matrix:
   - env: TARGET=armv7-apple-ios NORUN=1
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
   - env: TARGET=x86_64-sun-solaris NORUN=1
-  - env: TARGET=x86_64-unknown-dragonfly
+  # Android does not support SystemV shared memory?:
+  - env: TARGET=aarch64-linux-android SYSV=1
+  # Dragonfly does not have a core component:
+  - env: TARGET=x86_64-unknown-dragonfly NOSTD=1 NORUN=1
   - env: DOCS/COVERAGE
   include:
   - env: RUSTFMT
@@ -69,7 +79,7 @@ matrix:
   - env: TARGET=powerpc64-unknown-linux-gnu
   - env: TARGET=powerpc64-unknown-linux-gnu SYSV=1
   - env: TARGET=powerpc64le-unknown-linux-gnu
-  - env: TARGET=sparc64-unknown-linux-gnu
+  - env: TARGET=sparc64-unknown-linux-gnu NOSTD=1
   - env: TARGET=x86_64-unknown-linux-gnu
   - env: TARGET=x86_64-unknown-linux-gnu SYSV=1
   - env: TARGET=x86_64-unknown-linux-gnu
