@@ -60,8 +60,8 @@ if [[ $NOSTD != "1" ]]; then # These builds require a std component
     $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_ND
     $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_RELEASE_ND
 
-    $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
-    $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
+    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
+    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
 fi
 
 if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
@@ -73,8 +73,8 @@ if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
         $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_ND
         $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_RELEASE_ND
 
-        $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
-        $CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
+        #$CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
+        #$CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
 
         if [[ $SYSV == "1" ]]; then
             $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable,unix_sysv" $OPT
