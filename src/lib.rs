@@ -124,8 +124,7 @@
                     dropck_eyepatch, generic_param_attrs, trusted_len,
                     offset_to, i128_type, specialization))]
 #![cfg_attr(all(test, feature = "unstable"),
-            feature(
-                    box_syntax, placement_in_syntax, attr_literals,
+            feature(box_syntax, placement_in_syntax, attr_literals,
                     inclusive_range_syntax, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
@@ -138,7 +137,8 @@ mod macros;
 #[cfg(any(feature = "use_std", test))]
 extern crate core;
 
-#[cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))]
+#[cfg(all(any(target_os = "macos", target_os = "ios"),
+          not(feature = "unix_sysv")))]
 extern crate mach;
 
 #[cfg(unix)]

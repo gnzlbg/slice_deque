@@ -1,6 +1,6 @@
 //! Implements the allocator hooks on top of window's virtual alloc.
 
-use ::mem;
+use mem;
 
 use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::ntdef::LPCWSTR;
@@ -154,18 +154,16 @@ fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         assert!(size != 0);
         assert!(size % allocation_granularity() == 0);
         let dw_maximum_size_low: DWORD = size as DWORD;
-        let dw_maximum_size_high: DWORD = match (
-            mem::size_of::<DWORD>(),
-            mem::size_of::<usize>(),
-        ) {
-            // If both sizes are equal, the size is passed in the lower half,
-            // so the higher 32-bits are zero
-            (4, 4) | (8, 8) => 0,
-            // If DWORD is 32 bit but usize is 64-bit, we pass the higher
-            // 32-bit of size:
-            (4, 8) => (size >> 32) as DWORD,
-            _ => unimplemented!(),
-        };
+        let dw_maximum_size_high: DWORD =
+            match (mem::size_of::<DWORD>(), mem::size_of::<usize>()) {
+                // If both sizes are equal, the size is passed in the lower
+                // half, so the higher 32-bits are zero
+                (4, 4) | (8, 8) => 0,
+                // If DWORD is 32 bit but usize is 64-bit, we pass the higher
+                // 32-bit of size:
+                (4, 8) => (size >> 32) as DWORD,
+                _ => unimplemented!(),
+            };
 
         let h: HANDLE = CreateFileMappingW(
             /* hFile: */ INVALID_HANDLE_VALUE as HANDLE,
