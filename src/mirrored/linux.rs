@@ -1,9 +1,18 @@
 //! Non-racy linux-specific mirrored memory allocation.
 
-use libc::{c_char, c_void, close, ftruncate, mkstemp, mmap, munmap, off_t,
+use libc::{c_char, c_int, c_void, close, ftruncate, mmap, munmap, off_t,
            size_t, sysconf, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ,
            PROT_WRITE, _SC_PAGESIZE};
 use std::ptr;
+
+mod  memfd_create {
+    use libc::{syscall, SYS_memfd_create, c_char, c_uint, c_long};
+    pub fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
+        unsafe {
+            syscall(SYS_memfd_create, name, flags)
+        }
+    }
+}
 
 /// Returns the size of a memory allocation unit.
 ///
@@ -37,11 +46,12 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
 
         // create temporary file
         let mut fname = *b"/tmp/slice_deque_fileXXXXXX\0";
-        let fd = mkstemp(fname.as_mut_ptr() as *mut c_char);
+        let fd = memfd_create::memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
         if fd == -1 {
             print_error("mkstemp failed");
             return Err(());
         }
+        let fd = fd as c_int;
         if ftruncate(fd, half_size as off_t) == -1 {
             print_error("ftruncate failed");
             if close(fd) == -1 {
