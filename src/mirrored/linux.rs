@@ -1,17 +1,13 @@
 //! Non-racy linux-specific mirrored memory allocation.
 
-use libc::{c_char, c_int, c_void, close, ftruncate, mmap, munmap, off_t,
-           size_t, sysconf, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ,
-           PROT_WRITE, _SC_PAGESIZE};
+use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
+           mmap, munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create,
+           ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
+           _SC_PAGESIZE};
 use std::ptr;
 
-mod  memfd_create {
-    use libc::{syscall, SYS_memfd_create, c_char, c_uint, c_long};
-    pub fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
-        unsafe {
-            syscall(SYS_memfd_create, name, flags)
-        }
-    }
+pub fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
+    unsafe { syscall(SYS_memfd_create, name, flags) }
 }
 
 /// Returns the size of a memory allocation unit.
@@ -46,9 +42,19 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
 
         // create temporary file
         let mut fname = *b"/tmp/slice_deque_fileXXXXXX\0";
-        let fd = memfd_create::memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
+        let mut fd: c_long =
+            memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
         if fd == -1 {
-            print_error("mkstemp failed");
+            if let Some(err) = ::std::io::Error::last_os_error().raw_os_error()
+            {
+                if err == ENOSYS {
+                    // memfd_create is not implemented, use mkstemp instead:
+                    fd = mkstemp(fname.as_mut_ptr() as *mut c_char) as c_long;
+                }
+            }
+        }
+        if fd == -1 {
+            print_error("memfd_create failed");
             return Err(());
         }
         let fd = fd as c_int;
