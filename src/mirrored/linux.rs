@@ -52,7 +52,9 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             {
                 if err == ENOSYS {
                     // memfd_create is not implemented, use mkstemp instead:
-                    fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
+                    fd = c_long::from(
+                        mkstemp(fname.as_mut_ptr() as *mut c_char),
+                    );
                 }
             }
         }
