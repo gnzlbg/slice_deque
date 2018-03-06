@@ -11,7 +11,7 @@ matrix:
   include:
   - env: RUSTFMT
     before_script:
-    - cargo install rustfmt-nightly --force
+    - rustup component add rustfmt-preview
     script:
     - cargo fmt -- --write-mode=diff
   - env: CLIPPY
