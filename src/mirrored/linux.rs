@@ -6,7 +6,10 @@ use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
            _SC_PAGESIZE};
 use std::ptr;
 
-pub fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
+/// [`memfd_create`] - create an anonymous file
+///
+/// [`memfd_create`]: http://man7.org/linux/man-pages/man2/memfd_create.2.html
+fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
     unsafe { syscall(SYS_memfd_create, name, flags) }
 }
 
@@ -49,7 +52,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             {
                 if err == ENOSYS {
                     // memfd_create is not implemented, use mkstemp instead:
-                    fd = mkstemp(fname.as_mut_ptr() as *mut c_char) as c_long;
+                    fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
                 }
             }
         }
