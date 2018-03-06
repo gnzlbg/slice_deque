@@ -119,7 +119,7 @@ impl<T> Buffer<T> {
         assert!(!ptr.is_null());
         Self {
             ptr: NonZero::new_unchecked(ptr),
-            len: len,
+            len,
         }
     }
 
