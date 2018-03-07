@@ -15,7 +15,7 @@ use mach::traps::mach_task_self;
 use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
 use mach::vm_inherit::VM_INHERIT_NONE;
 use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
-use mach::types::mem_entry_name_port_t;
+use mach::mach_types::mem_entry_name_port_t;
 
 /// TODO: not exposed by the mach crate
 const VM_FLAGS_OVERWRITE: ::libc::c_int = 0x4000_i32;
