@@ -95,16 +95,19 @@ matrix:
     os: osx
   - env: TARGET=x86_64-apple-darwin
     os: osx
+    osx_image: xcode9.2
   - env: TARGET=i386-apple-ios
     os: osx
-    osx_image: xcode8.2
+    osx_image: xcode9.2
   - env: TARGET=x86_64-apple-ios
     os: osx
-    osx_image: xcode8.2
+    osx_image: xcode9.2
   - env: TARGET=aarch64-apple-ios NORUN=1
     os: osx
+    osx_image: xcode9.2
   - env: TARGET=armv7-apple-ios NORUN=1
     os: osx
+    osx_image: xcode9.2
   - env: TARGET=i686-unknown-freebsd NORUN=1
   - env: TARGET=x86_64-unknown-freebsd NORUN=1
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
