@@ -1,9 +1,9 @@
 //! Non-racy linux-specific mirrored memory allocation.
 
-use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
-           mmap, munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create,
-           ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
-           _SC_PAGESIZE, __errno_location};
+use libc::{__errno_location, c_char, c_int, c_long, c_uint, c_void, close,
+           ftruncate, mkstemp, mmap, munmap, off_t, size_t, syscall, sysconf,
+           SYS_memfd_create, ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED,
+           PROT_READ, PROT_WRITE, _SC_PAGESIZE};
 use super::ptr;
 
 /// [`memfd_create`] - create an anonymous file
@@ -22,7 +22,7 @@ pub fn allocation_granularity() -> usize {
 
 /// Reads `errno`.
 fn errno() -> c_int {
-    unsafe { * __errno_location() }
+    unsafe { *__errno_location() }
 }
 
 /// Allocates an uninitialzied buffer that holds `size` bytes, where
@@ -55,9 +55,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         if fd == -1 {
             if errno() == ENOSYS {
                 // memfd_create is not implemented, use mkstemp instead:
-                fd = c_long::from(
-                    mkstemp(fname.as_mut_ptr() as *mut c_char),
-                );
+                fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
             }
         }
         if fd == -1 {
