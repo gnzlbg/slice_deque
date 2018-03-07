@@ -5892,8 +5892,8 @@
         <span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">capacity</span>: <span class="ident">usize</span>, <span class="ident">head</span>: <span class="ident">usize</span>, <span class="ident">tail</span>: <span class="ident">usize</span>
     ) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">head</span>: <span class="ident">head</span>,
-            <span class="ident">tail</span>: <span class="ident">tail</span>,
+            <span class="ident">head</span>,
+            <span class="ident">tail</span>,
             <span class="ident">buf</span>: <span class="ident">Buffer</span>::<span class="ident">from_raw_parts</span>(<span class="ident">ptr</span>, <span class="ident">capacity</span> <span class="op">*</span> <span class="number">2</span>),
         }
     }
@@ -7747,7 +7747,7 @@
                 <span class="ident">buf</span>: <span class="ident">ptr</span>::<span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">buf_ptr</span>),
                 <span class="ident">cap</span>: <span class="self">self</span>.<span class="ident">capacity</span>(),
                 <span class="ident">ptr</span>: <span class="ident">begin</span>,
-                <span class="ident">end</span>: <span class="ident">end</span>,
+                <span class="ident">end</span>,
             };
             <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">it</span>.<span class="ident">size_hint</span>().<span class="number">0</span>);
             <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>, <span class="ident">allow</span>(<span class="ident">mem_forget</span>))]</span>
