@@ -97,7 +97,7 @@ if [[ $SYSV == "1" ]]; then
 fi
 
 # Run documentation and clippy:
-if [[ $CARGO_CMD == "cargo" ]]; then
+if [[ $CARGO_CMD == "cargo" ]] && [[ $TARGET != *"ios"* ]]; then
     cargo doc
     if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
         cargo install clippy --force
