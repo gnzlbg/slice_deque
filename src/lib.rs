@@ -375,8 +375,8 @@ impl<T> SliceDeque<T> {
         ptr: *mut T, capacity: usize, head: usize, tail: usize
     ) -> Self {
         Self {
-            head: head,
-            tail: tail,
+            head,
+            tail,
             buf: Buffer::from_raw_parts(ptr, capacity * 2),
         }
     }
@@ -2230,7 +2230,7 @@ impl<T> IntoIterator for SliceDeque<T> {
                 buf: ptr::NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
-                end: end,
+                end,
             };
             debug_assert!(self.len() == it.size_hint().0);
             #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
