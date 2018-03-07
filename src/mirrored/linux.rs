@@ -3,7 +3,7 @@
 use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
            mmap, munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create,
            ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
-           _SC_PAGESIZE};
+           _SC_PAGESIZE, __errno_location};
 use super::ptr;
 
 /// [`memfd_create`] - create an anonymous file
@@ -18,6 +18,11 @@ fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
 /// In Linux-like systems this equals the page-size.
 pub fn allocation_granularity() -> usize {
     unsafe { sysconf(_SC_PAGESIZE) as usize }
+}
+
+/// Reads `errno`.
+fn errno() -> c_int {
+    unsafe { * __errno_location() }
 }
 
 /// Allocates an uninitialzied buffer that holds `size` bytes, where
@@ -48,14 +53,11 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         let mut fd: c_long =
             memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
         if fd == -1 {
-            if let Some(err) = ::std::io::Error::last_os_error().raw_os_error()
-            {
-                if err == ENOSYS {
-                    // memfd_create is not implemented, use mkstemp instead:
-                    fd = c_long::from(
-                        mkstemp(fname.as_mut_ptr() as *mut c_char),
-                    );
-                }
+            if errno() == ENOSYS {
+                // memfd_create is not implemented, use mkstemp instead:
+                fd = c_long::from(
+                    mkstemp(fname.as_mut_ptr() as *mut c_char),
+                );
             }
         }
         if fd == -1 {
