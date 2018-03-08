@@ -6,10 +6,6 @@ matrix:
   allow_failures:
   # These did never work
   - env: TARGET=sparc64-unknown-linux-gnu NOSTD=1
-  - env: TARGET=i386-apple-ios
-  - env: TARGET=x86_64-apple-ios
-  - env: TARGET=aarch64-apple-ios NORUN=1
-  - env: TARGET=armv7-apple-ios NORUN=1
   # These are missing libc sysV functions:
   - env: TARGET=x86_64-unknown-netbsd NORUN=1
   - env: TARGET=x86_64-sun-solaris NORUN=1
