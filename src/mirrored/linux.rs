@@ -1,9 +1,14 @@
 //! Non-racy linux-specific mirrored memory allocation.
-
-use libc::{__errno_location, c_char, c_int, c_long, c_uint, c_void, close,
+use libc::{c_char, c_int, c_long, c_uint, c_void, close,
            ftruncate, mkstemp, mmap, munmap, off_t, size_t, syscall, sysconf,
            SYS_memfd_create, ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED,
            PROT_READ, PROT_WRITE, _SC_PAGESIZE};
+
+#[cfg(not(target_os = "android"))]
+use libc::__errno_location;
+#[cfg(target_os = "android")]
+use libc::__errno;
+
 use super::ptr;
 
 /// [`memfd_create`] - create an anonymous file
@@ -22,7 +27,10 @@ pub fn allocation_granularity() -> usize {
 
 /// Reads `errno`.
 fn errno() -> c_int {
+    #[cfg(not(target_os = "android"))]
     unsafe { *__errno_location() }
+    #[cfg(target_os = "android")]
+    unsafe { *__errno() }
 }
 
 /// Allocates an uninitialzied buffer that holds `size` bytes, where
