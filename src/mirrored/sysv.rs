@@ -1,7 +1,14 @@
 //! Racy System V mirrored memory allocation.
+use super::mem;
 use libc::{c_int, c_void, mmap, munmap, shmat, shmctl, shmdt, shmget,
-           shmid_ds, sysconf, IPC_CREAT, IPC_PRIVATE, IPC_RMID,
-           MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_NONE, _SC_PAGESIZE};
+           shmid_ds, sysconf, IPC_CREAT, IPC_PRIVATE, IPC_RMID, MAP_FAILED,
+           MAP_PRIVATE, PROT_NONE, _SC_PAGESIZE};
+
+#[cfg(not(target_os = "macos"))]
+use libc::MAP_ANONYMOUS;
+
+#[cfg(target_os = "macos")]
+use libc::MAP_ANON as MAP_ANONYMOUS;
 
 /// Returns the size of an allocation unit.
 ///
@@ -134,7 +141,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         // 1. Allocate interprocess shared memory
         let shm = SharedMemory::allocate(half_size)?;
 
-        const MAX_NO_ITERS: i32 = 5;
+        const MAX_NO_ITERS: i32 = 10;
         let mut counter = 0;
         let ptr = loop {
             counter += 1;
@@ -173,8 +180,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
                 continue;
             }
             // On success we leak the maps to keep them alive
-            ::std::mem::forget(map0);
-            ::std::mem::forget(map1);
+            mem::forget(map0);
+            mem::forget(map1);
             break ptr;
         };
 
@@ -211,10 +218,10 @@ unsafe fn unmap(ptr: *mut c_void, size: usize) -> Result<(), ()> {
     Ok(())
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_location: &str) {}
 
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(location: &str) {
     eprintln!(
         "Error at {}: {}",

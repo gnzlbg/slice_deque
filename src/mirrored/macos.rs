@@ -2,6 +2,8 @@
 
 #![cfg_attr(feature = "cargo-clippy", allow(shadow_unrelated))]
 
+use mem;
+
 use mach;
 use mach::boolean::boolean_t;
 use mach::kern_return::*;
@@ -13,10 +15,10 @@ use mach::traps::mach_task_self;
 use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
 use mach::vm_inherit::VM_INHERIT_NONE;
 use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
-use mach::types::mem_entry_name_port_t;
+use mach::mach_types::mem_entry_name_port_t;
 
 /// TODO: not exposed by the mach crate
-const VM_FLAGS_OVERWRITE: ::std::os::raw::c_int = 0x4000_i32;
+const VM_FLAGS_OVERWRITE: ::libc::c_int = 0x4000_i32;
 
 /// Returns the size of an allocation unit.
 ///
@@ -84,8 +86,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
 
         // Get an object handle to the first memory region:
         let mut memory_object_size = half_size as memory_object_size_t;
-        let mut object_handle: mem_entry_name_port_t =
-            ::std::mem::uninitialized();
+        let mut object_handle: mem_entry_name_port_t = mem::uninitialized();
         let parent_handle: mem_entry_name_port_t = 0;
         let r: kern_return_t = mach_make_memory_entry_64(
             task,
@@ -109,8 +110,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         // Map the first half to the second half using the object handle:
         let mut to =
             (addr as *mut u8).offset(half_size as isize) as mach_vm_address_t;
-        let mut current_prot: vm_prot_t = ::std::mem::uninitialized();
-        let mut out_prot: vm_prot_t = ::std::mem::uninitialized();
+        let mut current_prot: vm_prot_t = mem::uninitialized();
+        let mut out_prot: vm_prot_t = mem::uninitialized();
         let r: kern_return_t = mach_vm_remap(
             task,
             &mut to as *mut mach_vm_address_t,
@@ -184,17 +185,17 @@ unsafe fn dealloc(ptr: *mut u8, size: usize) -> Result<(), ()> {
 }
 
 /// Prints last os error at `location`.
-#[cfg(not(debug_assertions))]
+#[cfg(not(all(debug_assertions, feature = "use_std")))]
 fn print_error(_msg: &str, _code: kern_return_t) {}
 
 /// Prints last os error at `location`.
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn print_error(msg: &str, code: kern_return_t) {
     eprintln!("ERROR at \"{}\": {}", msg, report_error(code));
 }
 
 /// Maps a vm `kern_return_t` to an error string.
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "use_std"))]
 fn report_error(error: kern_return_t) -> &'static str {
     use mach::kern_return::*;
     match error {

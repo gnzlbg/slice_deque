@@ -123,37 +123,51 @@
                     shared, exact_size_is_empty, collections_range,
                     dropck_eyepatch, generic_param_attrs, trusted_len,
                     offset_to, i128_type, specialization))]
-#![cfg_attr(test,
-            feature(conservative_impl_trait, const_atomic_usize_new,
-                    box_syntax, placement_in_syntax, attr_literals,
+#![cfg_attr(all(test, feature = "unstable"),
+            feature(box_syntax, placement_in_syntax, attr_literals,
                     inclusive_range_syntax, iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
                   cast_sign_loss, cast_possible_truncation, inline_always))]
+#![cfg_attr(not(any(feature = "use_std", test)), no_std)]
 
+#[macro_use]
+mod macros;
+
+#[cfg(any(feature = "use_std", test))]
 extern crate core;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(any(target_os = "macos", target_os = "ios"),
+          not(feature = "unix_sysv")))]
 extern crate mach;
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(unix)]
 extern crate libc;
 
 #[cfg(target_os = "windows")]
 extern crate winapi;
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 extern crate bytes;
 
 mod mirrored;
 pub use mirrored::Buffer;
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 use std::io;
 
-use core::{cmp, convert, fmt, hash, iter, mem, ptr, slice};
+use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
 #[cfg(feature = "unstable")]
+use core::ptr::NonNull;
+
+#[cfg(not(feature = "unstable"))]
+mod nonnull;
+
+#[cfg(not(feature = "unstable"))]
+use nonnull::NonNull;
+
+#[cfg(all(feature = "unstable", feature = "use_std"))]
 use std::collections;
 
 #[cfg(feature = "unstable")]
@@ -271,6 +285,10 @@ pub struct SliceDeque<T> {
     buf: Buffer<T>,
 }
 
+/// Implementation detail of the sdeq! macro.
+#[doc(hidden)]
+pub use mem::forget as __mem_forget;
+
 /// Creates a [`SliceDeque`] containing the arguments.
 ///
 /// `sdeq!` allows `SliceDeque`s to be defined with the same syntax as array
@@ -339,7 +357,7 @@ macro_rules! sdeq {
             unsafe {
                 let slice = [$($x),*];
                 let deq = $crate::SliceDeque::steal_from_slice(&slice);
-                ::std::mem::forget(slice);
+                $crate::__mem_forget(slice);
                 deq
             }
         }
@@ -392,13 +410,18 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
-        Self {
-            head: 0,
-            tail: 0,
-            buf: Buffer::uninitialized(2 * n).expect(&format!(
-                "failed to allocate a buffer with capacity: {}",
-                n
-            )),
+        unsafe {
+            Self {
+                head: 0,
+                tail: 0,
+                buf: Buffer::uninitialized(2 * n).unwrap_or_else(|()| {
+                    let s = tiny_str!(
+                        "failed to allocate a buffer with capacity: {}",
+                        n
+                    );
+                    panic!("{}", s.as_str())
+                }),
+            }
         }
     }
 
@@ -992,7 +1015,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
@@ -1038,7 +1061,7 @@ impl<T> SliceDeque<T> {
                 tail_start: end,
                 tail_len: len - end,
                 iter: range_slice.iter(),
-                deq: ptr::NonNull::from(self),
+                deq: NonNull::from(self),
             }
         }
     }
@@ -1502,7 +1525,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     pub fn splice<R, I>(
         &mut self, range: R, replace_with: I
     ) -> Splice<I::IntoIter>
@@ -1565,7 +1588,7 @@ impl<T> SliceDeque<T> {
     /// # fn main() {
     /// let mut numbers = sdeq![1, 2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15];
     ///
-    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
+    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
     /// let odds = numbers;
     ///
     /// assert_eq!(sdeq![2, 4, 6, 8, 14], evens);
@@ -1779,7 +1802,7 @@ impl<T> Drop for SliceDeque<T> {
     }
 }
 
-impl<T> core::ops::Deref for SliceDeque<T> {
+impl<T> ops::Deref for SliceDeque<T> {
     type Target = [T];
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -1787,7 +1810,7 @@ impl<T> core::ops::Deref for SliceDeque<T> {
     }
 }
 
-impl<T> core::ops::DerefMut for SliceDeque<T> {
+impl<T> ops::DerefMut for SliceDeque<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
@@ -1866,6 +1889,8 @@ macro_rules! __impl_slice_eq1 {
 __impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
 __impl_slice_eq1! { SliceDeque<A>, &'b [B] }
 __impl_slice_eq1! { SliceDeque<A>, &'b mut [B] }
+
+#[cfg(feature = "use_std")]
 __impl_slice_eq1! { SliceDeque<A>, Vec<B> }
 
 macro_rules! array_impls {
@@ -1917,7 +1942,7 @@ pub struct Drain<'a, T: 'a> {
     /// Current remaining range to remove
     iter: slice::Iter<'a, T>,
     /// A shared mutable pointer to the deque (with shared ownership).
-    deq: ptr::NonNull<SliceDeque<T>>,
+    deq: NonNull<SliceDeque<T>>,
 }
 
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
@@ -1994,7 +2019,7 @@ impl<'a, T> iter::FusedIterator for Drain<'a, T> {}
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
     /// NonNull pointer to the buffer
-    buf: ptr::NonNull<T>,
+    buf: NonNull<T>,
     /// Capacity of the buffer.
     cap: usize,
     /// Pointer to the first element.
@@ -2227,7 +2252,7 @@ impl<T> IntoIterator for SliceDeque<T> {
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
-                buf: ptr::NonNull::new_unchecked(buf_ptr),
+                buf: NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end,
@@ -2785,7 +2810,7 @@ impl<T> convert::AsMut<[T]> for SliceDeque<T> {
     }
 }
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 impl ::bytes::BufMut for SliceDeque<u8> {
     #[inline]
     fn remaining_mut(&self) -> usize {
@@ -2817,7 +2842,7 @@ impl ::bytes::BufMut for SliceDeque<u8> {
     }
 }
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 impl ::bytes::IntoBuf for SliceDeque<u8> {
     type Buf = io::Cursor<SliceDeque<u8>>;
 
@@ -2826,7 +2851,7 @@ impl ::bytes::IntoBuf for SliceDeque<u8> {
     }
 }
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 impl<'a> ::bytes::IntoBuf for &'a SliceDeque<u8> {
     type Buf = io::Cursor<&'a [u8]>;
 
@@ -2835,7 +2860,7 @@ impl<'a> ::bytes::IntoBuf for &'a SliceDeque<u8> {
     }
 }
 
-#[cfg(feature = "bytes_buf")]
+#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 impl ::bytes::buf::FromBuf for SliceDeque<u8> {
     fn from_buf<T>(buf: T) -> Self
     where
@@ -2852,7 +2877,8 @@ impl ::bytes::buf::FromBuf for SliceDeque<u8> {
 #[cfg(test)]
 mod tests {
     use super::SliceDeque;
-    use std::{fmt, hash, mem};
+    use std::{collections, fmt, hash, mem};
+    use self::collections::HashMap;
     use std::rc::Rc;
     use std::cell::RefCell;
 
@@ -2867,7 +2893,7 @@ mod tests {
         }
     }
 
-    fn sizes_to_test() -> impl Iterator<Item = usize> {
+    fn sizes_to_test() -> Vec<usize> {
         let sample = vec![
             /* powers of 2 */ 2, 4, 8, 16, 32, 64,
             128 /*
@@ -2885,7 +2911,7 @@ mod tests {
             // powers of 10
             10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/,
         ];
-        sample.into_iter()
+        sample.into_iter().collect()
     }
 
     fn linear_usize_deque(size: usize) -> SliceDeque<usize> {
@@ -3041,7 +3067,6 @@ mod tests {
     #[test]
     fn clear() {
         for size in sizes_to_test() {
-            println!("s: {}", size);
             let mut counter = Rc::new(RefCell::new(0));
             let val = WithDrop {
                 counter: counter.clone(),
@@ -3131,7 +3156,6 @@ mod tests {
 
     #[test]
     fn hash_map() {
-        use std::collections::HashMap;
         let mut hm: HashMap<SliceDeque<u32>, u32> = HashMap::new();
         let mut a = SliceDeque::new();
         a.push_back(1);
@@ -3368,6 +3392,7 @@ mod tests {
         assert!(w.as_ptr() != z.as_ptr())
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_clone_from() {
         let mut v = sdeq![];
@@ -3451,6 +3476,7 @@ mod tests {
         assert_eq!(deq, [("foo", 3), ("bar", 12)]);
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vec_dedup_unique() {
         let mut v0: SliceDeque<Box<_>> = sdeq![box 1, box 1, box 2, box 3];
@@ -3653,7 +3679,7 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_items() {
         let mut deq = sdeq![1, 2, 3];
@@ -3665,7 +3691,7 @@ mod tests {
         assert_eq!(deq2, [1, 2, 3]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_items_reverse() {
         let mut deq = sdeq![1, 2, 3];
@@ -3677,7 +3703,7 @@ mod tests {
         assert_eq!(deq2, [3, 2, 1]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_items_zero_sized() {
@@ -3690,7 +3716,7 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_out_of_bounds() {
@@ -3698,7 +3724,7 @@ mod tests {
         v.drain(5..6);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3714,7 +3740,7 @@ mod tests {
         assert_eq!(v, &[1.to_string(), 5.to_string()]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized types
     fn vec_drain_range_zst() {
@@ -3723,7 +3749,7 @@ mod tests {
         assert_eq!(v, &[(), ()]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_inclusive_range() {
         let mut v = sdeq!['a', 'b', 'c', 'd', 'e'];
@@ -3749,6 +3775,7 @@ mod tests {
     }
 
     /*
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized types
     fn vec_drain_max_vec_size() {
@@ -3767,7 +3794,7 @@ mod tests {
         assert_eq!(v.len(), usize::max_value() - 1);
     }*/
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_inclusive_out_of_bounds() {
@@ -3775,7 +3802,7 @@ mod tests {
         v.drain(5..=5);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3786,7 +3813,7 @@ mod tests {
         assert_eq!(v, &[1, 20, 11, 12, 5]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_inclusive_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -3799,7 +3826,7 @@ mod tests {
         assert_eq!(t2, &[2, 10]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_splice_out_of_bounds() {
@@ -3808,7 +3835,7 @@ mod tests {
         v.splice(5..6, a.iter().cloned());
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_splice_inclusive_out_of_bounds() {
@@ -3817,7 +3844,7 @@ mod tests {
         v.splice(5..=5, a.iter().cloned());
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized
     fn vec_splice_items_zero_sized() {
@@ -3829,7 +3856,7 @@ mod tests {
         assert_eq!(t, &[()]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_unbounded() {
         let mut deq = sdeq![1, 2, 3, 4, 5];
@@ -3838,7 +3865,7 @@ mod tests {
         assert_eq!(t, &[1, 2, 3, 4, 5]);
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_forget() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -4007,6 +4034,7 @@ fn vec_placement() {
         assert!(ptr != deq.as_ptr());
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn overaligned_allocations() {
         #[repr(align(256))]
@@ -4329,8 +4357,8 @@ fn vec_placement() {
     use tests::Taggypar::*;
 
     fn hash<T: hash::Hash>(t: &T) -> u64 {
-        let mut s = ::std::collections::hash_map::DefaultHasher::new();
-        use std::hash::Hasher;
+        let mut s = collections::hash_map::DefaultHasher::new();
+        use hash::Hasher;
         t.hash(&mut s);
         s.finish()
     }
@@ -4611,11 +4639,8 @@ fn vec_placement() {
                 d.push_front(i);
             }
 
-            eprintln!("{:?}", d);
             let b = vec![8, 7, 6, 0, 1, 2, 3, 4];
-            eprintln!("HERE A");
             assert_eq!(d.into_iter().collect::<Vec<_>>(), b);
-            eprintln!("HERE B");
         }
 
         // partially used
@@ -4639,7 +4664,7 @@ fn vec_placement() {
         }
     }
 
-    #[cfg(feature = "unstable")]
+    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vecdeque_drain() {
         // Empty iter
@@ -4709,6 +4734,7 @@ fn vec_placement() {
         }
     }
 
+    #[cfg(feature = "unstable")]
     #[test]
     fn vecdeque_from_iter() {
         let v = vec![1, 2, 3, 4, 5, 6, 7];
@@ -5313,7 +5339,7 @@ fn vecdeque_placement_in() {
 }
      */
 
-    #[cfg(feature = "bytes_buf")]
+    #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
     #[test]
     fn bytes_bufmut() {
         use bytes::{BigEndian, BufMut};
@@ -5413,7 +5439,7 @@ fn vecdeque_placement_in() {
         }
     }
 
-    #[cfg(feature = "bytes_buf")]
+    #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
     #[test]
     fn bytes_buf() {
         {

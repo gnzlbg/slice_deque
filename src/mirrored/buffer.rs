@@ -70,14 +70,14 @@ impl<T> Buffer<T> {
     ///
     /// Warning: Some memory might be uninitialized.
     pub unsafe fn as_slice(&self) -> &[T] {
-        ::std::slice::from_raw_parts(self.ptr.get(), self.len())
+        slice::from_raw_parts(self.ptr.get(), self.len())
     }
 
     /// Interprets contents as a mut slice.
     ///
     /// Warning: Some memory might be uninitialized.
     pub unsafe fn as_mut_slice(&mut self) -> &mut [T] {
-        ::std::slice::from_raw_parts_mut(self.ptr.get(), self.len())
+        slice::from_raw_parts_mut(self.ptr.get(), self.len())
     }
 
     /// Interprets content as a slice and access the `i`-th element.
@@ -97,7 +97,7 @@ impl<T> Buffer<T> {
     /// Creates a new empty `Buffer`.
     pub fn new() -> Self {
         // Zero-sized elements are not supported yet:
-        assert!(::std::mem::size_of::<T>() > 0);
+        assert!(mem::size_of::<T>() > 0);
         // Here `ptr` is initialized to a magic value but `len == 0`
         // will ensure that it is never dereferenced in this state.
         unsafe {
@@ -115,7 +115,7 @@ impl<T> Buffer<T> {
     /// If `ptr` is null.
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
         // Zero-sized types are not supported yet:
-        assert!(::std::mem::size_of::<T>() > 0);
+        assert!(mem::size_of::<T>() > 0);
         assert!(!ptr.is_null());
         Self {
             ptr: NonZero::new_unchecked(ptr),
@@ -125,7 +125,7 @@ impl<T> Buffer<T> {
 
     /// Total number of bytes in the buffer (including mirrored memory).
     fn size_in_bytes(len: usize) -> usize {
-        no_required_allocation_units(len * ::std::mem::size_of::<T>())
+        no_required_allocation_units(len * mem::size_of::<T>())
             * allocation_granularity()
     }
 
@@ -133,10 +133,10 @@ impl<T> Buffer<T> {
     /// the buffer is mirrored into the second half.
     pub fn uninitialized(len: usize) -> Result<Self, ()> {
         // Zero-sized types are not supported yet:
-        assert!(::std::mem::size_of::<T>() > 0);
+        assert!(mem::size_of::<T>() > 0);
         // The alignment requirements of `T` must be smaller than the
         // allocation granularity.
-        assert!(::std::mem::align_of::<T>() <= allocation_granularity());
+        assert!(mem::align_of::<T>() <= allocation_granularity());
         // To split the buffer in two halfs the number of elements must be a
         // multiple of two, and greater than zero to be able to mirror
         // something.
@@ -155,7 +155,7 @@ impl<T> Buffer<T> {
 
         Ok(Self {
             ptr: unsafe { NonZero::new_unchecked(ptr as *mut T) },
-            len: alloc_size / ::std::mem::size_of::<T>(),
+            len: alloc_size / mem::size_of::<T>(),
         })
     }
 }
@@ -214,8 +214,7 @@ mod tests {
             assert!(sz >= size);
             assert_eq!(
                 sz,
-                Buffer::<u64>::size_in_bytes(size)
-                    / ::std::mem::size_of::<u64>()
+                Buffer::<u64>::size_in_bytes(size) / mem::size_of::<u64>()
             );
 
             for i in 0..sz / 2 {
@@ -237,7 +236,7 @@ mod tests {
     #[test]
     fn allocations() {
         let elements_per_alloc_unit =
-            allocation_granularity() / ::std::mem::size_of::<u64>();
+            allocation_granularity() / mem::size_of::<u64>();
         let sizes = [
             8,
             elements_per_alloc_unit / 2,

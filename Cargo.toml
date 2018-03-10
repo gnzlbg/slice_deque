@@ -1,3 +1,5 @@
+# This cargo file is used exclusively for development. It includes
+# dev-dependencies which causes 
 [package]
 name = "slice-deque"
 version = "0.1.5"
@@ -8,7 +10,7 @@ homepage = "https://github.com/gnzlbg/slice_deque"
 repository = "https://github.com/gnzlbg/slice_deque"
 readme = "readme.md"
 keywords = ["collection", "deque"]
-categories = ["data-structures"]
+categories = ["data-structures", "no-std"]
 license = "MIT/Apache-2.0"
 
 [badges]
@@ -19,24 +21,36 @@ is-it-maintained-issue-resolution = { repository = "gnzlbg/slice_deque" }
 is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
 maintenance = { status = "experimental" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2"
+[target.'cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))'.dependencies.mach]
+git = "https://github.com/fitzgen/mach"
+default-features = false
 
-[target.'cfg(target_os = "android")'.dependencies]
-libc = "0.2"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-mach = "0.1.*"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3.*", features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"] }
+[target.'cfg(target_os = "windows")'.dependencies.winapi]
+version = "0.3.*"
+features = ["memoryapi", "handleapi", "sysinfoapi", "winbase"]
+default-features = false
 
 [features]
-bytes_buf = ["bytes"]
-unstable = []
+default = [ "use_std" ]
 
-[dependencies]
-bytes = { version = "0.4.*", optional = true }
+# Enables features that require the standard library
+use_std = [ "libc/use_std", "mach/use_std" ]
+# Enables support for the bytes_buf trait. That is,
+# SliceDeque implements the Buf and BufMut traits.
+#bytes_buf = ["bytes", "use_std"]
+# Enable features that require unstable Rust (nightly).
+unstable = []
+# Uses a super-portable but potentially slower System V interprocess
+# shared-memory implementation instead of system-specific ones on unix-like
+# targets.
+unix_sysv = []
+
+#[dependencies]
+#bytes = { version = "0.4.*", optional = true }
+
+[target.'cfg(any(unix, target_os = "dragonfly"))'.dependencies.libc]
+version = "0.2"
+default-features = false
 
 [profile.dev]
 opt-level = 0
