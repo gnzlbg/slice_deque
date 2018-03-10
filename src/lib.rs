@@ -357,7 +357,7 @@ macro_rules! sdeq {
             unsafe {
                 let array = [$($x),*];
                 let deq = $crate::SliceDeque::steal_from_slice(&array);
-                #[allow(forget_copy)]
+                #[cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
                 $crate::__mem_forget(array);
                 deq
             }
