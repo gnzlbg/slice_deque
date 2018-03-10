@@ -4,6 +4,8 @@ services: docker
 matrix:
   fast_finish: true
   allow_failures:
+  # Travis runs out of file-descriptors for some reason...
+  - env: TARGET=x86_64-apple-darwin SYSV=1
   # These did never work
   - env: TARGET=sparc64-unknown-linux-gnu NOSTD=1
   # These are missing libc sysV functions:
@@ -86,6 +88,9 @@ matrix:
   - env: TARGET=i686-apple-darwin
     os: osx
   - env: TARGET=x86_64-apple-darwin
+    os: osx
+    osx_image: xcode9.2
+  - env: TARGET=x86_64-apple-darwin SYSV=1
     os: osx
     osx_image: xcode9.2
   - env: TARGET=i386-apple-ios

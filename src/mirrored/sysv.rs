@@ -179,7 +179,9 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
                 print_error("attach_shm second failed");
                 continue;
             }
-            // On success we leak the maps to keep them alive
+            // On success we leak the maps to keep them alive.
+            // On drop we rebuild the maps from ptr and ptr + half_size
+            // to deallocate them.
             mem::forget(map0);
             mem::forget(map1);
             break ptr;
