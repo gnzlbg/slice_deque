@@ -355,9 +355,10 @@ macro_rules! sdeq {
     ($($x:expr),*) => (
         {
             unsafe {
-                let slice = [$($x),*];
-                let deq = $crate::SliceDeque::steal_from_slice(&slice);
-                $crate::__mem_forget(slice);
+                let array = [$($x),*];
+                let deq = $crate::SliceDeque::steal_from_slice(&array);
+                #[allow(forget_copy)]
+                $crate::__mem_forget(array);
                 deq
             }
         }

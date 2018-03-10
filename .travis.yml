@@ -88,6 +88,9 @@ matrix:
   - env: TARGET=x86_64-apple-darwin
     os: osx
     osx_image: xcode9.2
+  - env: TARGET=x86_64-apple-darwin SYSV=1
+    os: osx
+    osx_image: xcode9.2
   - env: TARGET=i386-apple-ios
     os: osx
     osx_image: xcode9.2
