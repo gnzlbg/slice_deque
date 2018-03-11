@@ -137,6 +137,10 @@ mod macros;
 #[cfg(any(feature = "use_std", test))]
 extern crate core;
 
+#[cfg(feature = "use_std")]
+#[macro_use]
+extern crate lazy_static;
+
 #[cfg(all(any(target_os = "macos", target_os = "ios"),
           not(feature = "unix_sysv")))]
 extern crate mach;
@@ -288,6 +292,8 @@ pub struct SliceDeque<T> {
 /// Implementation detail of the sdeq! macro.
 #[doc(hidden)]
 pub use mem::forget as __mem_forget;
+
+pub use mirrored::release;
 
 /// Creates a [`SliceDeque`] containing the arguments.
 ///

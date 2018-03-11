@@ -1,6 +1,7 @@
 //! Implements a mirrored memory buffer.
 
 use super::*;
+use super::alloc::{allocation_granularity, allocate_mirrored, deallocate_mirrored};
 
 #[cfg(feature = "unstable")]
 use core::nonzero::NonZero;
