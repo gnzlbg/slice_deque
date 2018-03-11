@@ -336,7 +336,6 @@
 <span id="280">280</span>
 <span id="281">281</span>
 <span id="282">282</span>
-<span id="283">283</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Implements a mirrored memory buffer.</span>
 
@@ -410,14 +409,14 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Warning: Some memory might be uninitialized.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">as_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">T</span>] {
-        ::<span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">get</span>(), <span class="self">self</span>.<span class="ident">len</span>())
+        <span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">get</span>(), <span class="self">self</span>.<span class="ident">len</span>())
     }
 
     <span class="doccomment">/// Interprets contents as a mut slice.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Warning: Some memory might be uninitialized.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">as_mut_slice</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">T</span>] {
-        ::<span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">get</span>(), <span class="self">self</span>.<span class="ident">len</span>())
+        <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">get</span>(), <span class="self">self</span>.<span class="ident">len</span>())
     }
 
     <span class="doccomment">/// Interprets content as a slice and access the `i`-th element.</span>
@@ -437,7 +436,7 @@
     <span class="doccomment">/// Creates a new empty `Buffer`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="comment">// Zero-sized elements are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="comment">// Here `ptr` is initialized to a magic value but `len == 0`</span>
         <span class="comment">// will ensure that it is never dereferenced in this state.</span>
         <span class="kw">unsafe</span> {
@@ -455,7 +454,7 @@
     <span class="doccomment">/// If `ptr` is null.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="comment">// Zero-sized types are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">ptr</span>.<span class="ident">is_null</span>());
         <span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="ident">NonZero</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span>),
@@ -465,7 +464,7 @@
 
     <span class="doccomment">/// Total number of bytes in the buffer (including mirrored memory).</span>
     <span class="kw">fn</span> <span class="ident">size_in_bytes</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
-        <span class="ident">no_required_allocation_units</span>(<span class="ident">len</span> <span class="op">*</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())
+        <span class="ident">no_required_allocation_units</span>(<span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())
             <span class="op">*</span> <span class="ident">allocation_granularity</span>()
     }
 
@@ -473,10 +472,10 @@
     <span class="doccomment">/// the buffer is mirrored into the second half.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uninitialized</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, ()<span class="op">&gt;</span> {
         <span class="comment">// Zero-sized types are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="comment">// The alignment requirements of `T` must be smaller than the</span>
         <span class="comment">// allocation granularity.</span>
-        <span class="macro">assert</span><span class="macro">!</span>(::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&lt;=</span> <span class="ident">allocation_granularity</span>());
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&lt;=</span> <span class="ident">allocation_granularity</span>());
         <span class="comment">// To split the buffer in two halfs the number of elements must be a</span>
         <span class="comment">// multiple of two, and greater than zero to be able to mirror</span>
         <span class="comment">// something.</span>
@@ -495,7 +494,7 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="kw">unsafe</span> { <span class="ident">NonZero</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>) },
-            <span class="ident">len</span>: <span class="ident">alloc_size</span> <span class="op">/</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="ident">len</span>: <span class="ident">alloc_size</span> <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
         })
     }
 }
@@ -554,8 +553,7 @@
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">sz</span> <span class="op">&gt;=</span> <span class="ident">size</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(
                 <span class="ident">sz</span>,
-                <span class="ident">Buffer</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>::<span class="ident">size_in_bytes</span>(<span class="ident">size</span>)
-                    <span class="op">/</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()
+                <span class="ident">Buffer</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>::<span class="ident">size_in_bytes</span>(<span class="ident">size</span>) <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()
             );
 
             <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sz</span> <span class="op">/</span> <span class="number">2</span> {
@@ -577,7 +575,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">allocations</span>() {
         <span class="kw">let</span> <span class="ident">elements_per_alloc_unit</span> <span class="op">=</span>
-            <span class="ident">allocation_granularity</span>() <span class="op">/</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>();
+            <span class="ident">allocation_granularity</span>() <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>();
         <span class="kw">let</span> <span class="ident">sizes</span> <span class="op">=</span> [
             <span class="number">8</span>,
             <span class="ident">elements_per_alloc_unit</span> <span class="op">/</span> <span class="number">2</span>,
