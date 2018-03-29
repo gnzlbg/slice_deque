@@ -33,7 +33,9 @@ macro_rules! alloc {
         #[bench]
         fn $name(b: &mut test::Bencher) {
             let cap = alloc_granularity_cap($factor);
-            b.iter(|| { alloc_and_flush(cap); });
+            b.iter(|| {
+                alloc_and_flush(cap);
+            });
         }
     };
 }

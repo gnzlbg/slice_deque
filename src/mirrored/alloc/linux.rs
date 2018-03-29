@@ -4,10 +4,10 @@ use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
            ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
            _SC_PAGESIZE};
 
-#[cfg(not(target_os = "android"))]
-use libc::__errno_location;
 #[cfg(target_os = "android")]
 use libc::__errno;
+#[cfg(not(target_os = "android"))]
+use libc::__errno_location;
 
 use super::ptr;
 
@@ -28,9 +28,13 @@ pub fn allocation_granularity() -> usize {
 /// Reads `errno`.
 fn errno() -> c_int {
     #[cfg(not(target_os = "android"))]
-    unsafe { *__errno_location() }
+    unsafe {
+        *__errno_location()
+    }
     #[cfg(target_os = "android")]
-    unsafe { *__errno() }
+    unsafe {
+        *__errno()
+    }
 }
 
 /// Allocates an uninitialzied buffer that holds `size` bytes, where

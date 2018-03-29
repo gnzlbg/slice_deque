@@ -7,15 +7,15 @@ use mem;
 use mach;
 use mach::boolean::boolean_t;
 use mach::kern_return::*;
-use mach::vm_types::mach_vm_address_t;
-use mach::vm_prot::{vm_prot_t, VM_PROT_READ, VM_PROT_WRITE};
+use mach::mach_types::mem_entry_name_port_t;
+use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
+use mach::traps::mach_task_self;
 use mach::vm::{mach_vm_allocate, mach_vm_deallocate, mach_vm_remap,
                mach_make_memory_entry_64};
-use mach::traps::mach_task_self;
-use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
 use mach::vm_inherit::VM_INHERIT_NONE;
-use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
-use mach::mach_types::mem_entry_name_port_t;
+use mach::vm_prot::{vm_prot_t, VM_PROT_READ, VM_PROT_WRITE};
+use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
+use mach::vm_types::mach_vm_address_t;
 
 /// TODO: not exposed by the mach crate
 const VM_FLAGS_OVERWRITE: ::libc::c_int = 0x4000_i32;

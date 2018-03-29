@@ -22,7 +22,7 @@ mod alloc_impl;
 
 /// WinAPI implementation.
 #[cfg(target_os = "windows")]
-#[path = "windows.rs"]
+#[path = "winapi.rs"]
 mod alloc_impl;
 
 /// Smallest allocation size of the Operating System.
@@ -56,12 +56,17 @@ mod cache {
         /// allocation_granularity()` bytes.
         smallest: Vec<usize>,
         /// Caches all other allocations.
-        other: ::std::collections::HashMap<usize, Vec<usize>>
+        other: ::std::collections::HashMap<usize, Vec<usize>>,
     }
 
     impl Cache {
         /// Instantiates a new empty cache.
-        pub fn new() -> Self { Self { smallest: Vec::with_capacity(512), other: ::std::collections::HashMap::new() } }
+        pub fn new() -> Self {
+            Self {
+                smallest: Vec::with_capacity(512),
+                other: ::std::collections::HashMap::new(),
+            }
+        }
         /// Tries to fetch an allocation of size `size` from the cache.
         pub fn pop(&mut self, size: usize) -> Option<*mut u8> {
             if size == 2 * allocation_granularity() {
@@ -74,19 +79,23 @@ mod cache {
             }
             None
         }
-        /// Caches a memory region of size `[ptr, ptr + size)` for future reuse.
+        /// Caches a memory region of size `[ptr, ptr + size)` for future
+        /// reuse.
         pub fn push(&mut self, ptr: *mut u8, size: usize) -> bool {
             if size == 2 * allocation_granularity() {
                 self.smallest.push(ptr as usize);
                 return true;
             }
-            self.other.entry(size).and_modify(|v| {
-                v.push(ptr as usize);
-            }).or_insert_with(|| {
-                let mut v = Vec::with_capacity(128);
-                v.push(ptr as usize);
-                v
-            });
+            self.other
+                .entry(size)
+                .and_modify(|v| {
+                    v.push(ptr as usize);
+                })
+                .or_insert_with(|| {
+                    let mut v = Vec::with_capacity(128);
+                    v.push(ptr as usize);
+                    v
+                });
             true
         }
     }
@@ -94,11 +103,21 @@ mod cache {
     impl Drop for Cache {
         fn drop(&mut self) {
             for &ptr in &self.smallest {
-                unsafe { super::alloc_impl::deallocate_mirrored(ptr as *mut u8, 2 * allocation_granularity()) }; 
+                unsafe {
+                    super::alloc_impl::deallocate_mirrored(
+                        ptr as *mut u8,
+                        2 * allocation_granularity(),
+                    )
+                };
             }
             for (&size, vec) in &self.other {
                 for &ptr in vec {
-                    unsafe { super::alloc_impl::deallocate_mirrored(ptr as *mut u8, size) };
+                    unsafe {
+                        super::alloc_impl::deallocate_mirrored(
+                            ptr as *mut u8,
+                            size,
+                        )
+                    };
                 }
             }
         }
@@ -113,7 +132,7 @@ mod cache {
 
     /// Deallocates the memory in range `[ptr, ptr + size)`
     pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
-        if !POOL.with(|v| (&mut *v.get()).push(ptr, size) ) {
+        if !POOL.with(|v| (&mut *v.get()).push(ptr, size)) {
             super::alloc_impl::deallocate_mirrored(ptr, size);
         }
     }

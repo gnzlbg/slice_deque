@@ -1,7 +1,8 @@
 //! Implements a mirrored memory buffer.
 
+use super::alloc::{allocate_mirrored, allocation_granularity,
+                   deallocate_mirrored};
 use super::*;
-use super::alloc::{allocation_granularity, allocate_mirrored, deallocate_mirrored};
 
 #[cfg(feature = "unstable")]
 use core::nonzero::NonZero;
@@ -260,7 +261,10 @@ mod tests {
             no_required_allocation_units(allocation_granularity() / 2),
             2
         );
-        assert_eq!(no_required_allocation_units(allocation_granularity()), 2);
+        assert_eq!(
+            no_required_allocation_units(allocation_granularity()),
+            2
+        );
         assert_eq!(
             no_required_allocation_units(2 * allocation_granularity()),
             2
