@@ -55,7 +55,7 @@ default-features = false
 [profile.dev]
 opt-level = 0
 debug = true
-rpath = true
+rpath = false
 lto = false
 debug-assertions = true
 codegen-units = 4
