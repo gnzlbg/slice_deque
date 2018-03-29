@@ -1,5 +1,11 @@
 //! A double-ended queue that `Deref`s into a slice.
 //!
+//! The API is in the docs of the [`SliceDeque`] type. The other important
+//! function is `slice_deque::release()`, which releases the memory of all
+//! previously cached but unused allocations in the current thread.
+//!
+//! #### Design
+//!
 //! The double-ended queue in the standard library ([`VecDeque`]) is
 //! implemented using a growable ring buffer (`0` represents uninitialized
 //! memory, and `T` represents one element in the queue):
