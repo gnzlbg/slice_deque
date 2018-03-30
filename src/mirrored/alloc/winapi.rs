@@ -3,16 +3,16 @@
 use mem;
 
 use winapi::shared::basetsd::SIZE_T;
-use winapi::shared::ntdef::LPCWSTR;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
+use winapi::shared::ntdef::LPCWSTR;
 use winapi::um::memoryapi::{CreateFileMappingW, MapViewOfFileEx,
                             UnmapViewOfFile, VirtualAlloc, VirtualFree,
                             FILE_MAP_ALL_ACCESS};
 use winapi::um::winnt::{MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS,
                         PAGE_READWRITE, SEC_COMMIT};
 
-use winapi::um::minwinbase::LPSECURITY_ATTRIBUTES;
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::minwinbase::LPSECURITY_ATTRIBUTES;
 use winapi::um::sysinfoapi::{GetSystemInfo, LPSYSTEM_INFO, SYSTEM_INFO};
 
 pub use winapi::shared::ntdef::HANDLE;

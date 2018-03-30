@@ -1,5 +1,11 @@
 //! A double-ended queue that `Deref`s into a slice.
 //!
+//! The API is in the docs of the [`SliceDeque`] type. The other important
+//! function is `slice_deque::release()`, which releases the memory of all
+//! previously cached but unused allocations in the current thread.
+//!
+//! #### Design
+//!
 //! The double-ended queue in the standard library ([`VecDeque`]) is
 //! implemented using a growable ring buffer (`0` represents uninitialized
 //! memory, and `T` represents one element in the queue):
@@ -158,15 +164,6 @@ use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
-#[cfg(feature = "unstable")]
-use core::ptr::NonNull;
-
-#[cfg(not(feature = "unstable"))]
-mod nonnull;
-
-#[cfg(not(feature = "unstable"))]
-use nonnull::NonNull;
-
 #[cfg(all(feature = "unstable", feature = "use_std"))]
 use std::collections;
 
@@ -288,6 +285,8 @@ pub struct SliceDeque<T> {
 /// Implementation detail of the sdeq! macro.
 #[doc(hidden)]
 pub use mem::forget as __mem_forget;
+
+pub use mirrored::release;
 
 /// Creates a [`SliceDeque`] containing the arguments.
 ///
@@ -480,7 +479,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts(ptr, self.len())
         }
@@ -490,7 +489,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts_mut(ptr, self.len())
         }
@@ -530,8 +529,9 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap =
-            self.capacity().checked_add(additional).expect("overflow");
+        let new_cap = self.capacity()
+            .checked_add(additional)
+            .expect("overflow");
         self.reserve_capacity(new_cap);
     }
 
@@ -1062,7 +1062,7 @@ impl<T> SliceDeque<T> {
                 tail_start: end,
                 tail_len: len - end,
                 iter: range_slice.iter(),
-                deq: NonNull::from(self),
+                deq: ptr::NonNull::from(self),
             }
         }
     }
@@ -1589,8 +1589,8 @@ impl<T> SliceDeque<T> {
     /// # fn main() {
     /// let mut numbers = sdeq![1, 2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15];
     ///
-    /// let evens = numbers.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
-    /// let odds = numbers;
+    /// let evens = numbers.drain_filter(|x| *x % 2 ==
+    /// 0).collect::<SliceDeque<_>>(); let odds = numbers;
     ///
     /// assert_eq!(sdeq![2, 4, 6, 8, 14], evens);
     /// assert_eq!(odds, sdeq![1, 3, 5, 9, 11, 13, 15]);
@@ -1876,15 +1876,20 @@ impl<T: hash::Hash> hash::Hash for SliceDeque<T> {
 // PartialEq implementations:
 
 macro_rules! __impl_slice_eq1 {
-    ($Lhs: ty, $Rhs: ty) => {
+    ($Lhs:ty, $Rhs:ty) => {
         __impl_slice_eq1! { $Lhs, $Rhs, Sized }
     };
-    ($Lhs: ty, $Rhs: ty, $Bound: ident) => {
-        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs where A: PartialEq<B> {
+    ($Lhs:ty, $Rhs:ty, $Bound:ident) => {
+        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs
+        where
+            A: PartialEq<B>,
+        {
             #[inline]
-            fn eq(&self, other: &$Rhs) -> bool { self[..] == other[..] }
+            fn eq(&self, other: &$Rhs) -> bool {
+                self[..] == other[..]
+            }
         }
-    }
+    };
 }
 
 __impl_slice_eq1! { SliceDeque<A>, SliceDeque<B> }
@@ -1943,12 +1948,14 @@ pub struct Drain<'a, T: 'a> {
     /// Current remaining range to remove
     iter: slice::Iter<'a, T>,
     /// A shared mutable pointer to the deque (with shared ownership).
-    deq: NonNull<SliceDeque<T>>,
+    deq: ptr::NonNull<SliceDeque<T>>,
 }
 
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
+        f.debug_tuple("Drain")
+            .field(&self.iter.as_slice())
+            .finish()
     }
 }
 
@@ -2019,8 +2026,8 @@ impl<'a, T> iter::FusedIterator for Drain<'a, T> {}
 /// [`SliceDeque`]: struct.SliceDeque.html
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
-    /// NonNull pointer to the buffer
-    buf: NonNull<T>,
+    /// ptr::NonNull pointer to the buffer
+    buf: ptr::NonNull<T>,
     /// Capacity of the buffer.
     cap: usize,
     /// Pointer to the first element.
@@ -2031,7 +2038,9 @@ pub struct IntoIter<T> {
 
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter").field(&self.as_slice()).finish()
+        f.debug_tuple("IntoIter")
+            .field(&self.as_slice())
+            .finish()
     }
 }
 
@@ -2246,14 +2255,14 @@ impl<T> IntoIterator for SliceDeque<T> {
     #[inline]
     fn into_iter(self) -> IntoIter<T> {
         unsafe {
-            let buf_ptr = self.buf.ptr().get();
+            let buf_ptr = self.buf.ptr().as_ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = buf_ptr.offset(self.head as isize) as *const T;
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
-                buf: NonNull::new_unchecked(buf_ptr),
+                buf: ptr::NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end,
@@ -2470,7 +2479,8 @@ where
         unsafe {
             let len = self.len();
             self.move_tail(slice.len() as isize);
-            self.get_unchecked_mut(len..).copy_from_slice(slice);
+            self.get_unchecked_mut(len..)
+                .copy_from_slice(slice);
         }
     }
 }
@@ -2554,7 +2564,7 @@ impl SpecFromElem for u8 {
 }
 
 macro_rules! impl_spec_from_elem {
-    ($t: ty, $is_zero: expr) => {
+    ($t:ty, $is_zero:expr) => {
         #[cfg(feature = "unstable")]
         impl SpecFromElem for $t {
             #[inline]
@@ -2646,7 +2656,10 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
 
         unsafe {
             if self.drain.tail_len == 0 {
-                self.drain.deq.as_mut().extend(self.replace_with.by_ref());
+                self.drain
+                    .deq
+                    .as_mut()
+                    .extend(self.replace_with.by_ref());
                 return;
             }
 
@@ -2794,7 +2807,8 @@ where
             let new_len = self.old_len - self.del;
             let new_tail = self.deq.head + new_len;
             let old_tail = self.deq.tail;
-            self.deq.move_tail(new_tail as isize - old_tail as isize);
+            self.deq
+                .move_tail(new_tail as isize - old_tail as isize);
         }
     }
 }
@@ -2877,11 +2891,11 @@ impl ::bytes::buf::FromBuf for SliceDeque<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::SliceDeque;
-    use std::{collections, fmt, hash, mem};
     use self::collections::HashMap;
-    use std::rc::Rc;
+    use super::SliceDeque;
     use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::{collections, fmt, hash, mem};
 
     #[derive(Clone, Debug)]
     struct WithDrop {
@@ -3152,7 +3166,10 @@ mod tests {
             *num = *num - 2;
         }
         let b: &[_] = &[&mut 3, &mut 1, &mut 2];
-        assert_eq!(&deq.iter_mut().collect::<Vec<&mut i32>>()[..], b);
+        assert_eq!(
+            &deq.iter_mut().collect::<Vec<&mut i32>>()[..],
+            b
+        );
     }
 
     #[test]
@@ -3455,7 +3472,10 @@ mod tests {
         case(sdeq![10, 11, 20, 30], sdeq![10, 20, 30]);
         case(sdeq![10, 20, 21, 30], sdeq![10, 20, 30]);
         case(sdeq![10, 20, 30, 31], sdeq![10, 20, 30]);
-        case(sdeq![10, 11, 20, 21, 22, 30, 31], sdeq![10, 20, 30]);
+        case(
+            sdeq![10, 11, 20, 21, 22, 30, 31],
+            sdeq![10, 20, 30],
+        );
     }
 
     #[test]
@@ -3465,8 +3485,13 @@ mod tests {
 
         assert_eq!(deq, ["foo", "bar", "baz", "bar"]);
 
-        let mut deq: SliceDeque<(&'static str, i32)> =
-            sdeq![("foo", 1), ("foo", 2), ("bar", 3), ("bar", 4), ("bar", 5)];
+        let mut deq: SliceDeque<(&'static str, i32)> = sdeq![
+            ("foo", 1),
+            ("foo", 2),
+            ("bar", 3),
+            ("bar", 4),
+            ("bar", 5)
+        ];
         deq.dedup_by(|a, b| {
             a.0 == b.0 && {
                 b.1 += a.1;
@@ -3590,8 +3615,12 @@ mod tests {
             }
         }
 
-        let mut v =
-            sdeq![BadElem(1), BadElem(2), BadElem(0xbadbeef), BadElem(4)];
+        let mut v = sdeq![
+            BadElem(1),
+            BadElem(2),
+            BadElem(0xbadbeef),
+            BadElem(4)
+        ];
         v.truncate(0);
     }
 
@@ -4144,15 +4173,20 @@ fn vec_placement() {
                 31, 33, 34, 35, 36, 37, 39,
             ];
 
-            let removed =
-                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            let removed = deq.drain_filter(|x| *x % 2 == 0)
+                .collect::<SliceDeque<_>>();
             assert_eq!(removed.len(), 10);
-            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+            assert_eq!(
+                removed,
+                sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]
+            );
 
             assert_eq!(deq.len(), 14);
             assert_eq!(
                 deq,
-                sdeq![1, 7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]
+                sdeq![
+                    1, 7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39
+                ]
             );
         }
 
@@ -4163,10 +4197,13 @@ fn vec_placement() {
                 33, 34, 35, 36, 37, 39,
             ];
 
-            let removed =
-                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            let removed = deq.drain_filter(|x| *x % 2 == 0)
+                .collect::<SliceDeque<_>>();
             assert_eq!(removed.len(), 10);
-            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+            assert_eq!(
+                removed,
+                sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]
+            );
 
             assert_eq!(deq.len(), 13);
             assert_eq!(
@@ -4182,13 +4219,19 @@ fn vec_placement() {
                 33, 34, 35, 36,
             ];
 
-            let removed =
-                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            let removed = deq.drain_filter(|x| *x % 2 == 0)
+                .collect::<SliceDeque<_>>();
             assert_eq!(removed.len(), 10);
-            assert_eq!(removed, sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
+            assert_eq!(
+                removed,
+                sdeq![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]
+            );
 
             assert_eq!(deq.len(), 11);
-            assert_eq!(deq, sdeq![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35]);
+            assert_eq!(
+                deq,
+                sdeq![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35]
+            );
         }
 
         {
@@ -4198,10 +4241,13 @@ fn vec_placement() {
                 17, 19,
             ];
 
-            let removed =
-                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            let removed = deq.drain_filter(|x| *x % 2 == 0)
+                .collect::<SliceDeque<_>>();
             assert_eq!(removed.len(), 10);
-            assert_eq!(removed, sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+            assert_eq!(
+                removed,
+                sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+            );
 
             assert_eq!(deq.len(), 10);
             assert_eq!(deq, sdeq![1, 3, 5, 7, 9, 11, 13, 15, 17, 19]);
@@ -4214,10 +4260,13 @@ fn vec_placement() {
                 18, 20,
             ];
 
-            let removed =
-                deq.drain_filter(|x| *x % 2 == 0).collect::<SliceDeque<_>>();
+            let removed = deq.drain_filter(|x| *x % 2 == 0)
+                .collect::<SliceDeque<_>>();
             assert_eq!(removed.len(), 10);
-            assert_eq!(removed, sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+            assert_eq!(
+                removed,
+                sdeq![2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+            );
 
             assert_eq!(deq.len(), 10);
             assert_eq!(deq, sdeq![1, 3, 5, 7, 9, 11, 13, 15, 17, 19]);
@@ -4486,7 +4535,10 @@ fn vec_placement() {
         let mut d: SliceDeque<_> = (0..5).collect();
         d.pop_front();
         d.swap(0, 3);
-        assert_eq!(d.iter().cloned().collect::<Vec<_>>(), [4, 2, 3, 1]);
+        assert_eq!(
+            d.iter().cloned().collect::<Vec<_>>(),
+            [4, 2, 3, 1]
+        );
     }
 
     #[test]
@@ -4556,7 +4608,10 @@ fn vec_placement() {
         d.push_back(4);
 
         assert_eq!(
-            d.iter_mut().rev().map(|x| *x).collect::<Vec<_>>(),
+            d.iter_mut()
+                .rev()
+                .map(|x| *x)
+                .collect::<Vec<_>>(),
             vec![4, 3, 2]
         );
     }
@@ -4890,7 +4945,10 @@ fn vec_placement() {
     #[test]
     fn vecdeque_show() {
         let ringbuf: SliceDeque<_> = (0..10).collect();
-        assert_eq!(format!("{:?}", ringbuf), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+        assert_eq!(
+            format!("{:?}", ringbuf),
+            "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"
+        );
 
         let ringbuf: SliceDeque<_> = vec!["just", "one", "test", "more"]
             .iter()
@@ -5224,17 +5282,26 @@ fn vec_placement() {
 
         // normal append
         a.append(&mut b);
-        assert_eq!(a.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            a.iter().cloned().collect::<Vec<_>>(),
+            [1, 2, 3, 4, 5, 6]
+        );
         assert_eq!(b.iter().cloned().collect::<Vec<_>>(), []);
 
         // append nothing to something
         a.append(&mut b);
-        assert_eq!(a.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            a.iter().cloned().collect::<Vec<_>>(),
+            [1, 2, 3, 4, 5, 6]
+        );
         assert_eq!(b.iter().cloned().collect::<Vec<_>>(), []);
 
         // append something to nothing
         b.append(&mut a);
-        assert_eq!(b.iter().cloned().collect::<Vec<_>>(), [1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            b.iter().cloned().collect::<Vec<_>>(),
+            [1, 2, 3, 4, 5, 6]
+        );
         assert_eq!(a.iter().cloned().collect::<Vec<_>>(), []);
     }
 
