@@ -164,15 +164,6 @@ use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
-#[cfg(feature = "unstable")]
-use core::ptr::NonNull;
-
-#[cfg(not(feature = "unstable"))]
-mod nonnull;
-
-#[cfg(not(feature = "unstable"))]
-use nonnull::NonNull;
-
 #[cfg(all(feature = "unstable", feature = "use_std"))]
 use std::collections;
 
@@ -488,7 +479,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts(ptr, self.len())
         }
@@ -498,7 +489,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts_mut(ptr, self.len())
         }
@@ -1071,7 +1062,7 @@ impl<T> SliceDeque<T> {
                 tail_start: end,
                 tail_len: len - end,
                 iter: range_slice.iter(),
-                deq: NonNull::from(self),
+                deq: ptr::NonNull::from(self),
             }
         }
     }
@@ -1957,7 +1948,7 @@ pub struct Drain<'a, T: 'a> {
     /// Current remaining range to remove
     iter: slice::Iter<'a, T>,
     /// A shared mutable pointer to the deque (with shared ownership).
-    deq: NonNull<SliceDeque<T>>,
+    deq: ptr::NonNull<SliceDeque<T>>,
 }
 
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
@@ -2035,8 +2026,8 @@ impl<'a, T> iter::FusedIterator for Drain<'a, T> {}
 /// [`SliceDeque`]: struct.SliceDeque.html
 /// [`IntoIterator`]: ../../std/iter/trait.IntoIterator.html
 pub struct IntoIter<T> {
-    /// NonNull pointer to the buffer
-    buf: NonNull<T>,
+    /// ptr::NonNull pointer to the buffer
+    buf: ptr::NonNull<T>,
     /// Capacity of the buffer.
     cap: usize,
     /// Pointer to the first element.
@@ -2264,14 +2255,14 @@ impl<T> IntoIterator for SliceDeque<T> {
     #[inline]
     fn into_iter(self) -> IntoIter<T> {
         unsafe {
-            let buf_ptr = self.buf.ptr().get();
+            let buf_ptr = self.buf.ptr().as_ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = buf_ptr.offset(self.head as isize) as *const T;
             let end = buf_ptr.offset(self.tail as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
-                buf: NonNull::new_unchecked(buf_ptr),
+                buf: ptr::NonNull::new_unchecked(buf_ptr),
                 cap: self.capacity(),
                 ptr: begin,
                 end,
