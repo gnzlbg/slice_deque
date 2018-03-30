@@ -3,7 +3,7 @@
 use super::alloc::{allocate_mirrored, allocation_granularity,
                    deallocate_mirrored};
 use super::*;
-use ::ptr::NonNull;
+use ptr::NonNull;
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {

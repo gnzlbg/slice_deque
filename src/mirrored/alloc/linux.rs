@@ -9,7 +9,7 @@ use libc::__errno;
 #[cfg(not(target_os = "android"))]
 use libc::__errno_location;
 
-use ::ptr;
+use ptr;
 
 /// [`memfd_create`] - create an anonymous file
 ///
