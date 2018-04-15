@@ -259,7 +259,10 @@ mod tests {
             no_required_allocation_units(allocation_granularity() / 2),
             2
         );
-        assert_eq!(no_required_allocation_units(allocation_granularity()), 2);
+        assert_eq!(
+            no_required_allocation_units(allocation_granularity()),
+            2
+        );
         assert_eq!(
             no_required_allocation_units(2 * allocation_granularity()),
             2

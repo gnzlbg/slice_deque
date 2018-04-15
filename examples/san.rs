@@ -1,6 +1,7 @@
 //! Tests that run under the sanitizers.
-#![cfg_attr(feature = "cargo-clippy",
-            allow(cyclomatic_complexity, option_unwrap_used))]
+#![cfg_attr(
+    feature = "cargo-clippy", allow(cyclomatic_complexity, option_unwrap_used)
+)]
 
 #[macro_use]
 extern crate slice_deque;
