@@ -622,8 +622,19 @@ impl<T> SliceDeque<T> {
     }
 
     /// Moves the deque head by `x`.
+    ///
+    /// # Panics
+    ///
+    /// If the `head` wraps over the `tail` the behavior is undefined, that is,
+    /// if `x > 0 && x > size()` or if `x < 0 && x < -(capacity() - size())`. If
+    /// `-C debug-assertions=1` violating this pre-condition `panic`s.
+    ///
+    /// # Unsafe
+    ///
+    /// It does not `drop` nor initialize elements, it just moves where the tail
+    /// of the deque points to within the allocated buffer.
     #[inline]
-    unsafe fn move_head(&mut self, x: isize) {
+    pub unsafe fn move_head(&mut self, x: isize) {
         let head = self.head as isize;
         let mut new_head = head + x;
         let tail = self.tail as isize;
@@ -646,8 +657,19 @@ impl<T> SliceDeque<T> {
     }
 
     /// Moves the deque tail by `x`.
+    ///
+    /// # Panics
+    ///
+    /// If the `tail` wraps over the `head` the behavior is undefined, that is,
+    /// if `x > 0 && x > capacity() - size()` or if `x < 0 && x < -size()`. If
+    /// `-C debug-assertions=1` violating this pre-condition `panic`s.
+    ///
+    /// # Unsafe
+    ///
+    /// It does not `drop` nor initialize elements, it just moves where the tail
+    /// of the deque points to within the allocated buffer.
     #[inline]
-    unsafe fn move_tail(&mut self, x: isize) {
+    pub unsafe fn move_tail(&mut self, x: isize) {
         let head = self.head as isize;
         let tail = self.tail as isize;
         let cap = self.capacity() as isize;
@@ -968,12 +990,12 @@ impl<T> SliceDeque<T> {
     /// # fn main() {
     /// let mut deq = sdeq![5, 10, 15];
     /// assert_eq!(deq, [5, 10, 15]);
-    /// deq.truncate(1);
+    /// deq.truncate_back(1);
     /// assert_eq!(deq, [5]);
     /// # }
     /// ```
     #[inline]
-    pub fn truncate(&mut self, len: usize) {
+    pub fn truncate_back(&mut self, len: usize) {
         unsafe {
             while len < self.len() {
                 // decrement tail before the drop_in_place(), so a panic on
@@ -983,6 +1005,15 @@ impl<T> SliceDeque<T> {
                 core::ptr::drop_in_place(self.get_unchecked_mut(len));
             }
         }
+    }
+
+    /// Shortens the deque by removing excess elements from the back.
+    ///
+    /// If `len` is greater than the SliceDeque's current length, this has no
+    /// effect. See `truncate_back` for examples.
+    #[inline]
+    pub fn truncate(&mut self, len: usize) {
+        self.truncate_back(len);
     }
 
     /// Creates a draining iterator that removes the specified range in the
