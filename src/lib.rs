@@ -1016,6 +1016,36 @@ impl<T> SliceDeque<T> {
         self.truncate_back(len);
     }
 
+    /// Shortens the deque by removing excess elements from the front.
+    ///
+    /// If `len` is greater than the SliceDeque's current length, this has no
+    /// effect.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![5, 10, 15];
+    /// assert_eq!(deq, [5, 10, 15]);
+    /// deq.truncate_front(1);
+    /// assert_eq!(deq, [15]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn truncate_front(&mut self, len: usize) {
+        unsafe {
+            while len < self.len() {
+                let head: *mut T = self.get_unchecked_mut(0) as *mut _;
+                // increment head before the drop_in_place(), so a panic on
+                // Drop doesn't re-drop the just-failed value.
+                self.head += 1;
+                core::ptr::drop_in_place(head);
+            }
+        }
+    }
+
     /// Creates a draining iterator that removes the specified range in the
     /// deque and yields the removed items.
     ///
@@ -3605,6 +3635,26 @@ mod tests {
         v.truncate(3);
         assert_eq!(unsafe { DROPS }, 2);
         v.truncate(0);
+        assert_eq!(unsafe { DROPS }, 5);
+    }
+
+    #[test]
+    fn vec_vec_truncate_front_drop() {
+        static mut DROPS: u32 = 0;
+        struct Elem(i32);
+        impl Drop for Elem {
+            fn drop(&mut self) {
+                unsafe {
+                    DROPS += 1;
+                }
+            }
+        }
+
+        let mut v = sdeq![Elem(1), Elem(2), Elem(3), Elem(4), Elem(5)];
+        assert_eq!(unsafe { DROPS }, 0);
+        v.truncate_front(3);
+        assert_eq!(unsafe { DROPS }, 2);
+        v.truncate_front(0);
         assert_eq!(unsafe { DROPS }, 5);
     }
 
