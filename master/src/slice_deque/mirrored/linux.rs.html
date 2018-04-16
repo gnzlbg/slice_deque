@@ -10,10 +10,11 @@
     <title>linux.rs.html -- source</title>
 
     <link rel="stylesheet" type="text/css" href="../../../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle">
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css"
+          id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../../../dark.css">
-    <link rel="stylesheet" type="text/css" href="../../../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle">
     <script src="../../../storage.js"></script>
     
 
@@ -211,6 +212,10 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Non-racy linux-specific mirrored memory allocation.</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>, <span class="ident">c_long</span>, <span class="ident">c_uint</span>, <span class="ident">c_void</span>, <span class="ident">close</span>, <span class="ident">ftruncate</span>, <span class="ident">mkstemp</span>,
@@ -218,10 +223,10 @@
            <span class="ident">ENOSYS</span>, <span class="ident">MAP_FAILED</span>, <span class="ident">MAP_FIXED</span>, <span class="ident">MAP_SHARED</span>, <span class="ident">PROT_READ</span>, <span class="ident">PROT_WRITE</span>,
            <span class="ident">_SC_PAGESIZE</span>};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">__errno_location</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">__errno</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
+<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">__errno_location</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">ptr</span>;
 
@@ -242,9 +247,13 @@
 <span class="doccomment">/// Reads `errno`.</span>
 <span class="kw">fn</span> <span class="ident">errno</span>() <span class="op">-&gt;</span> <span class="ident">c_int</span> {
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
-    <span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="ident">__errno_location</span>() }
+    <span class="kw">unsafe</span> {
+        <span class="kw-2">*</span><span class="ident">__errno_location</span>()
+    }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)]</span>
-    <span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="ident">__errno</span>() }
+    <span class="kw">unsafe</span> {
+        <span class="kw-2">*</span><span class="ident">__errno</span>()
+    }
 }
 
 <span class="doccomment">/// Allocates an uninitialzied buffer that holds `size` bytes, where</span>

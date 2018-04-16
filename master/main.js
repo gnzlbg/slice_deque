@@ -49,6 +49,21 @@
 
     var themesWidth = null;
 
+    if (!String.prototype.startsWith) {
+        String.prototype.startsWith = function(searchString, position) {
+            position = position || 0;
+            return this.indexOf(searchString, position) === position;
+        };
+    }
+
+    function getPageId() {
+        var id = document.location.href.split('#')[1];
+        if (id) {
+            return id.split('?')[0].split('&')[0];
+        }
+        return null;
+    }
+
     function hasClass(elem, className) {
         if (elem && className && elem.className) {
             var elemClass = elem.className;
@@ -239,49 +254,59 @@
         }
     }
 
-    function handleShortcut(ev) {
-        if (document.activeElement.tagName === "INPUT")
-            return;
+    function handleEscape(ev, help) {
+        hideModal();
+        var search = document.getElementById("search");
+        if (!hasClass(help, "hidden")) {
+            displayHelp(false, ev);
+        } else if (!hasClass(search, "hidden")) {
+            ev.preventDefault();
+            addClass(search, "hidden");
+            removeClass(document.getElementById("main"), "hidden");
+        }
+        defocusSearchBar();
+    }
 
+    function handleShortcut(ev) {
         // Don't interfere with browser shortcuts
-        if (ev.ctrlKey || ev.altKey || ev.metaKey)
+        if (ev.ctrlKey || ev.altKey || ev.metaKey) {
             return;
+        }
 
         var help = document.getElementById("help");
-        switch (getVirtualKey(ev)) {
-        case "Escape":
-            hideModal();
-            var search = document.getElementById("search");
-            if (!hasClass(help, "hidden")) {
+        if (document.activeElement.tagName === "INPUT") {
+            switch (getVirtualKey(ev)) {
+            case "Escape":
+                handleEscape(ev, help);
+                break;
+            }
+        } else {
+            switch (getVirtualKey(ev)) {
+            case "Escape":
+                handleEscape(ev, help);
+                break;
+
+            case "s":
+            case "S":
                 displayHelp(false, ev);
-            } else if (!hasClass(search, "hidden")) {
-                ev.preventDefault();
-                addClass(search, "hidden");
-                removeClass(document.getElementById("main"), "hidden");
-            }
-            defocusSearchBar();
-            break;
-
-        case "s":
-        case "S":
-            displayHelp(false, ev);
-            hideModal();
-            ev.preventDefault();
-            focusSearchBar();
-            break;
-
-        case "+":
-        case "-":
-            ev.preventDefault();
-            toggleAllDocs();
-            break;
-
-        case "?":
-            if (ev.shiftKey) {
                 hideModal();
-                displayHelp(true, ev);
+                ev.preventDefault();
+                focusSearchBar();
+                break;
+
+            case "+":
+            case "-":
+                ev.preventDefault();
+                toggleAllDocs();
+                break;
+
+            case "?":
+                if (ev.shiftKey) {
+                    hideModal();
+                    displayHelp(true, ev);
+                }
+                break;
             }
-            break;
         }
     }
 
@@ -1154,6 +1179,10 @@
             return h1.innerHTML;
         }
 
+        function pathSplitter(path) {
+            return '<span>' + path.replace(/::/g, '::</span><span>');
+        }
+
         function addTab(array, query, display) {
             var extraStyle = '';
             if (display === false) {
@@ -1208,7 +1237,7 @@
 
                     output += '<tr class="' + type + ' result"><td>' +
                               '<a href="' + href + '">' +
-                              displayPath + '<span class="' + type + '">' +
+                              pathSplitter(displayPath) + '<span class="' + type + '">' +
                               name + '</span></a></td><td>' +
                               '<a href="' + href + '">' +
                               '<span class="desc">' + escape(item.desc) +
@@ -1457,36 +1486,38 @@
         // Draw a convenient sidebar of known crates if we have a listing
         if (rootPath === '../') {
             var sidebar = document.getElementsByClassName('sidebar-elems')[0];
-            var div = document.createElement('div');
-            div.className = 'block crate';
-            div.innerHTML = '<h3>Crates</h3>';
-            var ul = document.createElement('ul');
-            div.appendChild(ul);
+            if (sidebar) {
+                var div = document.createElement('div');
+                div.className = 'block crate';
+                div.innerHTML = '<h3>Crates</h3>';
+                var ul = document.createElement('ul');
+                div.appendChild(ul);
 
-            var crates = [];
-            for (var crate in rawSearchIndex) {
-                if (!rawSearchIndex.hasOwnProperty(crate)) {
-                    continue;
+                var crates = [];
+                for (var crate in rawSearchIndex) {
+                    if (!rawSearchIndex.hasOwnProperty(crate)) {
+                        continue;
+                    }
+                    crates.push(crate);
                 }
-                crates.push(crate);
-            }
-            crates.sort();
-            for (var i = 0; i < crates.length; ++i) {
-                var klass = 'crate';
-                if (crates[i] === window.currentCrate) {
-                    klass += ' current';
-                }
-                var link = document.createElement('a');
-                link.href = '../' + crates[i] + '/index.html';
-                link.title = rawSearchIndex[crates[i]].doc;
-                link.className = klass;
-                link.textContent = crates[i];
+                crates.sort();
+                for (var i = 0; i < crates.length; ++i) {
+                    var klass = 'crate';
+                    if (crates[i] === window.currentCrate) {
+                        klass += ' current';
+                    }
+                    var link = document.createElement('a');
+                    link.href = '../' + crates[i] + '/index.html';
+                    link.title = rawSearchIndex[crates[i]].doc;
+                    link.className = klass;
+                    link.textContent = crates[i];
 
-                var li = document.createElement('li');
-                li.appendChild(link);
-                ul.appendChild(li);
+                    var li = document.createElement('li');
+                    li.appendChild(link);
+                    ul.appendChild(li);
+                }
+                sidebar.appendChild(div);
             }
-            sidebar.appendChild(div);
         }
     }
 
@@ -1620,9 +1651,10 @@
         }
     }
 
-    function toggleAllDocs() {
+    function toggleAllDocs(pageId) {
         var toggle = document.getElementById("toggle-all-docs");
         if (hasClass(toggle, "will-expand")) {
+            updateLocalStorage("rustdoc-collapse", "false");
             removeClass(toggle, "will-expand");
             onEveryMatchingChild(toggle, "inner", function(e) {
                 e.innerHTML = labelForToggleButton(false);
@@ -1632,6 +1664,7 @@
                 collapseDocs(e, "show");
             });
         } else {
+            updateLocalStorage("rustdoc-collapse", "true");
             addClass(toggle, "will-expand");
             onEveryMatchingChild(toggle, "inner", function(e) {
                 e.innerHTML = labelForToggleButton(true);
@@ -1639,12 +1672,12 @@
             toggle.title = "expand all docs";
 
             onEach(document.getElementsByClassName("collapse-toggle"), function(e) {
-                collapseDocs(e, "hide");
+                collapseDocs(e, "hide", pageId);
             });
         }
     }
 
-    function collapseDocs(toggle, mode) {
+    function collapseDocs(toggle, mode, pageId) {
         if (!toggle || !toggle.parentNode) {
             return;
         }
@@ -1692,19 +1725,20 @@
             // we are collapsing the impl block
             function implHider(addOrRemove) {
                 return function(n) {
-                    if (hasClass(n, "method")) {
-                        if (addOrRemove) {
-                            addClass(n, "hidden-by-impl-hider");
-                        } else {
-                            removeClass(n, "hidden-by-impl-hider");
+                    var is_method = hasClass(n, "method");
+                    if (is_method || hasClass(n, "type")) {
+                        if (is_method === true) {
+                            if (addOrRemove) {
+                                addClass(n, "hidden-by-impl-hider");
+                            } else {
+                                removeClass(n, "hidden-by-impl-hider");
+                            }
                         }
                         var ns = n.nextElementSibling;
                         while (true) {
                             if (ns && (
                                     hasClass(ns, "docblock") ||
-                                    hasClass(ns, "stability") ||
-                                    false
-                                    )) {
+                                    hasClass(ns, "stability"))) {
                                 if (addOrRemove) {
                                     addClass(ns, "hidden-by-impl-hider");
                                 } else {
@@ -1719,13 +1753,18 @@
                 }
             }
 
-            var relatedDoc = toggle.parentNode;
+            var parentElem = toggle.parentNode;
+            var relatedDoc = parentElem;
+            var docblock = relatedDoc.nextElementSibling;
 
             while (!hasClass(relatedDoc, "impl-items")) {
                 relatedDoc = relatedDoc.nextElementSibling;
             }
 
-            if (!relatedDoc) {
+            if ((!relatedDoc && !hasClass(docblock, "docblock")) ||
+                (pageId && onEach(relatedDoc.childNodes, function(e) {
+                    return e.id === pageId;
+                }) === true)) {
                 return;
             }
 
@@ -1733,7 +1772,8 @@
 
             var action = mode;
             if (action === "toggle") {
-                if (hasClass(relatedDoc, "fns-now-collapsed")) {
+                if (hasClass(relatedDoc, "fns-now-collapsed") ||
+                    hasClass(docblock,  "hidden-by-impl-hider")) {
                     action = "show";
                 } else {
                     action = "hide";
@@ -1742,17 +1782,19 @@
 
             if (action === "show") {
                 removeClass(relatedDoc, "fns-now-collapsed");
+                removeClass(docblock, "hidden-by-usual-hider");
                 onEach(toggle.childNodes, adjustToggle(false));
                 onEach(relatedDoc.childNodes, implHider(false));
             } else if (action === "hide") {
                 addClass(relatedDoc, "fns-now-collapsed");
+                addClass(docblock, "hidden-by-usual-hider");
                 onEach(toggle.childNodes, adjustToggle(true));
                 onEach(relatedDoc.childNodes, implHider(true));
             }
         }
     }
 
-    function autoCollapseAllImpls() {
+    function autoCollapseAllImpls(pageId) {
         // Automatically minimize all non-inherent impls
         onEach(document.getElementsByClassName('impl'), function(n) {
             // inherent impl ids are like 'impl' or impl-<number>'
@@ -1760,7 +1802,7 @@
             if (!inherent) {
                 onEach(n.childNodes, function(m) {
                     if (hasClass(m, "collapse-toggle")) {
-                        collapseDocs(m, "hide");
+                        collapseDocs(m, "hide", pageId);
                     }
                 });
             }
@@ -1776,22 +1818,36 @@
         referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
     }
 
+    function checkIfThereAreMethods(elems) {
+        var areThereMethods = false;
+
+        onEach(elems, function(e) {
+            if (hasClass(e, "method")) {
+                areThereMethods = true;
+                return true;
+            }
+        });
+        return areThereMethods;
+    }
+
     var toggle = document.createElement('a');
     toggle.href = 'javascript:void(0)';
     toggle.className = 'collapse-toggle';
-    toggle.innerHTML = "[<span class='inner'>"+labelForToggleButton(false)+"</span>]";
+    toggle.innerHTML = "[<span class='inner'>" + labelForToggleButton(false) + "</span>]";
 
     var func = function(e) {
         var next = e.nextElementSibling;
+        if (hasClass(e, 'impl') && next && hasClass(next, 'docblock')) {
+            next = next.nextElementSibling;
+        }
         if (!next) {
             return;
         }
-        if (hasClass(next, 'docblock') ||
-            (hasClass(next, 'stability') &&
-             hasClass(next.nextElementSibling, 'docblock'))) {
-            insertAfter(toggle.cloneNode(true), e.childNodes[e.childNodes.length - 1]);
-        }
-        if (hasClass(e, 'impl')) {
+        if ((checkIfThereAreMethods(next.childNodes) || hasClass(e, 'method')) &&
+            (hasClass(next, 'docblock') ||
+             hasClass(e, 'impl') ||
+             (hasClass(next, 'stability') &&
+              hasClass(next.nextElementSibling, 'docblock')))) {
             insertAfter(toggle.cloneNode(true), e.childNodes[e.childNodes.length - 1]);
         }
     }
@@ -1801,11 +1857,16 @@
         onEach(e.getElementsByClassName('associatedconstant'), func);
     });
 
-    function createToggle() {
+    function createToggle(otherMessage) {
         var span = document.createElement('span');
         span.className = 'toggle-label';
         span.style.display = 'none';
-        span.innerHTML = '&nbsp;Expand&nbsp;description';
+        if (!otherMessage) {
+            span.innerHTML = '&nbsp;Expand&nbsp;description';
+        } else {
+            span.innerHTML = otherMessage;
+            span.style.fontSize = '20px';
+        }
 
         var mainToggle = toggle.cloneNode(true);
         mainToggle.appendChild(span);
@@ -1818,7 +1879,14 @@
 
     onEach(document.getElementById('main').getElementsByClassName('docblock'), function(e) {
         if (e.parentNode.id === "main") {
-            e.parentNode.insertBefore(createToggle(), e);
+            var otherMessage;
+            if (hasClass(e, "type-decl")) {
+                otherMessage = '&nbsp;Show&nbsp;type&nbsp;declaration';
+            }
+            e.parentNode.insertBefore(createToggle(otherMessage), e);
+            if (otherMessage) {
+                collapseDocs(e.previousSibling.childNodes[0], "toggle");
+            }
         }
     });
 
@@ -1844,7 +1912,7 @@
         }
     })
 
-    autoCollapseAllImpls();
+    autoCollapseAllImpls(getPageId());
 
     function createToggleWrapper() {
         var span = document.createElement('span');
@@ -1972,6 +2040,10 @@
     window.onresize = function() {
         hideSidebar();
     };
+
+    if (getCurrentValue("rustdoc-collapse") === "true") {
+        toggleAllDocs(getPageId());
+    }
 }());
 
 // Sets the focus on the search bar at the top of the page

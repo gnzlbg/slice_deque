@@ -1,3 +1,4 @@
+var resourcesSuffix = "";
 /*!
  * Copyright 2018 The Rust Project Developers. See the COPYRIGHT
  * file at the top-level directory of this distribution and at
@@ -19,10 +20,11 @@ function onEach(arr, func) {
     if (arr && arr.length > 0 && func) {
         for (var i = 0; i < arr.length; i++) {
             if (func(arr[i]) === true) {
-                break;
+                return true;
             }
         }
     }
+    return false;
 }
 
 function updateLocalStorage(name, value) {
@@ -41,9 +43,15 @@ function getCurrentValue(name) {
 }
 
 function switchTheme(styleElem, mainStyleElem, newTheme) {
-    var newHref = mainStyleElem.href.replace("rustdoc.css", newTheme + ".css");
-    var found = false;
+    var fullBasicCss = "rustdoc" + resourcesSuffix + ".css";
+    var fullNewTheme = newTheme + resourcesSuffix + ".css";
+    var newHref = mainStyleElem.href.replace(fullBasicCss, fullNewTheme);
 
+    if (styleElem.href === newHref) {
+        return;
+    }
+
+    var found = false;
     if (savedHref.length === 0) {
         onEach(document.getElementsByTagName("link"), function(el) {
             savedHref.push(el.href);
@@ -61,4 +69,4 @@ function switchTheme(styleElem, mainStyleElem, newTheme) {
     }
 }
 
-switchTheme(currentTheme, mainTheme, getCurrentValue('rustdoc-theme') || 'main');
+switchTheme(currentTheme, mainTheme, getCurrentValue('rustdoc-theme') || 'light');

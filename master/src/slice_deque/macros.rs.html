@@ -10,10 +10,11 @@
     <title>macros.rs.html -- source</title>
 
     <link rel="stylesheet" type="text/css" href="../../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css"
+          id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../../dark.css">
-    <link rel="stylesheet" type="text/css" href="../../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle">
     <script src="../../storage.js"></script>
     
 
@@ -96,6 +97,8 @@
 <span id="40">40</span>
 <span id="41">41</span>
 <span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Macros and utilities.</span>
 
@@ -108,7 +111,9 @@
 <span class="kw">impl</span> <span class="ident">TinyAsciiString</span> {
     <span class="doccomment">/// Creates a new string initialized to zero.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">buf</span>: [<span class="number">0_u8</span>; <span class="number">512</span>] }
+        <span class="self">Self</span> {
+            <span class="ident">buf</span>: [<span class="number">0_u8</span>; <span class="number">512</span>],
+        }
     }
     <span class="doccomment">/// Converts the Tiny Ascii String to an UTF-8 string (unchecked).</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">as_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {

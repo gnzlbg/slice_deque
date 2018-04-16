@@ -10,10 +10,11 @@
     <title>slice_deque::sdeq - Rust</title>
 
     <link rel="stylesheet" type="text/css" href="../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css"
+          id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../dark.css">
-    <link rel="stylesheet" type="text/css" href="../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle">
     <script src="../storage.js"></script>
     
 
@@ -33,7 +34,7 @@
     <nav class="sidebar">
         <div class="sidebar-menu">&#9776;</div>
         
-        <p class='location'><a href='index.html'>slice_deque</a></p><script>window.sidebarCurrent = {name: 'sdeq', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <div class="sidebar-elems"><p class='location'><a href='index.html'>slice_deque</a></p><script>window.sidebarCurrent = {name: 'sdeq', ty: 'macro', relpath: ''};</script><script defer src="sidebar-items.js"></script></div>
     </nav>
 
     <div class="theme-picker">
@@ -54,20 +55,14 @@
         </form>
     </nav>
 
-    <section id='main' class="content">
-<h1 class='fqn'><span class='in-band'>Macro <a href='index.html'>slice_deque</a>::<wbr><a class="macro" href=''>sdeq</a></span><span class='out-of-band'><span id='render-detail'>
-                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                       [<span class='inner'>&#x2212;</span>]
-                   </a>
-               </span><a class='srclink' href='../src/slice_deque/lib.rs.html#346-367' title='goto source code'>[src]</a></span></h1>
-<pre class="rust macro">
+    <section id='main' class="content"><h1 class='fqn'><span class='in-band'>Macro <a href='index.html'>slice_deque</a>::<wbr><a class="macro" href=''>sdeq</a></span><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/slice_deque/lib.rs.html#359-380' title='goto source code'>[src]</a></span></h1><div class="docblock type-decl"><pre class="rust macro">
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">sdeq</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem</span>:<span class="ident">expr</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">n</span>:<span class="ident">expr</span>) <span class="op">=&gt;</span> { ... };
     () <span class="op">=&gt;</span> { ... };
     ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>),<span class="kw-2">*</span>) <span class="op">=&gt;</span> { ... };
     ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>,)<span class="kw-2">*</span>) <span class="op">=&gt;</span> { ... };
 }</pre>
-<div class='docblock'><p>Creates a <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> containing the arguments.</p>
+</div><div class='docblock'><p>Creates a <a href="struct.SliceDeque.html"><code>SliceDeque</code></a> containing the arguments.</p>
 <p><code>sdeq!</code> allows <code>SliceDeque</code>s to be defined with the same syntax as array
 expressions. There are two forms of this macro:</p>
 <ul>
