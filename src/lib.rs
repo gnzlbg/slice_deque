@@ -129,8 +129,7 @@
 #![cfg_attr(
     all(test, feature = "unstable"),
     feature(
-        box_syntax, placement_in_syntax, attr_literals, inclusive_range_syntax,
-        iterator_step_by
+        box_syntax, attr_literals, inclusive_range_syntax, iterator_step_by
     )
 )]
 #![cfg_attr(
@@ -684,7 +683,10 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
-        debug_assert!(x >= -((self.capacity() - self.len()) as isize) && x <= self.len() as isize);
+        debug_assert!(
+            x >= -((self.capacity() - self.len()) as isize)
+                && x <= self.len() as isize
+        );
         let head = self.head as isize;
         let mut new_head = head + x;
         let tail = self.tail as isize;
@@ -719,7 +721,10 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_head(&mut self, x: isize) {
-        assert!(x >= -((self.capacity() - self.len()) as isize) && x <= self.len() as isize);
+        assert!(
+            x >= -((self.capacity() - self.len()) as isize)
+                && x <= self.len() as isize
+        );
         self.move_head_unchecked(x)
     }
 
@@ -738,7 +743,10 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_tail_unchecked(&mut self, x: isize) {
-        debug_assert!(x >= -(self.len() as isize) && x <= (self.capacity() - self.len()) as isize);
+        debug_assert!(
+            x >= -(self.len() as isize)
+                && x <= (self.capacity() - self.len()) as isize
+        );
         let head = self.head as isize;
         let tail = self.tail as isize;
         let cap = self.capacity() as isize;
@@ -774,7 +782,10 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_tail(&mut self, x: isize) {
-        assert!(x >= -(self.len() as isize) && x <= (self.capacity() - self.len()) as isize);
+        assert!(
+            x >= -(self.len() as isize)
+                && x <= (self.capacity() - self.len()) as isize
+        );
         self.move_tail_unchecked(x);
     }
 
@@ -2834,7 +2845,8 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
                 .into_iter();
             // Now we have an exact count.
             if collected.size_hint().0 > 0 {
-                self.drain.move_tail_unchecked(collected.size_hint().0);
+                self.drain
+                    .move_tail_unchecked(collected.size_hint().0);
                 let filled = self.drain.fill(&mut collected);
                 debug_assert!(filled);
                 debug_assert_eq!(collected.size_hint().0, 0);
@@ -4194,28 +4206,6 @@ fn assert_covariance() {
 }
     */
 
-    /* TODO: placement syntax
-#[test]
-fn vec_placement() {
-    let mut deq = sdeq![1];
-    assert_eq!(deq.place_back() <- 2, &2);
-    assert_eq!(deq.len(), 2);
-    assert_eq!(deq.place_back() <- 3, &3);
-    assert_eq!(deq.len(), 3);
-    assert_eq!(&deq, &[1, 2, 3]);
-}
-
-
-#[test]
-    fn vec_placement_panic() {
-        use ::std::panic;
-    let mut deq = sdeq![1, 2, 3];
-    fn mkpanic() -> usize { panic!() }
-    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| { deq.place_back() <- mkpanic(); }));
-    assert_eq!(deq.len(), 3);
-}
-     */
-
     #[test]
     fn from_into_inner() {
         let deq = sdeq![1, 2, 3];
@@ -5553,29 +5543,6 @@ fn assert_covariance() {
         assert!(v.iter_mut().is_empty());
         assert!(v.into_iter().is_empty());
     }
-    /* TODO: placement
-#[test]
-fn vecdeque_placement_in() {
-    let mut buf: SliceDeque<isize> = SliceDeque::new();
-    buf.place_back() <- 1;
-    buf.place_back() <- 2;
-    assert_eq!(buf, [1,2]);
-
-    buf.place_front() <- 3;
-    buf.place_front() <- 4;
-    assert_eq!(buf, [4,3,1,2]);
-
-    {
-        let ptr_head = buf.place_front() <- 5;
-        assert_eq!(*ptr_head, 5);
-    }
-    {
-        let ptr_tail = buf.place_back() <- 6;
-        assert_eq!(*ptr_tail, 6);
-    }
-    assert_eq!(buf, [5,4,3,1,2,6]);
-}
-     */
 
     #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
     #[test]
