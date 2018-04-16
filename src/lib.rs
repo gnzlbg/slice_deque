@@ -549,7 +549,7 @@ impl<T> SliceDeque<T> {
     ///     {
     ///         // This slice contains the uninitialized elements in
     ///         // the deque:
-    ///         let mut s = d.uninitialized_mut_slice();
+    ///         let mut s = d.tail_head_slice();
     ///         assert_eq!(s.len(), cap - len);
     ///         // We can write to them and for example bump the tail of
     ///         // the deque:
@@ -561,7 +561,7 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(d, sdeq![1,2,3,4,5]);
     /// # }
     /// ```
-    pub unsafe fn uninitialized_mut_slice(&mut self) -> &mut [T] {
+    pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
         let ptr = self.buf.ptr().get();
         let ptr = ptr.offset(self.tail as isize);
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
