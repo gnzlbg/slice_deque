@@ -190,7 +190,7 @@ dual licensed as above, without any additional terms or conditions.
 [codecov-shield]: https://img.shields.io/codecov/c/github/gnzlbg/slice_deque.svg?style=flat-square
 [codecov]: https://codecov.io/gh/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
-[docs]: https://gnzlbg.github.io/slice_deque/master/slice_deque/
+[docs]: https://docs.rs/crate/slice-deque/
 [license-shield]: https://img.shields.io/badge/License-MIT%2FApache2.0-green.svg?style=flat-square
 [license]: https://github.com/gnzlbg/slice_deque/blob/master/license.md
 [crate-shield]: https://img.shields.io/crates/v/slice_deque.svg?style=flat-square
