@@ -674,15 +674,17 @@ impl<T> SliceDeque<T> {
     /// # Panics
     ///
     /// If the `head` wraps over the `tail` the behavior is undefined, that is,
-    /// if `x > 0 && x > size()` or if `x < 0 && x < -(capacity() - size())`.
-    /// If `-C debug-assertions=1` violating this pre-condition `panic`s.
+    /// if `x` is out-of-range `[-(capacity() - len()), len()]`.
+    ///
+    /// If `-C debug-assertions=1` violating this pre-condition `panic!`s.
     ///
     /// # Unsafe
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
-    pub unsafe fn move_head(&mut self, x: isize) {
+    pub unsafe fn move_head_unchecked(&mut self, x: isize) {
+        debug_assert!(x >= -((self.capacity() - self.len()) as isize) && x <= self.len() as isize);
         let head = self.head as isize;
         let mut new_head = head + x;
         let tail = self.tail as isize;
@@ -704,20 +706,39 @@ impl<T> SliceDeque<T> {
         debug_assert!(self.len() as isize == (tail - head) - x);
     }
 
-    /// Moves the deque tail by `x`.
+    /// Moves the deque head by `x`.
     ///
     /// # Panics
     ///
-    /// If the `tail` wraps over the `head` the behavior is undefined, that is,
-    /// if `x > 0 && x > capacity() - size()` or if `x < 0 && x < -size()`. If
-    /// `-C debug-assertions=1` violating this pre-condition `panic`s.
+    /// If the `head` wraps over the `tail`, that is, if `x` is out-of-range
+    /// `[-(capacity() - len()), len()]`.
     ///
     /// # Unsafe
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
-    pub unsafe fn move_tail(&mut self, x: isize) {
+    pub unsafe fn move_head(&mut self, x: isize) {
+        assert!(x >= -((self.capacity() - self.len()) as isize) && x <= self.len() as isize);
+        self.move_head_unchecked(x)
+    }
+
+    /// Moves the deque tail by `x`.
+    ///
+    /// # Panics
+    ///
+    /// If the `tail` wraps over the `head` the behavior is undefined, that is,
+    /// if `x` is out-of-range `[-len(), capacity() - len()]`.
+    ///
+    /// If `-C debug-assertions=1` violating this pre-condition `panic!`s.
+    ///
+    /// # Unsafe
+    ///
+    /// It does not `drop` nor initialize elements, it just moves where the
+    /// tail of the deque points to within the allocated buffer.
+    #[inline]
+    pub unsafe fn move_tail_unchecked(&mut self, x: isize) {
+        debug_assert!(x >= -(self.len() as isize) && x <= (self.capacity() - self.len()) as isize);
         let head = self.head as isize;
         let tail = self.tail as isize;
         let cap = self.capacity() as isize;
@@ -740,6 +761,23 @@ impl<T> SliceDeque<T> {
         debug_assert!(self.len() as isize == (tail - head) + x);
     }
 
+    /// Moves the deque tail by `x`.
+    ///
+    /// # Panics
+    ///
+    /// If the `tail` wraps over the `head`, that is, if `x` is out-of-range
+    /// `[-len(), capacity() - len()]`.
+    ///
+    /// # Unsafe
+    ///
+    /// It does not `drop` nor initialize elements, it just moves where the
+    /// tail of the deque points to within the allocated buffer.
+    #[inline]
+    pub unsafe fn move_tail(&mut self, x: isize) {
+        assert!(x >= -(self.len() as isize) && x <= (self.capacity() - self.len()) as isize);
+        self.move_tail_unchecked(x);
+    }
+
     /// Appends elements to `self` from `other`.
     #[inline]
     unsafe fn append_elements(&mut self, other: *const [T]) {
@@ -751,7 +789,7 @@ impl<T> SliceDeque<T> {
             self.get_unchecked_mut(len),
             count,
         );
-        self.move_tail(count as isize);
+        self.move_tail_unchecked(count as isize);
     }
 
     /// Steal the elements from the slice `s`. You should `mem::forget` the
@@ -894,7 +932,7 @@ impl<T> SliceDeque<T> {
                 self.grow();
             }
 
-            self.move_head(-1);
+            self.move_head_unchecked(-1);
             ptr::write(self.get_mut(0).unwrap(), value);
         }
     }
@@ -916,7 +954,7 @@ impl<T> SliceDeque<T> {
             if intrinsics::unlikely(self.is_full()) {
                 self.grow();
             }
-            self.move_tail(1);
+            self.move_tail_unchecked(1);
             let len = self.len();
             ptr::write(self.get_mut(len - 1).unwrap(), value);
         }
@@ -950,7 +988,7 @@ impl<T> SliceDeque<T> {
                     o
                 }
             };
-            self.move_head(1);
+            self.move_head_unchecked(1);
             Some(v)
         }
     }
@@ -984,7 +1022,7 @@ impl<T> SliceDeque<T> {
                     o
                 }
             };
-            self.move_tail(-1);
+            self.move_tail_unchecked(-1);
             Some(v)
         }
     }
@@ -1281,7 +1319,7 @@ impl<T> SliceDeque<T> {
             let p = self.as_mut_ptr().offset(index as isize);
             ptr::copy(p, p.offset(1), len - index); // Shift elements
             ptr::write(p, element); // Overwritte
-            self.move_tail(1);
+            self.move_tail_unchecked(1);
         }
     }
 
@@ -1314,7 +1352,7 @@ impl<T> SliceDeque<T> {
             // shift everything to the front overwriting the deque copy of the
             // element:
             ptr::copy(ptr.offset(1), ptr, len - index - 1);
-            self.move_tail(-1);
+            self.move_tail_unchecked(-1);
             ret
         }
     }
@@ -1350,8 +1388,8 @@ impl<T> SliceDeque<T> {
         let mut other = Self::with_capacity(other_len);
 
         unsafe {
-            self.move_tail(-(other_len as isize));
-            other.move_tail(other_len as isize);
+            self.move_tail_unchecked(-(other_len as isize));
+            other.move_tail_unchecked(other_len as isize);
 
             ptr::copy_nonoverlapping(
                 self.as_ptr().offset(at as isize),
@@ -1555,14 +1593,14 @@ impl<T> SliceDeque<T> {
                 ptr::write(ptr, value.next());
                 ptr = ptr.offset(1);
                 // Increment the length in every step in case next() panics
-                self.move_tail(1);
+                self.move_tail_unchecked(1);
             }
 
             if n > 0 {
                 // We can write the last element directly without cloning
                 // needlessly
                 ptr::write(ptr, value.last());
-                self.move_tail(1);
+                self.move_tail_unchecked(1);
             }
 
             // len set by scope guard
@@ -1589,7 +1627,7 @@ impl<T> SliceDeque<T> {
                 ptr::write(self.get_unchecked_mut(len), element);
                 // NB can't overflow since we would have had to alloc the
                 // address space
-                self.move_tail(1);
+                self.move_tail_unchecked(1);
             }
         }
     }
@@ -1714,7 +1752,7 @@ impl<T> SliceDeque<T> {
 
         // Guard against us getting leaked (leak amplification)
         unsafe {
-            self.move_tail(-(old_len as isize));
+            self.move_tail_unchecked(-(old_len as isize));
         }
 
         DrainFilter {
@@ -2110,7 +2148,7 @@ impl<'a, T> Drop for Drain<'a, T> {
                 let src = source_deq.as_ptr().offset(tail as isize);
                 let dst = source_deq.as_mut_ptr().offset(start as isize);
                 ptr::copy(src, dst, self.tail_len);
-                source_deq.move_tail(self.tail_len as isize);
+                source_deq.move_tail_unchecked(self.tail_len as isize);
             }
         }
     }
@@ -2439,7 +2477,7 @@ fn from_iter_default<T, I: Iterator<Item = T>>(
                 SliceDeque::<T>::with_capacity(lower.saturating_add(1));
             unsafe {
                 ptr::write(deque.get_unchecked_mut(0), element);
-                deque.move_tail(1);
+                deque.move_tail_unchecked(1);
             }
             deque
         }
@@ -2505,7 +2543,7 @@ where
                     ptr = ptr.offset(1);
                     // NB can't overflow since we would have had to alloc the
                     // address space
-                    self.move_tail(1);
+                    self.move_tail_unchecked(1);
                 }
             }
         } else {
@@ -2587,7 +2625,7 @@ where
         self.reserve(slice.len());
         unsafe {
             let len = self.len();
-            self.move_tail(slice.len() as isize);
+            self.move_tail_unchecked(slice.len() as isize);
             self.get_unchecked_mut(len..)
                 .copy_from_slice(slice);
         }
@@ -2666,7 +2704,7 @@ impl SpecFromElem for u8 {
         unsafe {
             let mut v = SliceDeque::with_capacity(n);
             ptr::write_bytes(v.as_mut_ptr(), elem, n);
-            v.move_tail(n as isize);
+            v.move_tail_unchecked(n as isize);
             v
         }
     }
@@ -2781,7 +2819,7 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
             // FIXME: Is the upper bound a better guess? Or something else?
             let (lower_bound, _upper_bound) = self.replace_with.size_hint();
             if lower_bound > 0 {
-                self.drain.move_tail(lower_bound);
+                self.drain.move_tail_unchecked(lower_bound);
                 if !self.drain.fill(&mut self.replace_with) {
                     return;
                 }
@@ -2796,7 +2834,7 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
                 .into_iter();
             // Now we have an exact count.
             if collected.size_hint().0 > 0 {
-                self.drain.move_tail(collected.size_hint().0);
+                self.drain.move_tail_unchecked(collected.size_hint().0);
                 let filled = self.drain.fill(&mut collected);
                 debug_assert!(filled);
                 debug_assert_eq!(collected.size_hint().0, 0);
@@ -2828,7 +2866,7 @@ impl<'a, T> Drain<'a, T> {
         for place in range_slice {
             if let Some(new_item) = replace_with.next() {
                 ptr::write(place, new_item);
-                deq.move_tail(1);
+                deq.move_tail_unchecked(1);
             } else {
                 return false;
             }
@@ -2837,7 +2875,7 @@ impl<'a, T> Drain<'a, T> {
     }
 
     /// Make room for inserting more elements before the tail.
-    unsafe fn move_tail(&mut self, extra_capacity: usize) {
+    unsafe fn move_tail_unchecked(&mut self, extra_capacity: usize) {
         let deq = self.deq.as_mut();
         let used_capacity = self.tail_start + self.tail_len;
         deq.reserve_capacity(used_capacity + extra_capacity);
@@ -2917,7 +2955,7 @@ where
             let new_tail = self.deq.head + new_len;
             let old_tail = self.deq.tail;
             self.deq
-                .move_tail(new_tail as isize - old_tail as isize);
+                .move_tail_unchecked(new_tail as isize - old_tail as isize);
         }
     }
 }
@@ -2962,7 +3000,7 @@ impl ::bytes::BufMut for SliceDeque<u8> {
             self.reserve(cnt);
         }
 
-        self.move_tail(cnt as isize);
+        self.move_tail_unchecked(cnt as isize);
     }
 }
 
@@ -3659,7 +3697,7 @@ mod tests {
         for &mut () in &mut v {}
         unsafe {
             let len = v.len() as isize;
-            v.move_tail(-len);
+            v.move_tail_unchecked(-len);
         }
         assert_eq!(v.iter_mut().count(), 0);
     }
