@@ -82,8 +82,11 @@ then by using [`SliceDeque`] you might be trading memory for performance. Also,
 * your application has many short-lived ring-buffers,
 
 the cost of the system calls required to set up and grow the [`SliceDeque`]s
-might not be amortized by your application. Whether any of these trade-offs are
-worth it or not is application dependent, so don't take my word for it: measure.
+might not be amortized by your application (update: there is a pull-request open
+that caches allocations in thread-local heaps when the feature `use_std` is
+enabled significantly improving the performance of short-lived ring-buffers, but
+it has not been merged yet). Whether any of these trade-offs are worth it or not
+is application dependent, so don't take my word for it: measure.
 
 ## How it works
 
