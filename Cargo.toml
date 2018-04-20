@@ -22,7 +22,7 @@ is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
 maintenance = { status = "experimental" }
 
 [target.'cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))'.dependencies.mach]
-git = "https://github.com/fitzgen/mach"
+version = "0.2"
 default-features = false
 
 [target.'cfg(target_os = "windows")'.dependencies.winapi]
@@ -39,7 +39,7 @@ use_std = [ "libc/use_std", "mach/use_std" ]
 # SliceDeque implements the Buf and BufMut traits.
 #bytes_buf = ["bytes", "use_std"]
 # Enable features that require unstable Rust (nightly).
-unstable = []
+unstable = [ "mach/unstable" ]
 # Uses a super-portable but potentially slower System V interprocess
 # shared-memory implementation instead of system-specific ones on unix-like
 # targets.
