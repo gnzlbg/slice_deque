@@ -2,28 +2,7 @@
 
 use super::*;
 
-#[cfg(feature = "unstable")]
-use core::nonzero::NonZero;
-
-/// Stable `core::nonzero::NonZero` wrapper that does nothing.
-#[cfg(not(feature = "unstable"))]
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct NonZero<T: Copy> {
-    /// A pointer that can't be null.
-    ptr: T,
-}
-
-#[cfg(not(feature = "unstable"))]
-impl<T: Copy> NonZero<T> {
-    /// Returns the pointer.
-    pub fn get(&self) -> T {
-        self.ptr
-    }
-    /// Creates a new `NonZero` without checking that `ptr` is not null.
-    pub unsafe fn new_unchecked(ptr: T) -> Self {
-        Self { ptr }
-    }
-}
+use core::ptr::NonNull;
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {
@@ -41,7 +20,7 @@ fn no_required_allocation_units(bytes: usize) -> usize {
 /// `[len/2, len)`.
 pub struct Buffer<T> {
     /// Pointer to the first element in the buffer.
-    ptr: NonZero<*mut T>,
+    ptr: NonNull<T>,
     /// Length of the buffer:
     ///
     /// * it is always a multiple of 2
@@ -62,7 +41,7 @@ impl<T> Buffer<T> {
     }
 
     /// Pointer to the first element in the buffer.
-    pub unsafe fn ptr(&self) -> NonZero<*mut T> {
+    pub unsafe fn ptr(&self) -> NonNull<T> {
         self.ptr
     }
 
@@ -70,14 +49,14 @@ impl<T> Buffer<T> {
     ///
     /// Warning: Some memory might be uninitialized.
     pub unsafe fn as_slice(&self) -> &[T] {
-        slice::from_raw_parts(self.ptr.get(), self.len())
+        slice::from_raw_parts(self.ptr.as_ptr(), self.len())
     }
 
     /// Interprets contents as a mut slice.
     ///
     /// Warning: Some memory might be uninitialized.
     pub unsafe fn as_mut_slice(&mut self) -> &mut [T] {
-        slice::from_raw_parts_mut(self.ptr.get(), self.len())
+        slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len())
     }
 
     /// Interprets content as a slice and access the `i`-th element.
@@ -102,7 +81,7 @@ impl<T> Buffer<T> {
         // will ensure that it is never dereferenced in this state.
         unsafe {
             Self {
-                ptr: NonZero::new_unchecked(usize::max_value() as *mut T),
+                ptr: NonNull::new_unchecked(usize::max_value() as *mut T),
                 len: 0,
             }
         }
@@ -118,7 +97,7 @@ impl<T> Buffer<T> {
         assert!(mem::size_of::<T>() > 0);
         assert!(!ptr.is_null());
         Self {
-            ptr: NonZero::new_unchecked(ptr),
+            ptr: NonNull::new_unchecked(ptr),
             len,
         }
     }
@@ -154,7 +133,7 @@ impl<T> Buffer<T> {
         let ptr = allocate_mirrored(alloc_size)?;
 
         Ok(Self {
-            ptr: unsafe { NonZero::new_unchecked(ptr as *mut T) },
+            ptr: unsafe { NonNull::new_unchecked(ptr as *mut T) },
             len: alloc_size / mem::size_of::<T>(),
         })
     }
@@ -167,7 +146,7 @@ impl<T> Drop for Buffer<T> {
         }
 
         let buffer_size_in_bytes = Self::size_in_bytes(self.len());
-        let first_half_ptr = self.ptr.get() as *mut u8;
+        let first_half_ptr = self.ptr.as_ptr() as *mut u8;
         unsafe { deallocate_mirrored(first_half_ptr, buffer_size_in_bytes) };
     }
 }

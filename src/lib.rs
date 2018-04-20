@@ -121,11 +121,11 @@
 #![cfg_attr(feature = "unstable",
             feature(nonzero, slice_get_slice, fused, core_intrinsics,
                     shared, exact_size_is_empty, collections_range,
-                    dropck_eyepatch, generic_param_attrs, trusted_len,
-                    offset_to, i128_type, specialization))]
+                    dropck_eyepatch, trusted_len,
+                    ptr_wrapping_offset_from, specialization))]
 #![cfg_attr(all(test, feature = "unstable"),
             feature(box_syntax, placement_in_syntax, attr_literals,
-                    inclusive_range_syntax, iterator_step_by))]
+                    iterator_step_by))]
 #![cfg_attr(feature = "cargo-clippy",
             allow(len_without_is_empty, shadow_reuse, cast_possible_wrap,
                   cast_sign_loss, cast_possible_truncation, inline_always))]
@@ -157,15 +157,7 @@ pub use mirrored::Buffer;
 use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
-
-#[cfg(feature = "unstable")]
-use core::ptr::NonNull;
-
-#[cfg(not(feature = "unstable"))]
-mod nonnull;
-
-#[cfg(not(feature = "unstable"))]
-use nonnull::NonNull;
+use ptr::NonNull;
 
 #[cfg(all(feature = "unstable", feature = "use_std"))]
 use std::collections;
@@ -239,7 +231,7 @@ impl<T: Sized> OffsetTo for *const T {
     where
         T: Sized,
     {
-        self.offset_to(other)
+        Some(other.wrapping_offset_from(self))
     }
 }
 
@@ -269,7 +261,7 @@ impl<T: Sized> OffsetToMut for *mut T {
     where
         T: Sized,
     {
-        self.offset_to(other)
+        Some(other.wrapping_offset_from(self))
     }
 }
 
@@ -480,7 +472,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts(ptr, self.len())
         }
@@ -490,7 +482,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr().as_ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts_mut(ptr, self.len())
         }
@@ -2246,7 +2238,7 @@ impl<T> IntoIterator for SliceDeque<T> {
     #[inline]
     fn into_iter(self) -> IntoIter<T> {
         unsafe {
-            let buf_ptr = self.buf.ptr().get();
+            let buf_ptr = self.buf.ptr().as_ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = buf_ptr.offset(self.head as isize) as *const T;
