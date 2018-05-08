@@ -9,7 +9,7 @@ documentation = "https://docs.rs/crate/slice-deque/"
 homepage = "https://github.com/gnzlbg/slice_deque"
 repository = "https://github.com/gnzlbg/slice_deque"
 readme = "readme.md"
-keywords = ["collection", "deque", "ring buffer", "circular buffer"]
+keywords = ["collection", "deque", "ring", "circular", "buffer"]
 categories = ["data-structures", "no-std"]
 license = "MIT/Apache-2.0"
 
