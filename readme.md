@@ -2,7 +2,7 @@
 
 [![crates.io version][crate-shield]][crate] [![Travis build status][travis-shield]][travis] [![Appveyor build status][appveyor-shield]][appveyor] [![Codecov code coverage][codecov-shield]][codecov] [![Docs][docs-shield]][docs] [![License][license-shield]][license]
 
-> A double-ended queue that `Deref`s into a slice.
+> A double-ended queue that `Deref`s into a slice, also known as a ring buffer or circular buffer.
 
 ## Advantages
 

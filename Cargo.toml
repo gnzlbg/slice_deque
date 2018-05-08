@@ -2,14 +2,14 @@
 # dev-dependencies which causes 
 [package]
 name = "slice-deque"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
 homepage = "https://github.com/gnzlbg/slice_deque"
 repository = "https://github.com/gnzlbg/slice_deque"
 readme = "readme.md"
-keywords = ["collection", "deque"]
+keywords = ["collection", "deque", "ring buffer", "circular buffer"]
 categories = ["data-structures", "no-std"]
 license = "MIT/Apache-2.0"
 
