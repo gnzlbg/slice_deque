@@ -576,7 +576,7 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.capacity()
+        let new_cap = self.len()
             .checked_add(additional)
             .expect("overflow");
         self.reserve_capacity(new_cap);
@@ -3257,6 +3257,16 @@ mod tests {
             assert_eq!(*counter.borrow(), size);
             assert_eq!(v.len(), 0);
         }
+    }
+
+    #[test]
+    fn reserve_no_cap_change() {
+        let mut slice = SliceDeque::<u8>::with_capacity(4096);
+        let cap = slice.capacity();
+        assert!(cap >= 4096);
+        slice.reserve(cap);
+        // capacity should not change if the existing capacity is already sufficient.
+        assert_eq!(slice.capacity(), cap);
     }
 
     #[test]
