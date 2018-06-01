@@ -5689,6 +5689,16 @@
 <span id="5689">5689</span>
 <span id="5690">5690</span>
 <span id="5691">5691</span>
+<span id="5692">5692</span>
+<span id="5693">5693</span>
+<span id="5694">5694</span>
+<span id="5695">5695</span>
+<span id="5696">5696</span>
+<span id="5697">5697</span>
+<span id="5698">5698</span>
+<span id="5699">5699</span>
+<span id="5700">5700</span>
+<span id="5701">5701</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -6268,7 +6278,7 @@
     <span class="doccomment">/// Panics if the new capacity overflows `usize`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) {
-        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">capacity</span>()
+        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>()
             .<span class="ident">checked_add</span>(<span class="ident">additional</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
         <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_cap</span>);
@@ -8949,6 +8959,16 @@
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">counter</span>.<span class="ident">borrow</span>(), <span class="ident">size</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="number">0</span>);
         }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">reserve_no_cap_change</span>() {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">slice</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="number">4096</span>);
+        <span class="kw">let</span> <span class="ident">cap</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">capacity</span>();
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cap</span> <span class="op">&gt;=</span> <span class="number">4096</span>);
+        <span class="ident">slice</span>.<span class="ident">reserve</span>(<span class="ident">cap</span>);
+        <span class="comment">// capacity should not change if the existing capacity is already sufficient.</span>
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">slice</span>.<span class="ident">capacity</span>(), <span class="ident">cap</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
