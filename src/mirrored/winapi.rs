@@ -5,11 +5,13 @@ use mem;
 use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
 use winapi::shared::ntdef::LPCWSTR;
-use winapi::um::memoryapi::{CreateFileMappingW, MapViewOfFileEx,
-                            UnmapViewOfFile, VirtualAlloc, VirtualFree,
-                            FILE_MAP_ALL_ACCESS};
-use winapi::um::winnt::{MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS,
-                        PAGE_READWRITE, SEC_COMMIT};
+use winapi::um::memoryapi::{
+    CreateFileMappingW, MapViewOfFileEx, UnmapViewOfFile, VirtualAlloc,
+    VirtualFree, FILE_MAP_ALL_ACCESS,
+};
+use winapi::um::winnt::{
+    MEM_RELEASE, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE, SEC_COMMIT,
+};
 
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::minwinbase::LPSECURITY_ATTRIBUTES;
@@ -256,7 +258,9 @@ fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
 /// If `file_mapping` or `address` are null, or if `size` is zero or not a
 /// multiple of the allocation granularity of the system.
 unsafe fn map_view_of_file(
-    file_mapping: HANDLE, size: usize, address: *mut u8,
+    file_mapping: HANDLE,
+    size: usize,
+    address: *mut u8,
 ) -> Result<(), ()> {
     assert!(!file_mapping.is_null());
     assert!(!address.is_null());

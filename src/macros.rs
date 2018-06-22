@@ -9,9 +9,7 @@ pub struct TinyAsciiString {
 impl TinyAsciiString {
     /// Creates a new string initialized to zero.
     pub fn new() -> Self {
-        Self {
-            buf: [0_u8; 512],
-        }
+        Self { buf: [0_u8; 512] }
     }
     /// Converts the Tiny Ascii String to an UTF-8 string (unchecked).
     pub unsafe fn as_str(&self) -> &str {

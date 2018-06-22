@@ -1,8 +1,9 @@
 //! Non-racy linux-specific mirrored memory allocation.
-use libc::{c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp,
-           mmap, munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create,
-           ENOSYS, MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE,
-           _SC_PAGESIZE};
+use libc::{
+    c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp, mmap,
+    munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create, ENOSYS,
+    MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE, _SC_PAGESIZE,
+};
 
 #[cfg(target_os = "android")]
 use libc::__errno;

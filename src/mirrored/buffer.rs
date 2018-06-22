@@ -197,9 +197,34 @@ impl<T> Default for Buffer<T> {
     }
 }
 
+// Safe because it is possible to free this from a different thread
+unsafe impl<T> Send for Buffer<T>
+where
+    T: Send,
+{
+}
+// Safe because this doesn't use any kind of interior mutability.
+unsafe impl<T> Sync for Buffer<T>
+where
+    T: Sync,
+{
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn is_send_sync<T>() -> bool
+    where
+        T: Send + Sync,
+    {
+        true
+    }
+
+    #[test]
+    fn buffer_send_sync() {
+        assert!(is_send_sync::<Buffer<usize>>());
+    }
 
     #[test]
     fn test_new() {
@@ -259,10 +284,7 @@ mod tests {
             no_required_allocation_units(allocation_granularity() / 2),
             2
         );
-        assert_eq!(
-            no_required_allocation_units(allocation_granularity()),
-            2
-        );
+        assert_eq!(no_required_allocation_units(allocation_granularity()), 2);
         assert_eq!(
             no_required_allocation_units(2 * allocation_granularity()),
             2
