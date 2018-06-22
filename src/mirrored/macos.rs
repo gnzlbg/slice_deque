@@ -8,10 +8,14 @@ use mach;
 use mach::boolean::boolean_t;
 use mach::kern_return::*;
 use mach::mach_types::mem_entry_name_port_t;
-use mach::memory_object_types::{memory_object_offset_t, memory_object_size_t};
+use mach::memory_object_types::{
+    memory_object_offset_t, memory_object_size_t,
+};
 use mach::traps::mach_task_self;
-use mach::vm::{mach_make_memory_entry_64, mach_vm_allocate,
-               mach_vm_deallocate, mach_vm_remap};
+use mach::vm::{
+    mach_make_memory_entry_64, mach_vm_allocate, mach_vm_deallocate,
+    mach_vm_remap,
+};
 use mach::vm_inherit::VM_INHERIT_NONE;
 use mach::vm_prot::{vm_prot_t, VM_PROT_READ, VM_PROT_WRITE};
 use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};

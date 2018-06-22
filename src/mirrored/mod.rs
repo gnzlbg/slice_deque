@@ -34,8 +34,9 @@ mod sysv;
         )
     )
 )]
-use self::sysv::{allocate_mirrored, allocation_granularity,
-                 deallocate_mirrored};
+use self::sysv::{
+    allocate_mirrored, allocation_granularity, deallocate_mirrored,
+};
 
 #[cfg(
     all(
@@ -50,8 +51,9 @@ mod linux;
         not(feature = "unix_sysv")
     )
 )]
-use self::linux::{allocate_mirrored, allocation_granularity,
-                  deallocate_mirrored};
+use self::linux::{
+    allocate_mirrored, allocation_granularity, deallocate_mirrored,
+};
 
 #[cfg(
     all(
@@ -65,15 +67,17 @@ mod macos;
         any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")
     )
 )]
-use self::macos::{allocate_mirrored, allocation_granularity,
-                  deallocate_mirrored};
+use self::macos::{
+    allocate_mirrored, allocation_granularity, deallocate_mirrored,
+};
 
 #[cfg(target_os = "windows")]
 mod winapi;
 
 #[cfg(target_os = "windows")]
-use self::winapi::{allocate_mirrored, allocation_granularity,
-                   deallocate_mirrored};
+use self::winapi::{
+    allocate_mirrored, allocation_granularity, deallocate_mirrored,
+};
 
 pub use self::buffer::Buffer;
 
