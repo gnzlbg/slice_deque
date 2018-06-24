@@ -78,6 +78,10 @@
 <span id="78">78</span>
 <span id="79">79</span>
 <span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Mirrored memory buffer.</span>
 <span class="kw">mod</span> <span class="ident">buffer</span>;
@@ -115,8 +119,9 @@
         )
     )
 )]</span>
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">sysv</span>::{<span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>,
-                 <span class="ident">deallocate_mirrored</span>};
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">sysv</span>::{
+    <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
+};
 
 <span class="attribute">#[<span class="ident">cfg</span>(
     <span class="ident">all</span>(
@@ -131,8 +136,9 @@
         <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
     )
 )]</span>
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">linux</span>::{<span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>,
-                  <span class="ident">deallocate_mirrored</span>};
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">linux</span>::{
+    <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
+};
 
 <span class="attribute">#[<span class="ident">cfg</span>(
     <span class="ident">all</span>(
@@ -146,15 +152,17 @@
         <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>), <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
     )
 )]</span>
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">macos</span>::{<span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>,
-                  <span class="ident">deallocate_mirrored</span>};
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">macos</span>::{
+    <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
+};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">winapi</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">use</span> <span class="self">self</span>::<span class="ident">winapi</span>::{<span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>,
-                   <span class="ident">deallocate_mirrored</span>};
+<span class="kw">use</span> <span class="self">self</span>::<span class="ident">winapi</span>::{
+    <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
+};
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">buffer</span>::<span class="ident">Buffer</span>;
 

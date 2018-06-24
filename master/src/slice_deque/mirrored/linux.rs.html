@@ -159,12 +159,14 @@
 <span id="159">159</span>
 <span id="160">160</span>
 <span id="161">161</span>
+<span id="162">162</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Non-racy linux-specific mirrored memory allocation.</span>
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>, <span class="ident">c_long</span>, <span class="ident">c_uint</span>, <span class="ident">c_void</span>, <span class="ident">close</span>, <span class="ident">ftruncate</span>, <span class="ident">mkstemp</span>,
-           <span class="ident">mmap</span>, <span class="ident">munmap</span>, <span class="ident">off_t</span>, <span class="ident">size_t</span>, <span class="ident">syscall</span>, <span class="ident">sysconf</span>, <span class="ident">SYS_memfd_create</span>,
-           <span class="ident">ENOSYS</span>, <span class="ident">MAP_FAILED</span>, <span class="ident">MAP_FIXED</span>, <span class="ident">MAP_SHARED</span>, <span class="ident">PROT_READ</span>, <span class="ident">PROT_WRITE</span>,
-           <span class="ident">_SC_PAGESIZE</span>};
+<span class="kw">use</span> <span class="ident">libc</span>::{
+    <span class="ident">c_char</span>, <span class="ident">c_int</span>, <span class="ident">c_long</span>, <span class="ident">c_uint</span>, <span class="ident">c_void</span>, <span class="ident">close</span>, <span class="ident">ftruncate</span>, <span class="ident">mkstemp</span>, <span class="ident">mmap</span>,
+    <span class="ident">munmap</span>, <span class="ident">off_t</span>, <span class="ident">size_t</span>, <span class="ident">syscall</span>, <span class="ident">sysconf</span>, <span class="ident">SYS_memfd_create</span>, <span class="ident">ENOSYS</span>,
+    <span class="ident">MAP_FAILED</span>, <span class="ident">MAP_FIXED</span>, <span class="ident">MAP_SHARED</span>, <span class="ident">PROT_READ</span>, <span class="ident">PROT_WRITE</span>, <span class="ident">_SC_PAGESIZE</span>,
+};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">__errno</span>;

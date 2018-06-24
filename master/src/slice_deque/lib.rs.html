@@ -5648,57 +5648,6 @@
 <span id="5648">5648</span>
 <span id="5649">5649</span>
 <span id="5650">5650</span>
-<span id="5651">5651</span>
-<span id="5652">5652</span>
-<span id="5653">5653</span>
-<span id="5654">5654</span>
-<span id="5655">5655</span>
-<span id="5656">5656</span>
-<span id="5657">5657</span>
-<span id="5658">5658</span>
-<span id="5659">5659</span>
-<span id="5660">5660</span>
-<span id="5661">5661</span>
-<span id="5662">5662</span>
-<span id="5663">5663</span>
-<span id="5664">5664</span>
-<span id="5665">5665</span>
-<span id="5666">5666</span>
-<span id="5667">5667</span>
-<span id="5668">5668</span>
-<span id="5669">5669</span>
-<span id="5670">5670</span>
-<span id="5671">5671</span>
-<span id="5672">5672</span>
-<span id="5673">5673</span>
-<span id="5674">5674</span>
-<span id="5675">5675</span>
-<span id="5676">5676</span>
-<span id="5677">5677</span>
-<span id="5678">5678</span>
-<span id="5679">5679</span>
-<span id="5680">5680</span>
-<span id="5681">5681</span>
-<span id="5682">5682</span>
-<span id="5683">5683</span>
-<span id="5684">5684</span>
-<span id="5685">5685</span>
-<span id="5686">5686</span>
-<span id="5687">5687</span>
-<span id="5688">5688</span>
-<span id="5689">5689</span>
-<span id="5690">5690</span>
-<span id="5691">5691</span>
-<span id="5692">5692</span>
-<span id="5693">5693</span>
-<span id="5694">5694</span>
-<span id="5695">5695</span>
-<span id="5696">5696</span>
-<span id="5697">5697</span>
-<span id="5698">5698</span>
-<span id="5699">5699</span>
-<span id="5700">5700</span>
-<span id="5701">5701</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -6106,7 +6055,10 @@
     <span class="doccomment">/// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(
-        <span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">capacity</span>: <span class="ident">usize</span>, <span class="ident">head</span>: <span class="ident">usize</span>, <span class="ident">tail</span>: <span class="ident">usize</span>,
+        <span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>,
+        <span class="ident">capacity</span>: <span class="ident">usize</span>,
+        <span class="ident">head</span>: <span class="ident">usize</span>,
+        <span class="ident">tail</span>: <span class="ident">usize</span>,
     ) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">head</span>,
@@ -6278,9 +6230,7 @@
     <span class="doccomment">/// Panics if the new capacity overflows `usize`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) {
-        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>()
-            .<span class="ident">checked_add</span>(<span class="ident">additional</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>().<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
         <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_cap</span>);
     }
 
@@ -7388,7 +7338,9 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unstable&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;use_std&quot;</span>))]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">splice</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">I</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">range</span>: <span class="ident">R</span>, <span class="ident">replace_with</span>: <span class="ident">I</span>,
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">range</span>: <span class="ident">R</span>,
+        <span class="ident">replace_with</span>: <span class="ident">I</span>,
     ) <span class="op">-&gt;</span> <span class="ident">Splice</span><span class="op">&lt;</span><span class="ident">I</span>::<span class="ident">IntoIter</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">R</span>: <span class="ident">collections</span>::<span class="ident">range</span>::<span class="ident">RangeArgument</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
@@ -7813,9 +7765,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="lifetime">&#39;a</span> <span class="op">+</span> <span class="ident">fmt</span>::<span class="ident">Debug</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Drain</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Drain&quot;</span>)
-            .<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">as_slice</span>())
-            .<span class="ident">finish</span>()
+        <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Drain&quot;</span>).<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">as_slice</span>()).<span class="ident">finish</span>()
     }
 }
 
@@ -7898,9 +7848,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">IntoIter</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;IntoIter&quot;</span>)
-            .<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">as_slice</span>())
-            .<span class="ident">finish</span>()
+        <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;IntoIter&quot;</span>).<span class="ident">field</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">as_slice</span>()).<span class="ident">finish</span>()
     }
 }
 
@@ -8339,8 +8287,7 @@
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
             <span class="self">self</span>.<span class="ident">move_tail_unchecked</span>(<span class="ident">slice</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>);
-            <span class="self">self</span>.<span class="ident">get_unchecked_mut</span>(<span class="ident">len</span>..)
-                .<span class="ident">copy_from_slice</span>(<span class="ident">slice</span>);
+            <span class="self">self</span>.<span class="ident">get_unchecked_mut</span>(<span class="ident">len</span>..).<span class="ident">copy_from_slice</span>(<span class="ident">slice</span>);
         }
     }
 }
@@ -8516,10 +8463,7 @@
 
         <span class="kw">unsafe</span> {
             <span class="kw">if</span> <span class="self">self</span>.<span class="ident">drain</span>.<span class="ident">tail_len</span> <span class="op">==</span> <span class="number">0</span> {
-                <span class="self">self</span>.<span class="ident">drain</span>
-                    .<span class="ident">deq</span>
-                    .<span class="ident">as_mut</span>()
-                    .<span class="ident">extend</span>(<span class="self">self</span>.<span class="ident">replace_with</span>.<span class="ident">by_ref</span>());
+                <span class="self">self</span>.<span class="ident">drain</span>.<span class="ident">deq</span>.<span class="ident">as_mut</span>().<span class="ident">extend</span>(<span class="self">self</span>.<span class="ident">replace_with</span>.<span class="ident">by_ref</span>());
                 <span class="kw">return</span>;
             }
 
@@ -8547,8 +8491,7 @@
                 .<span class="ident">into_iter</span>();
             <span class="comment">// Now we have an exact count.</span>
             <span class="kw">if</span> <span class="ident">collected</span>.<span class="ident">size_hint</span>().<span class="number">0</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                <span class="self">self</span>.<span class="ident">drain</span>
-                    .<span class="ident">move_tail_unchecked</span>(<span class="ident">collected</span>.<span class="ident">size_hint</span>().<span class="number">0</span>);
+                <span class="self">self</span>.<span class="ident">drain</span>.<span class="ident">move_tail_unchecked</span>(<span class="ident">collected</span>.<span class="ident">size_hint</span>().<span class="number">0</span>);
                 <span class="kw">let</span> <span class="ident">filled</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">drain</span>.<span class="ident">fill</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">collected</span>);
                 <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">filled</span>);
                 <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">collected</span>.<span class="ident">size_hint</span>().<span class="number">0</span>, <span class="number">0</span>);
@@ -8567,7 +8510,8 @@
     <span class="doccomment">/// `replace_with` iterator. Return whether we filled the entire</span>
     <span class="doccomment">/// range. (`replace_with.next()` didn’t return `None`.)</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">fill</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">replace_with</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">I</span>,
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">replace_with</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">I</span>,
     ) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">deq</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">deq</span>.<span class="ident">as_mut</span>();
         <span class="kw">let</span> <span class="ident">range_start</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">len</span>();
@@ -8812,7 +8756,8 @@
     }
 
     <span class="kw">fn</span> <span class="ident">constant_deque</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">fmt</span>::<span class="ident">Debug</span><span class="op">&gt;</span>(
-        <span class="ident">size</span>: <span class="ident">usize</span>, <span class="ident">val</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>,
+        <span class="ident">size</span>: <span class="ident">usize</span>,
+        <span class="ident">val</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>,
     ) <span class="op">-&gt;</span> <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="ident">with_capacity</span>(<span class="ident">size</span>);
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">size</span> {
@@ -8967,7 +8912,8 @@
         <span class="kw">let</span> <span class="ident">cap</span> <span class="op">=</span> <span class="ident">slice</span>.<span class="ident">capacity</span>();
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">cap</span> <span class="op">&gt;=</span> <span class="number">4096</span>);
         <span class="ident">slice</span>.<span class="ident">reserve</span>(<span class="ident">cap</span>);
-        <span class="comment">// capacity should not change if the existing capacity is already sufficient.</span>
+        <span class="comment">// capacity should not change if the existing capacity is already</span>
+        <span class="comment">// sufficient.</span>
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">slice</span>.<span class="ident">capacity</span>(), <span class="ident">cap</span>);
     }
 
@@ -9042,10 +8988,7 @@
             <span class="kw-2">*</span><span class="ident">num</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">num</span> <span class="op">-</span> <span class="number">2</span>;
         }
         <span class="kw">let</span> <span class="ident">b</span>: <span class="kw-2">&amp;</span>[<span class="kw">_</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="number">3</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="number">1</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="number">2</span>];
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="kw-2">&amp;</span><span class="ident">deq</span>.<span class="ident">iter_mut</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">i32</span><span class="op">&gt;&gt;</span>()[..],
-            <span class="ident">b</span>
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">deq</span>.<span class="ident">iter_mut</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">i32</span><span class="op">&gt;&gt;</span>()[..], <span class="ident">b</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -9348,10 +9291,7 @@
         <span class="ident">case</span>(<span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">11</span>, <span class="number">20</span>, <span class="number">30</span>], <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
         <span class="ident">case</span>(<span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">21</span>, <span class="number">30</span>], <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
         <span class="ident">case</span>(<span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">31</span>], <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
-        <span class="ident">case</span>(
-            <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">11</span>, <span class="number">20</span>, <span class="number">21</span>, <span class="number">22</span>, <span class="number">30</span>, <span class="number">31</span>],
-            <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>],
-        );
+        <span class="ident">case</span>(<span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">11</span>, <span class="number">20</span>, <span class="number">21</span>, <span class="number">22</span>, <span class="number">30</span>, <span class="number">31</span>], <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -9361,13 +9301,8 @@
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>, [<span class="string">&quot;foo&quot;</span>, <span class="string">&quot;bar&quot;</span>, <span class="string">&quot;baz&quot;</span>, <span class="string">&quot;bar&quot;</span>]);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">i32</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[
-            (<span class="string">&quot;foo&quot;</span>, <span class="number">1</span>),
-            (<span class="string">&quot;foo&quot;</span>, <span class="number">2</span>),
-            (<span class="string">&quot;bar&quot;</span>, <span class="number">3</span>),
-            (<span class="string">&quot;bar&quot;</span>, <span class="number">4</span>),
-            (<span class="string">&quot;bar&quot;</span>, <span class="number">5</span>)
-        ];
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>, <span class="ident">i32</span>)<span class="op">&gt;</span> <span class="op">=</span>
+            <span class="macro">sdeq</span><span class="macro">!</span>[(<span class="string">&quot;foo&quot;</span>, <span class="number">1</span>), (<span class="string">&quot;foo&quot;</span>, <span class="number">2</span>), (<span class="string">&quot;bar&quot;</span>, <span class="number">3</span>), (<span class="string">&quot;bar&quot;</span>, <span class="number">4</span>), (<span class="string">&quot;bar&quot;</span>, <span class="number">5</span>)];
         <span class="ident">deq</span>.<span class="ident">dedup_by</span>(<span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> {
             <span class="ident">a</span>.<span class="number">0</span> <span class="op">==</span> <span class="ident">b</span>.<span class="number">0</span> <span class="op">&amp;&amp;</span> {
                 <span class="ident">b</span>.<span class="number">1</span> <span class="op">+=</span> <span class="ident">a</span>.<span class="number">1</span>;
@@ -9511,12 +9446,8 @@
             }
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[
-            <span class="ident">BadElem</span>(<span class="number">1</span>),
-            <span class="ident">BadElem</span>(<span class="number">2</span>),
-            <span class="ident">BadElem</span>(<span class="number">0xbadbeef</span>),
-            <span class="ident">BadElem</span>(<span class="number">4</span>)
-        ];
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span>
+            <span class="macro">sdeq</span><span class="macro">!</span>[<span class="ident">BadElem</span>(<span class="number">1</span>), <span class="ident">BadElem</span>(<span class="number">2</span>), <span class="ident">BadElem</span>(<span class="number">0xbadbeef</span>), <span class="ident">BadElem</span>(<span class="number">4</span>)];
         <span class="ident">v</span>.<span class="ident">truncate</span>(<span class="number">0</span>);
     }
 
@@ -10047,13 +9978,10 @@ fn assert_covariance() {
                 <span class="number">31</span>, <span class="number">33</span>, <span class="number">34</span>, <span class="number">35</span>, <span class="number">36</span>, <span class="number">37</span>, <span class="number">39</span>,
             ];
 
-            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span>
+                <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>.<span class="ident">len</span>(), <span class="number">10</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">removed</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]);
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">14</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(
@@ -10069,13 +9997,10 @@ fn assert_covariance() {
                 <span class="number">33</span>, <span class="number">34</span>, <span class="number">35</span>, <span class="number">36</span>, <span class="number">37</span>, <span class="number">39</span>,
             ];
 
-            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span>
+                <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>.<span class="ident">len</span>(), <span class="number">10</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">removed</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]);
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">13</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(
@@ -10091,19 +10016,13 @@ fn assert_covariance() {
                 <span class="number">33</span>, <span class="number">34</span>, <span class="number">35</span>, <span class="number">36</span>,
             ];
 
-            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span>
+                <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>.<span class="ident">len</span>(), <span class="number">10</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">removed</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">18</span>, <span class="number">20</span>, <span class="number">22</span>, <span class="number">24</span>, <span class="number">26</span>, <span class="number">34</span>, <span class="number">36</span>]);
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">11</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">deq</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">7</span>, <span class="number">9</span>, <span class="number">11</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">17</span>, <span class="number">27</span>, <span class="number">29</span>, <span class="number">31</span>, <span class="number">33</span>, <span class="number">35</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">7</span>, <span class="number">9</span>, <span class="number">11</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">17</span>, <span class="number">27</span>, <span class="number">29</span>, <span class="number">31</span>, <span class="number">33</span>, <span class="number">35</span>]);
         }
 
         {
@@ -10113,13 +10032,10 @@ fn assert_covariance() {
                 <span class="number">17</span>, <span class="number">19</span>,
             ];
 
-            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span>
+                <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>.<span class="ident">len</span>(), <span class="number">10</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">removed</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">14</span>, <span class="number">16</span>, <span class="number">18</span>, <span class="number">20</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">14</span>, <span class="number">16</span>, <span class="number">18</span>, <span class="number">20</span>]);
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">10</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">5</span>, <span class="number">7</span>, <span class="number">9</span>, <span class="number">11</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">17</span>, <span class="number">19</span>]);
@@ -10132,13 +10048,10 @@ fn assert_covariance() {
                 <span class="number">18</span>, <span class="number">20</span>,
             ];
 
-            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
+            <span class="kw">let</span> <span class="ident">removed</span> <span class="op">=</span>
+                <span class="ident">deq</span>.<span class="ident">drain_filter</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>();
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>.<span class="ident">len</span>(), <span class="number">10</span>);
-            <span class="macro">assert_eq</span><span class="macro">!</span>(
-                <span class="ident">removed</span>,
-                <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">14</span>, <span class="number">16</span>, <span class="number">18</span>, <span class="number">20</span>]
-            );
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">removed</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">6</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">12</span>, <span class="number">14</span>, <span class="number">16</span>, <span class="number">18</span>, <span class="number">20</span>]);
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">10</span>);
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>, <span class="macro">sdeq</span><span class="macro">!</span>[<span class="number">1</span>, <span class="number">3</span>, <span class="number">5</span>, <span class="number">7</span>, <span class="number">9</span>, <span class="number">11</span>, <span class="number">13</span>, <span class="number">15</span>, <span class="number">17</span>, <span class="number">19</span>]);
@@ -10182,7 +10095,10 @@ fn assert_covariance() {
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
     <span class="kw">fn</span> <span class="ident">vecdeque_parameterized</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">fmt</span>::<span class="ident">Debug</span><span class="op">&gt;</span>(
-        <span class="ident">a</span>: <span class="ident">T</span>, <span class="ident">b</span>: <span class="ident">T</span>, <span class="ident">c</span>: <span class="ident">T</span>, <span class="ident">d</span>: <span class="ident">T</span>,
+        <span class="ident">a</span>: <span class="ident">T</span>,
+        <span class="ident">b</span>: <span class="ident">T</span>,
+        <span class="ident">c</span>: <span class="ident">T</span>,
+        <span class="ident">d</span>: <span class="ident">T</span>,
     ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="ident">new</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deq</span>.<span class="ident">len</span>(), <span class="number">0</span>);
@@ -10407,10 +10323,7 @@ fn assert_covariance() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">d</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="number">5</span>).<span class="ident">collect</span>();
         <span class="ident">d</span>.<span class="ident">pop_front</span>();
         <span class="ident">d</span>.<span class="ident">swap</span>(<span class="number">0</span>, <span class="number">3</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">d</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
-            [<span class="number">4</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>]
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">d</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), [<span class="number">4</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -10480,10 +10393,7 @@ fn assert_covariance() {
         <span class="ident">d</span>.<span class="ident">push_back</span>(<span class="number">4</span>);
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">d</span>.<span class="ident">iter_mut</span>()
-                .<span class="ident">rev</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span>)
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
+            <span class="ident">d</span>.<span class="ident">iter_mut</span>().<span class="ident">rev</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
             <span class="macro">vec</span><span class="macro">!</span>[<span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>]
         );
     }
@@ -10817,10 +10727,7 @@ fn assert_covariance() {
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">vecdeque_show</span>() {
         <span class="kw">let</span> <span class="ident">ringbuf</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="number">10</span>).<span class="ident">collect</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">ringbuf</span>),
-            <span class="string">&quot;[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]&quot;</span>
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">ringbuf</span>), <span class="string">&quot;[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">ringbuf</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;just&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;test&quot;</span>, <span class="string">&quot;more&quot;</span>]
             .<span class="ident">iter</span>()
@@ -11154,26 +11061,17 @@ fn assert_covariance() {
 
         <span class="comment">// normal append</span>
         <span class="ident">a</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">b</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">a</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
-            [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">a</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), []);
 
         <span class="comment">// append nothing to something</span>
         <span class="ident">a</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">b</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">a</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
-            [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">a</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), []);
 
         <span class="comment">// append something to nothing</span>
         <span class="ident">b</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">a</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
-            <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(),
-            [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]
-        );
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">a</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;&gt;</span>(), []);
     }
 

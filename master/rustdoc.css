@@ -407,31 +407,27 @@ h4 > code, h3 > code, .invisible > code {
 
 .content table:not(.table-display) {
 	border-spacing: 0 5px;
-	border-collapse: separate;
 }
 .content td { vertical-align: top; }
 .content td:first-child { padding-right: 20px; }
 .content td p:first-child { margin-top: 0; }
 .content td h1, .content td h2 { margin-left: 0; font-size: 1.1em; }
+.content tr:first-child td { border-top: 0; }
 
 .docblock table {
-	border: 1px solid;
 	margin: .5em 0;
-	border-collapse: collapse;
 	width: 100%;
 }
 
 .docblock table td {
 	padding: .5em;
-	border-top: 1px dashed;
-	border-bottom: 1px dashed;
+	border: 1px dashed;
 }
 
 .docblock table th {
 	padding: .5em;
 	text-align: left;
-	border-top: 1px solid;
-	border-bottom: 1px solid;
+	border: 1px solid;
 }
 
 .fields + table {
@@ -561,7 +557,8 @@ a {
 	content: '\2002\00a7\2002';
 }
 
-.docblock a:not(.srclink):hover, .docblock-short a:not(.srclink):hover, .stability a {
+.docblock a:not(.srclink):not(.test-arrow):hover,
+.docblock-short a:not(.srclink):not(.test-arrow):hover, .stability a {
 	text-decoration: underline;
 }
 
@@ -624,6 +621,11 @@ a {
 
 tr.result span.primitive::after {
 	content: ' (primitive type)';
+	font-style: italic;
+}
+
+tr.result span.keyword::after {
+	content: ' (keyword)';
 	font-style: italic;
 }
 
@@ -771,7 +773,7 @@ h3 > .collapse-toggle, h4 > .collapse-toggle {
 
 .toggle-wrapper {
 	position: relative;
-	margin-top: 5px;
+	margin-top: 0;
 }
 
 .toggle-wrapper.collapsed {
@@ -854,10 +856,19 @@ span.since {
 
 .attributes {
 	display: block;
-	margin: 0px 0px 0px 30px !important;
+	margin-top: 0px !important;
+	margin-right: 0px;
+	margin-bottom: 0px !important;
+	margin-left: 30px;
 }
 .toggle-attributes.collapsed {
-	margin-bottom: 5px;
+	margin-bottom: 0;
+}
+.impl-items > .toggle-attributes {
+	margin-left: 20px;
+}
+.impl-items .attributes {
+	font-weight: 500;
 }
 
 :target > code {
