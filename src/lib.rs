@@ -458,6 +458,18 @@ impl<T> SliceDeque<T> {
         self.buf.len() / 2
     }
 
+    /// Largest tail value
+    /*#[inline]
+    fn tail_upper_bound(&self) -> usize {
+        self.capacity() * 2
+    }
+
+    /// Largest head value
+    #[inline]
+    fn head_upper_bound(&self) -> usize {
+        self.capacity()
+    }*/
+
     /// Number of elements in the ring buffer.
     ///
     /// # Examples
@@ -695,18 +707,28 @@ impl<T> SliceDeque<T> {
         debug_assert!(new_head <= tail);
         debug_assert!(tail - new_head <= cap as isize);
 
-        // If the new head is negative we shift the range by capacity to
-        // move it towards the second mirrored memory region.
-
         if intrinsics::unlikely(new_head < 0) {
+            // If the new head is negative we shift the range by capacity to
+            // move it towards the second mirrored memory region.
             debug_assert!(tail < cap as isize);
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
             self.tail += cap;
-        }
+        } /*else if new_head as usize > cap {  // cannot panic because new_head >= 0
+            // If the new head is larger than the capacity, we shift the range by -capacity to
+            // move it towards the first mirrored memory region.
+            debug_assert!(tail >= cap as isize);
+            new_head -= cap as isize;
+            debug_assert!(new_head >= 0);
+            self.tail -= cap;
+        }*/
 
         self.head = new_head as usize;
         debug_assert!(self.len() as isize == (tail - head) - x);
+        debug_assert!(self.head <= self.tail);
+
+        //debug_assert!(self.tail <= self.tail_upper_bound());
+        //debug_assert!(self.head <= self.head_upper_bound());
     }
 
     /// Moves the deque head by `x`.
@@ -752,6 +774,7 @@ impl<T> SliceDeque<T> {
         let tail = self.tail as isize;
         let cap = self.capacity() as isize;
         let mut new_tail = tail + x;
+        debug_assert!(new_tail >= 0);
         debug_assert!(head <= new_tail);
         debug_assert!(new_tail - head <= cap);
 
@@ -768,6 +791,9 @@ impl<T> SliceDeque<T> {
 
         self.tail = new_tail as usize;
         debug_assert!(self.len() as isize == (tail - head) + x);
+
+        //debug_assert!(self.tail <= self.tail_upper_bound());
+        //debug_assert!(self.head <= self.head_upper_bound());
     }
 
     /// Moves the deque tail by `x`.
@@ -5645,6 +5671,27 @@ fn assert_covariance() {
             dst.clear();
             dst.put(&mut buf);
             assert_eq!(dst, b" world");
+        }
+    }
+
+    #[test]
+    fn issue_42() {
+        // https://github.com/gnzlbg/slice_deque/issues/42
+        let page_size = ::mirrored::allocation_granularity();
+        let mut deque = SliceDeque::<u8>::with_capacity(page_size);
+        let page_size = page_size as isize;
+
+        let slice = unsafe {
+            deque.move_tail(page_size);
+            deque.move_head(page_size / 100 * 99);
+            deque.move_tail(page_size / 100 * 99);
+            deque.move_head(page_size / 100 * 99);
+            deque.tail_head_slice()
+        };
+
+        for i in 0 .. slice.len() {
+            // segfault:
+            slice[i] = 0;
         }
     }
 }

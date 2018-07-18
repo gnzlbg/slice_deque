@@ -34,7 +34,7 @@ mod sysv;
         )
     )
 )]
-use self::sysv::{
+pub(crate) use self::sysv::{
     allocate_mirrored, allocation_granularity, deallocate_mirrored,
 };
 
@@ -51,7 +51,7 @@ mod linux;
         not(feature = "unix_sysv")
     )
 )]
-use self::linux::{
+pub(crate) use self::linux::{
     allocate_mirrored, allocation_granularity, deallocate_mirrored,
 };
 
@@ -67,7 +67,7 @@ mod macos;
         any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")
     )
 )]
-use self::macos::{
+pub(crate) use self::macos::{
     allocate_mirrored, allocation_granularity, deallocate_mirrored,
 };
 
@@ -75,7 +75,7 @@ use self::macos::{
 mod winapi;
 
 #[cfg(target_os = "windows")]
-use self::winapi::{
+pub(crate) use self::winapi::{
     allocate_mirrored, allocation_granularity, deallocate_mirrored,
 };
 
