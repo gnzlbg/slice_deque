@@ -135,7 +135,7 @@
     feature = "cargo-clippy",
     allow(
         len_without_is_empty, shadow_reuse, cast_possible_wrap, cast_sign_loss,
-        cast_possible_truncation, inline_always
+        cast_possible_truncation, inline_always, indexing_slicing
     )
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
