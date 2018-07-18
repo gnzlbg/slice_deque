@@ -57,14 +57,16 @@ pub(crate) use self::linux::{
 
 #[cfg(
     all(
-        any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")
+        any(target_os = "macos", target_os = "ios"),
+        not(feature = "unix_sysv")
     )
 )]
 mod macos;
 
 #[cfg(
     all(
-        any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")
+        any(target_os = "macos", target_os = "ios"),
+        not(feature = "unix_sysv")
     )
 )]
 pub(crate) use self::macos::{

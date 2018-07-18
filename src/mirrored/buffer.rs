@@ -175,17 +175,9 @@ impl<T> Default for Buffer<T> {
 }
 
 // Safe because it is possible to free this from a different thread
-unsafe impl<T> Send for Buffer<T>
-where
-    T: Send,
-{
-}
+unsafe impl<T> Send for Buffer<T> where T: Send {}
 // Safe because this doesn't use any kind of interior mutability.
-unsafe impl<T> Sync for Buffer<T>
-where
-    T: Sync,
-{
-}
+unsafe impl<T> Sync for Buffer<T> where T: Sync {}
 
 #[cfg(test)]
 mod tests {

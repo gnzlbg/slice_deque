@@ -121,9 +121,16 @@
 #![cfg_attr(
     feature = "unstable",
     feature(
-        nonzero, slice_get_slice, fused, core_intrinsics, shared,
-        exact_size_is_empty, collections_range, dropck_eyepatch,
-        trusted_len, ptr_wrapping_offset_from,
+        nonzero,
+        slice_get_slice,
+        fused,
+        core_intrinsics,
+        shared,
+        exact_size_is_empty,
+        collections_range,
+        dropck_eyepatch,
+        trusted_len,
+        ptr_wrapping_offset_from,
         specialization
     )
 )]
@@ -134,8 +141,13 @@
 #![cfg_attr(
     feature = "cargo-clippy",
     allow(
-        len_without_is_empty, shadow_reuse, cast_possible_wrap, cast_sign_loss,
-        cast_possible_truncation, inline_always, indexing_slicing
+        len_without_is_empty,
+        shadow_reuse,
+        cast_possible_wrap,
+        cast_sign_loss,
+        cast_possible_truncation,
+        inline_always,
+        indexing_slicing
     )
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
@@ -148,7 +160,8 @@ extern crate core;
 
 #[cfg(
     all(
-        any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")
+        any(target_os = "macos", target_os = "ios"),
+        not(feature = "unix_sysv")
     )
 )]
 extern crate mach;
@@ -178,7 +191,6 @@ mod nonnull;
 
 #[cfg(not(feature = "unstable"))]
 use nonnull::NonNull;
-
 
 #[cfg(feature = "unstable")]
 use core::intrinsics;
@@ -356,7 +368,7 @@ pub use mem::forget as __mem_forget;
 /// let v = sdeq![Rc::new(1_i32); 5];
 /// let ptr: *const i32 = &*v[0] as *const i32;
 /// for i in v.iter() {
-///    assert_eq!(Rc::into_raw(i.clone()), ptr);
+///     assert_eq!(Rc::into_raw(i.clone()), ptr);
 /// }
 /// # }
 /// ```
@@ -411,10 +423,7 @@ impl<T> SliceDeque<T> {
     /// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.
     #[inline]
     pub unsafe fn from_raw_parts(
-        ptr: *mut T,
-        capacity: usize,
-        head: usize,
-        tail: usize,
+        ptr: *mut T, capacity: usize, head: usize, tail: usize,
     ) -> Self {
         Self {
             head,
@@ -563,7 +572,7 @@ impl<T> SliceDeque<T> {
     /// ```
     /// # #[macro_use] extern crate slice_deque;
     /// # fn main() {
-    /// let mut d = sdeq![1,2,3];
+    /// let mut d = sdeq![1, 2, 3];
     /// let cap = d.capacity();
     /// let len = d.len();
     /// unsafe {
@@ -579,7 +588,7 @@ impl<T> SliceDeque<T> {
     ///     }
     ///     d.move_tail(2);
     /// }
-    /// assert_eq!(d, sdeq![1,2,3,4,5]);
+    /// assert_eq!(d, sdeq![1, 2, 3, 4, 5]);
     /// # }
     /// ```
     pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
@@ -721,9 +730,11 @@ impl<T> SliceDeque<T> {
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
             self.tail += cap;
-        } else if new_head as usize > cap {  // cannot panic because new_head >= 0
-            // If the new head is larger than the capacity, we shift the range by -capacity to
-            // move it towards the first mirrored memory region.
+        } else if new_head as usize > cap {
+            // cannot panic because new_head >= 0
+            // If the new head is larger than the capacity, we shift the range
+            // by -capacity to move it towards the first mirrored
+            // memory region.
             debug_assert!(tail >= cap as isize);
             new_head -= cap as isize;
             debug_assert!(new_head >= 0);
@@ -1458,7 +1469,7 @@ impl<T> SliceDeque<T> {
     /// # use slice_deque::SliceDeque;
     /// # fn main() {
     /// let mut deq = sdeq![1, 2, 3, 4];
-    /// deq.retain(|&x| x%2 == 0);
+    /// deq.retain(|&x| x % 2 == 0);
     /// assert_eq!(deq, [2, 4]);
     /// # }
     /// ```
@@ -1720,9 +1731,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     #[cfg(all(feature = "unstable", feature = "use_std"))]
     pub fn splice<R, I>(
-        &mut self,
-        range: R,
-        replace_with: I,
+        &mut self, range: R, replace_with: I,
     ) -> Splice<I::IntoIter>
     where
         R: ops::RangeBounds<usize>,
@@ -1783,8 +1792,10 @@ impl<T> SliceDeque<T> {
     /// # fn main() {
     /// let mut numbers = sdeq![1, 2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15];
     ///
-    /// let evens = numbers.drain_filter(|x| *x % 2 ==
-    /// 0).collect::<SliceDeque<_>>(); let odds = numbers;
+    /// let evens = numbers
+    ///     .drain_filter(|x| *x % 2 == 0)
+    ///     .collect::<SliceDeque<_>>();
+    /// let odds = numbers;
     ///
     /// assert_eq!(sdeq![2, 4, 6, 8, 14], evens);
     /// assert_eq!(odds, sdeq![1, 3, 5, 9, 11, 13, 15]);
@@ -2867,7 +2878,8 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
             // Collect any remaining elements.
             // This is a zero-length deque which does not allocate if
             // `lower_bound` was exact.
-            let mut collected = self.replace_with
+            let mut collected = self
+                .replace_with
                 .by_ref()
                 .collect::<SliceDeque<I::Item>>()
                 .into_iter();
@@ -2892,8 +2904,7 @@ impl<'a, T> Drain<'a, T> {
     /// `replace_with` iterator. Return whether we filled the entire
     /// range. (`replace_with.next()` didn’t return `None`.)
     unsafe fn fill<I: Iterator<Item = T>>(
-        &mut self,
-        replace_with: &mut I,
+        &mut self, replace_with: &mut I,
     ) -> bool {
         let deq = self.deq.as_mut();
         let range_start = deq.len();
@@ -3097,12 +3108,7 @@ mod tests {
 
     fn sizes_to_test() -> Vec<usize> {
         let sample = vec![
-            /* powers of 2 */ 2,
-            4,
-            8,
-            16,
-            32,
-            64,
+            /* powers of 2 */ 2, 4, 8, 16, 32, 64,
             128, /*
             256,
             512,
@@ -3138,8 +3144,7 @@ mod tests {
     }
 
     fn constant_deque<T: Clone + fmt::Debug>(
-        size: usize,
-        val: &T,
+        size: usize, val: &T,
     ) -> SliceDeque<T> {
         let mut v: SliceDeque<T> = SliceDeque::with_capacity(size);
         for i in 0..size {
@@ -4477,10 +4482,7 @@ fn assert_covariance() {
 
     #[cfg(test)]
     fn vecdeque_parameterized<T: Clone + PartialEq + fmt::Debug>(
-        a: T,
-        b: T,
-        c: T,
-        d: T,
+        a: T, b: T, c: T, d: T,
     ) {
         let mut deq = SliceDeque::new();
         assert_eq!(deq.len(), 0);
@@ -5696,7 +5698,7 @@ fn assert_covariance() {
             deque.tail_head_slice()
         };
 
-        for i in 0 .. slice.len() {
+        for i in 0..slice.len() {
             // segfault:
             slice[i] = 0;
         }
