@@ -123,14 +123,13 @@
     feature(
         nonzero, slice_get_slice, fused, core_intrinsics, shared,
         exact_size_is_empty, collections_range, dropck_eyepatch,
-        generic_param_attrs, trusted_len, offset_to, i128_type, specialization
+        trusted_len, ptr_wrapping_offset_from,
+        specialization
     )
 )]
 #![cfg_attr(
     all(test, feature = "unstable"),
-    feature(
-        box_syntax, attr_literals, inclusive_range_syntax, iterator_step_by
-    )
+    feature(box_syntax, attr_literals, iterator_step_by)
 )]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -180,8 +179,6 @@ mod nonnull;
 #[cfg(not(feature = "unstable"))]
 use nonnull::NonNull;
 
-#[cfg(all(feature = "unstable", feature = "use_std"))]
-use std::collections;
 
 #[cfg(feature = "unstable")]
 use core::intrinsics;
@@ -252,7 +249,12 @@ impl<T: Sized> OffsetTo for *const T {
     where
         T: Sized,
     {
-        self.offset_to(other)
+        let size = mem::size_of::<T>();
+        if size == 0 {
+            None
+        } else {
+            Some(other.wrapping_offset_from(self))
+        }
     }
 }
 
@@ -282,7 +284,12 @@ impl<T: Sized> OffsetToMut for *mut T {
     where
         T: Sized,
     {
-        self.offset_to(other)
+        let size = mem::size_of::<T>();
+        if size == 0 {
+            None
+        } else {
+            Some(other.wrapping_offset_from(self))
+        }
     }
 }
 
@@ -508,7 +515,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts(ptr, self.len())
         }
@@ -518,7 +525,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
-            let ptr = self.buf.ptr().get();
+            let ptr = self.buf.ptr();
             let ptr = ptr.offset(self.head as isize);
             slice::from_raw_parts_mut(ptr, self.len())
         }
@@ -576,7 +583,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
-        let ptr = self.buf.ptr().get();
+        let ptr = self.buf.ptr();
         let ptr = ptr.offset(self.tail as isize);
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
     }
@@ -1205,9 +1212,9 @@ impl<T> SliceDeque<T> {
     #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
-        R: collections::range::RangeArgument<usize>,
+        R: ops::RangeBounds<usize>,
     {
-        use collections::Bound::{Excluded, Included, Unbounded};
+        use ops::Bound::{Excluded, Included, Unbounded};
         // Memory safety
         //
         // When the Drain is first created, it shortens the length of
@@ -1220,12 +1227,12 @@ impl<T> SliceDeque<T> {
         // the hole, and the deque length is restored to the new length.
         //
         let len = self.len();
-        let start = match range.start() {
+        let start = match range.start_bound() {
             Included(&n) => n,
             Excluded(&n) => n + 1,
             Unbounded => 0,
         };
-        let end = match range.end() {
+        let end = match range.end_bound() {
             Included(&n) => n + 1,
             Excluded(&n) => n,
             Unbounded => len,
@@ -1718,7 +1725,7 @@ impl<T> SliceDeque<T> {
         replace_with: I,
     ) -> Splice<I::IntoIter>
     where
-        R: collections::range::RangeArgument<usize>,
+        R: ops::RangeBounds<usize>,
         I: IntoIterator<Item = T>,
     {
         Splice {
@@ -2438,7 +2445,7 @@ impl<T> IntoIterator for SliceDeque<T> {
     #[inline]
     fn into_iter(self) -> IntoIter<T> {
         unsafe {
-            let buf_ptr = self.buf.ptr().get();
+            let buf_ptr = self.buf.ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = buf_ptr.offset(self.head as isize) as *const T;
