@@ -459,7 +459,7 @@ impl<T> SliceDeque<T> {
     }
 
     /// Largest tail value
-    /*#[inline]
+    #[inline]
     fn tail_upper_bound(&self) -> usize {
         self.capacity() * 2
     }
@@ -468,7 +468,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     fn head_upper_bound(&self) -> usize {
         self.capacity()
-    }*/
+    }
 
     /// Number of elements in the ring buffer.
     ///
@@ -714,21 +714,21 @@ impl<T> SliceDeque<T> {
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
             self.tail += cap;
-        } /*else if new_head as usize > cap {  // cannot panic because new_head >= 0
+        } else if new_head as usize > cap {  // cannot panic because new_head >= 0
             // If the new head is larger than the capacity, we shift the range by -capacity to
             // move it towards the first mirrored memory region.
             debug_assert!(tail >= cap as isize);
             new_head -= cap as isize;
             debug_assert!(new_head >= 0);
             self.tail -= cap;
-        }*/
+        }
 
         self.head = new_head as usize;
         debug_assert!(self.len() as isize == (tail - head) - x);
         debug_assert!(self.head <= self.tail);
 
-        //debug_assert!(self.tail <= self.tail_upper_bound());
-        //debug_assert!(self.head <= self.head_upper_bound());
+        debug_assert!(self.tail <= self.tail_upper_bound());
+        debug_assert!(self.head <= self.head_upper_bound());
     }
 
     /// Moves the deque head by `x`.
@@ -792,8 +792,8 @@ impl<T> SliceDeque<T> {
         self.tail = new_tail as usize;
         debug_assert!(self.len() as isize == (tail - head) + x);
 
-        //debug_assert!(self.tail <= self.tail_upper_bound());
-        //debug_assert!(self.head <= self.head_upper_bound());
+        debug_assert!(self.tail <= self.tail_upper_bound());
+        debug_assert!(self.head <= self.head_upper_bound());
     }
 
     /// Moves the deque tail by `x`.
