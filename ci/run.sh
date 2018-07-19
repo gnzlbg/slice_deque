@@ -100,7 +100,7 @@ fi
 if [[ $CARGO_CMD == "cargo" ]] && [[ $TARGET != *"ios"* ]]; then
     cargo doc
     if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
-        cargo install clippy --force
+        rustup component add clippy-preview
         cargo clippy -- -D clippy-pedantic
     fi
 fi
