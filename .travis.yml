@@ -19,7 +19,7 @@ matrix:
     before_script:
     - rustup component add rustfmt-preview
     script:
-    - cargo fmt -- --write-mode=diff
+    - cargo fmt --all -- --check
   - env: CLIPPY
     before_script:
     - rustup component add clippy-preview
