@@ -310,9 +310,9 @@ impl<T: Sized> OffsetToMut for *mut T {
 /// It is implemented with a growable virtual ring buffer.
 pub struct SliceDeque<T> {
     /// Index of the first element in the queue.
-    head: usize,
+    head_: usize,
     /// Index of one past the last element in the queue.
-    tail: usize,
+    tail_: usize,
     /// Mirrored memory buffer.
     buf: Buffer<T>,
 }
@@ -411,8 +411,8 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn new() -> Self {
         Self {
-            head: 0,
-            tail: 0,
+            head_: 0,
+            tail_: 0,
             buf: Buffer::new(),
         }
     }
@@ -425,11 +425,18 @@ impl<T> SliceDeque<T> {
     pub unsafe fn from_raw_parts(
         ptr: *mut T, capacity: usize, head: usize, tail: usize,
     ) -> Self {
-        Self {
-            head,
-            tail,
+        debug_assert!(head <= tail);
+
+        let d = Self {
+            head_: head,
+            tail_: tail,
             buf: Buffer::from_raw_parts(ptr, capacity * 2),
-        }
+        };
+
+        debug_assert!(d.tail() <= d.tail_upper_bound());
+        debug_assert!(d.head() <= d.head_upper_bound());
+
+        d
     }
 
     /// Create an empty deque with capacity to hold `n` elements.
@@ -445,8 +452,8 @@ impl<T> SliceDeque<T> {
     pub fn with_capacity(n: usize) -> Self {
         unsafe {
             Self {
-                head: 0,
-                tail: 0,
+                head_: 0,
+                tail_: 0,
                 buf: Buffer::uninitialized(2 * n).unwrap_or_else(|()| {
                     let s = tiny_str!(
                         "failed to allocate a buffer with capacity: {}",
@@ -486,6 +493,18 @@ impl<T> SliceDeque<T> {
         self.capacity()
     }
 
+    /// Get index to the head
+    #[inline]
+    fn head(&self) -> usize {
+        self.head_
+    }
+
+    /// Get index to the tail
+    #[inline]
+    fn tail(&self) -> usize {
+        self.tail_
+    }
+
     /// Number of elements in the ring buffer.
     ///
     /// # Examples
@@ -499,8 +518,8 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn len(&self) -> usize {
-        let l = self.tail - self.head;
-        debug_assert!(self.tail >= self.head);
+        let l = self.tail() - self.head();
+        debug_assert!(self.tail() >= self.head());
         debug_assert!(l <= self.capacity());
         l
     }
@@ -525,7 +544,7 @@ impl<T> SliceDeque<T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             let ptr = self.buf.ptr();
-            let ptr = ptr.offset(self.head as isize);
+            let ptr = ptr.offset(self.head() as isize);
             slice::from_raw_parts(ptr, self.len())
         }
     }
@@ -535,7 +554,7 @@ impl<T> SliceDeque<T> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             let ptr = self.buf.ptr();
-            let ptr = ptr.offset(self.head as isize);
+            let ptr = ptr.offset(self.head() as isize);
             slice::from_raw_parts_mut(ptr, self.len())
         }
     }
@@ -593,7 +612,7 @@ impl<T> SliceDeque<T> {
     /// ```
     pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
         let ptr = self.buf.ptr();
-        let ptr = ptr.offset(self.tail as isize);
+        let ptr = ptr.offset(self.tail() as isize);
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
     }
 
@@ -640,8 +659,8 @@ impl<T> SliceDeque<T> {
 
             // Correct head and tail (we copied to the
             // beginning of the of the new buffer)
-            self.head = 0;
-            self.tail = len;
+            self.head_ = 0;
+            self.tail_ = len;
         }
     }
 
@@ -716,9 +735,9 @@ impl<T> SliceDeque<T> {
             x >= -((self.capacity() - self.len()) as isize)
                 && x <= self.len() as isize
         );
-        let head = self.head as isize;
+        let head = self.head() as isize;
         let mut new_head = head + x;
-        let tail = self.tail as isize;
+        let tail = self.tail() as isize;
         let cap = self.capacity();
         debug_assert!(new_head <= tail);
         debug_assert!(tail - new_head <= cap as isize);
@@ -729,7 +748,7 @@ impl<T> SliceDeque<T> {
             debug_assert!(tail < cap as isize);
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
-            self.tail += cap;
+            self.tail_ += cap;
         } else if new_head as usize > cap {
             // cannot panic because new_head >= 0
             // If the new head is larger than the capacity, we shift the range
@@ -738,15 +757,15 @@ impl<T> SliceDeque<T> {
             debug_assert!(tail >= cap as isize);
             new_head -= cap as isize;
             debug_assert!(new_head >= 0);
-            self.tail -= cap;
+            self.tail_ -= cap;
         }
 
-        self.head = new_head as usize;
+        self.head_ = new_head as usize;
         debug_assert!(self.len() as isize == (tail - head) - x);
-        debug_assert!(self.head <= self.tail);
+        debug_assert!(self.head() <= self.tail());
 
-        debug_assert!(self.tail <= self.tail_upper_bound());
-        debug_assert!(self.head <= self.head_upper_bound());
+        debug_assert!(self.tail() <= self.tail_upper_bound());
+        debug_assert!(self.head() <= self.head_upper_bound());
     }
 
     /// Moves the deque head by `x`.
@@ -788,8 +807,8 @@ impl<T> SliceDeque<T> {
             x >= -(self.len() as isize)
                 && x <= (self.capacity() - self.len()) as isize
         );
-        let head = self.head as isize;
-        let tail = self.tail as isize;
+        let head = self.head() as isize;
+        let tail = self.tail() as isize;
         let cap = self.capacity() as isize;
         let mut new_tail = tail + x;
         debug_assert!(new_tail >= 0);
@@ -802,16 +821,16 @@ impl<T> SliceDeque<T> {
 
         if intrinsics::unlikely(new_tail >= 2 * cap) {
             debug_assert!(head >= cap);
-            self.head -= cap as usize;
+            self.head_ -= cap as usize;
             new_tail -= cap as isize;
             debug_assert!(new_tail <= cap);
         }
 
-        self.tail = new_tail as usize;
+        self.tail_ = new_tail as usize;
         debug_assert!(self.len() as isize == (tail - head) + x);
 
-        debug_assert!(self.tail <= self.tail_upper_bound());
-        debug_assert!(self.head <= self.head_upper_bound());
+        debug_assert!(self.tail() <= self.tail_upper_bound());
+        debug_assert!(self.head() <= self.head_upper_bound());
     }
 
     /// Moves the deque tail by `x`.
@@ -879,8 +898,8 @@ impl<T> SliceDeque<T> {
     pub fn append(&mut self, other: &mut Self) {
         unsafe {
             self.append_elements(other.as_slice() as _);
-            other.head = 0;
-            other.tail = 0;
+            other.head_ = 0;
+            other.tail_ = 0;
         }
     }
 
@@ -1108,15 +1127,17 @@ impl<T> SliceDeque<T> {
         }
 
         let mut new_vd = Self::with_capacity(self.len());
-        unsafe {
-            ::core::ptr::copy_nonoverlapping(
-                self.as_mut_ptr(),
-                new_vd.as_mut_ptr(),
-                self.len(),
-            );
+        if new_vd.capacity() < self.capacity() {
+            unsafe {
+                ::core::ptr::copy_nonoverlapping(
+                    self.as_mut_ptr(),
+                    new_vd.as_mut_ptr(),
+                    self.len(),
+                );
+            }
+            new_vd.tail_ = self.len();
+            mem::swap(self, &mut new_vd);
         }
-        new_vd.tail = self.len();
-        mem::swap(self, &mut new_vd);
     }
 
     /// Shortens the deque by removing excess elements from the back.
@@ -1142,7 +1163,7 @@ impl<T> SliceDeque<T> {
             while len < self.len() {
                 // decrement tail before the drop_in_place(), so a panic on
                 // Drop doesn't re-drop the just-failed value.
-                self.tail -= 1;
+                self.move_tail(-1);
                 let len = self.len();
                 core::ptr::drop_in_place(self.get_unchecked_mut(len));
             }
@@ -1182,7 +1203,7 @@ impl<T> SliceDeque<T> {
                 let head: *mut T = self.get_unchecked_mut(0) as *mut _;
                 // increment head before the drop_in_place(), so a panic on
                 // Drop doesn't re-drop the just-failed value.
-                self.head += 1;
+                self.move_head(1);
                 core::ptr::drop_in_place(head);
             }
         }
@@ -1254,7 +1275,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             // set self.deq length's to start, to be safe in case Drain is
             // leaked
-            self.tail = self.head + start;;
+            self.tail() = self.head() + start;;
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
             let range_slice = slice::from_raw_parts_mut(
@@ -1993,8 +2014,8 @@ impl<T: fmt::Debug> fmt::Debug for SliceDeque<T> {
             "SliceDeque(len: {}, cap: {}, head: {}, tail: {}, elems: {:?})",
             self.len(),
             self.capacity(),
-            self.head,
-            self.tail,
+            self.head(),
+            self.tail(),
             self.as_slice()
         )
        */
@@ -2262,7 +2283,7 @@ impl<T> IntoIter<T> {
     #[inline]
     fn tail(&self) -> usize {
         let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
-        debug_assert!(t >= self.head());
+        debug_assert!(t >= self.head()());
         t
     }
 
@@ -2459,8 +2480,8 @@ impl<T> IntoIterator for SliceDeque<T> {
             let buf_ptr = self.buf.ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
-            let begin = buf_ptr.offset(self.head as isize) as *const T;
-            let end = buf_ptr.offset(self.tail as isize) as *const T;
+            let begin = buf_ptr.offset(self.head() as isize) as *const T;
+            let end = buf_ptr.offset(self.tail() as isize) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
                 buf: NonNull::new_unchecked(buf_ptr),
@@ -2898,7 +2919,7 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
 
 /// Private helper methods for `Splice::drop`
 impl<'a, T> Drain<'a, T> {
-    /// The range from `self.deq.tail` to `self.tail_start` contains elements
+    /// The range from `self.deq.tail` to `self.tail()_start` contains elements
     /// that have been moved out.
     /// Fill that range as much as possible with new elements from the
     /// `replace_with` iterator. Return whether we filled the entire
@@ -3003,8 +3024,8 @@ where
 
         unsafe {
             let new_len = self.old_len - self.del;
-            let new_tail = self.deq.head + new_len;
-            let old_tail = self.deq.tail;
+            let new_tail = self.deq.head() + new_len;
+            let old_tail = self.deq.tail();
             self.deq
                 .move_tail_unchecked(new_tail as isize - old_tail as isize);
         }
@@ -5701,6 +5722,29 @@ fn assert_covariance() {
         for i in 0..slice.len() {
             // segfault:
             slice[i] = 0;
+        }
+    }
+
+    #[test]
+    fn issue_45() {
+        // https://github.com/gnzlbg/slice_deque/issues/45
+        fn refill(buf: &mut SliceDeque<u8>) {
+            let data = [0u8; MAX_SAMPLES_PER_FRAME * 5];
+            buf.extend(data.iter());
+        }
+
+        const MAX_SAMPLES_PER_FRAME: usize = 1152 * 2;
+        const BUFFER_SIZE: usize = MAX_SAMPLES_PER_FRAME * 15;
+        const REFILL_TRIGGER: usize = MAX_SAMPLES_PER_FRAME * 8;
+
+        let mut buf = SliceDeque::with_capacity(BUFFER_SIZE);
+        for _ in 0..10_000 {
+            if buf.len() < REFILL_TRIGGER {
+                refill(&mut buf);
+            }
+
+            let cur_len = buf.len();
+            buf.truncate_front(cur_len - 10);
         }
     }
 }
