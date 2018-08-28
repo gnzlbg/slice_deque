@@ -105,8 +105,13 @@ impl<T> Buffer<T> {
     fn size_in_bytes(len: usize) -> usize {
         let v = no_required_allocation_units(len * mem::size_of::<T>())
             * allocation_granularity();
-        debug_assert!(v >= len * mem::size_of::<T>(),
-                      "len: {}, so<T>: {}, v: {}", len, mem::size_of::<T>(), v);
+        debug_assert!(
+            v >= len * mem::size_of::<T>(),
+            "len: {}, so<T>: {}, v: {}",
+            len,
+            mem::size_of::<T>(),
+            v
+        );
         v
     }
 
@@ -131,7 +136,7 @@ impl<T> Buffer<T> {
         debug_assert!(alloc_size > 0);
         debug_assert!(alloc_size % 2 == 0);
         debug_assert!(alloc_size % allocation_granularity() == 0);
-        debug_assert!(alloc_size >= len* mem::size_of::<T>());
+        debug_assert!(alloc_size >= len * mem::size_of::<T>());
 
         let ptr = allocate_mirrored(alloc_size)?;
         let len = alloc_size / mem::size_of::<T>();
