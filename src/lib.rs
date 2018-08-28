@@ -1689,10 +1689,14 @@ impl<T> SliceDeque<T> {
     /// This function should be the moral equivalent of:
     ///
     /// >  for item in iterator {
-    /// >      self.push(item);
+    /// >      self.push_back(item);
     /// >  }
     #[inline]
-    fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
+    fn extend_desugared<I: Iterator<Item = T>>(&mut self, iterator: I) {
+        for item in iterator {
+            self.push_back(item)
+        }
+        /* FIXME:
         #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
         while let Some(element) = iterator.next() {
             let len = self.len();
@@ -1707,6 +1711,7 @@ impl<T> SliceDeque<T> {
                 self.move_tail_unchecked(1);
             }
         }
+        */
     }
 
     /// Creates a splicing iterator that replaces the specified range in the
