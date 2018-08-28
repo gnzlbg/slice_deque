@@ -68,94 +68,62 @@
 <span id="68">68</span>
 <span id="69">69</span>
 <span id="70">70</span>
-<span id="71">71</span>
-<span id="72">72</span>
-<span id="73">73</span>
-<span id="74">74</span>
-<span id="75">75</span>
-<span id="76">76</span>
-<span id="77">77</span>
-<span id="78">78</span>
-<span id="79">79</span>
-<span id="80">80</span>
-<span id="81">81</span>
-<span id="82">82</span>
-<span id="83">83</span>
-<span id="84">84</span>
-<span id="85">85</span>
-<span id="86">86</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Mirrored memory buffer.</span>
 <span class="kw">mod</span> <span class="ident">buffer</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">unix</span>,
-        <span class="ident">not</span>(
-            <span class="ident">all</span>(
-                <span class="ident">any</span>(
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>
-                ),
-                <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-            )
-        )
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">unix</span>,
+    <span class="ident">not</span>(<span class="ident">all</span>(
+        <span class="ident">any</span>(
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>
+        ),
+        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+    ))
+))]</span>
 <span class="kw">mod</span> <span class="ident">sysv</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">unix</span>,
-        <span class="ident">not</span>(
-            <span class="ident">all</span>(
-                <span class="ident">any</span>(
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>,
-                    <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>
-                ),
-                <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-            )
-        )
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">unix</span>,
+    <span class="ident">not</span>(<span class="ident">all</span>(
+        <span class="ident">any</span>(
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>,
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>
+        ),
+        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+    ))
+))]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="self">self</span>::<span class="ident">sysv</span>::{
     <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
 };
 
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
-        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
+    <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+))]</span>
 <span class="kw">mod</span> <span class="ident">linux</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
-        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
+    <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+))]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="self">self</span>::<span class="ident">linux</span>::{
     <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
 };
 
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
-        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
+    <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+))]</span>
 <span class="kw">mod</span> <span class="ident">macos</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
-        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
+    <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+))]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="self">self</span>::<span class="ident">macos</span>::{
     <span class="ident">allocate_mirrored</span>, <span class="ident">allocation_granularity</span>, <span class="ident">deallocate_mirrored</span>,
 };

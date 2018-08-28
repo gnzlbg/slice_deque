@@ -5761,6 +5761,11 @@
 <span id="5761">5761</span>
 <span id="5762">5762</span>
 <span id="5763">5763</span>
+<span id="5764">5764</span>
+<span id="5765">5765</span>
+<span id="5766">5766</span>
+<span id="5767">5767</span>
+<span id="5768">5768</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -5885,13 +5890,8 @@
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unstable&quot;</span>,
     <span class="ident">feature</span>(
-        <span class="ident">nonzero</span>,
-        <span class="ident">slice_get_slice</span>,
-        <span class="ident">fused</span>,
         <span class="ident">core_intrinsics</span>,
-        <span class="ident">shared</span>,
         <span class="ident">exact_size_is_empty</span>,
-        <span class="ident">collections_range</span>,
         <span class="ident">dropck_eyepatch</span>,
         <span class="ident">trusted_len</span>,
         <span class="ident">ptr_wrapping_offset_from</span>,
@@ -5900,7 +5900,7 @@
 )]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">all</span>(<span class="ident">test</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unstable&quot;</span>),
-    <span class="ident">feature</span>(<span class="ident">box_syntax</span>, <span class="ident">attr_literals</span>, <span class="ident">iterator_step_by</span>)
+    <span class="ident">feature</span>(<span class="ident">box_syntax</span>)
 )]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
@@ -5922,12 +5922,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;use_std&quot;</span>, <span class="ident">test</span>))]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">core</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(
-    <span class="ident">all</span>(
-        <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
-        <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
-    )
-)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;ios&quot;</span>),
+    <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unix_sysv&quot;</span>)
+))]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">mach</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
@@ -6242,6 +6240,8 @@
     <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">capacity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="comment">// Note: the buffer length is not necessarily a power of two</span>
+        <span class="comment">// debug_assert!(self.buf.len() % 2 == 0);</span>
         <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">len</span>() <span class="op">/</span> <span class="number">2</span>
     }
 
@@ -6390,8 +6390,10 @@
     <span class="doccomment">/// Panics if the new capacity overflows `usize`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) {
-        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>().<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+        <span class="kw">let</span> <span class="ident">old_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="ident">old_len</span>.<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
         <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_cap</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">&gt;=</span> <span class="ident">old_len</span> <span class="op">+</span> <span class="ident">additional</span>);
     }
 
     <span class="doccomment">/// Reserves capacity for `new_capacity` elements. Does nothing if the</span>
@@ -6408,6 +6410,7 @@
                 <span class="prelude-val">Err</span>(()) <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;oom&quot;</span>),
                 <span class="prelude-val">Ok</span>(<span class="ident">new_buffer</span>) <span class="op">=&gt;</span> <span class="ident">new_buffer</span>,
             };
+            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">new_buffer</span>.<span class="ident">len</span>() <span class="op">&gt;=</span> <span class="number">2</span> <span class="op">*</span> <span class="ident">new_capacity</span>);
 
             <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
             <span class="comment">// Move the elements from the current buffer</span>
@@ -6495,10 +6498,9 @@
     <span class="doccomment">/// tail of the deque points to within the allocated buffer.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">move_head_unchecked</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">x</span>: <span class="ident">isize</span>) {
-        <span class="macro">debug_assert</span><span class="macro">!</span>(
-            <span class="ident">x</span> <span class="op">&gt;=</span> <span class="op">-</span>((<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">isize</span>)
-                <span class="op">&amp;&amp;</span> <span class="ident">x</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>
-        );
+        <span class="comment">// Make sure that the head does not wrap over the tail:</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&gt;=</span> <span class="op">-</span>((<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">isize</span>));
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>);
         <span class="kw">let</span> <span class="ident">head</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">head</span>() <span class="kw">as</span> <span class="ident">isize</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_head</span> <span class="op">=</span> <span class="ident">head</span> <span class="op">+</span> <span class="ident">x</span>;
         <span class="kw">let</span> <span class="ident">tail</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tail</span>() <span class="kw">as</span> <span class="ident">isize</span>;
@@ -6567,9 +6569,14 @@
     <span class="doccomment">/// tail of the deque points to within the allocated buffer.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">move_tail_unchecked</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">x</span>: <span class="ident">isize</span>) {
+        <span class="comment">// Make sure that the tail does not wrap over the head:</span>
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">x</span> <span class="op">&gt;=</span> <span class="op">-</span>(<span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>));
         <span class="macro">debug_assert</span><span class="macro">!</span>(
-            <span class="ident">x</span> <span class="op">&gt;=</span> <span class="op">-</span>(<span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">isize</span>)
-                <span class="op">&amp;&amp;</span> <span class="ident">x</span> <span class="op">&lt;=</span> (<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">isize</span>
+            <span class="ident">x</span> <span class="op">&lt;=</span> (<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">isize</span>,
+            <span class="string">&quot;x = {}, len = {}, cap = {}&quot;</span>,
+            <span class="ident">x</span>,
+            <span class="self">self</span>.<span class="ident">len</span>(),
+            <span class="self">self</span>.<span class="ident">capacity</span>()
         );
         <span class="kw">let</span> <span class="ident">head</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">head</span>() <span class="kw">as</span> <span class="ident">isize</span>;
         <span class="kw">let</span> <span class="ident">tail</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tail</span>() <span class="kw">as</span> <span class="ident">isize</span>;
@@ -7039,7 +7046,7 @@
         <span class="kw">unsafe</span> {
             <span class="comment">// set self.deq length&#39;s to start, to be safe in case Drain is</span>
             <span class="comment">// leaked</span>
-            <span class="self">self</span>.<span class="ident">tail</span>() <span class="op">=</span> <span class="self">self</span>.<span class="ident">head</span>() <span class="op">+</span> <span class="ident">start</span>;;
+            <span class="self">self</span>.<span class="ident">tail_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">head</span>() <span class="op">+</span> <span class="ident">start</span>;;
             <span class="comment">// Use the borrow in the IterMut to indicate borrowing behavior of</span>
             <span class="comment">// the whole Drain iterator (like &amp;mut T).</span>
             <span class="kw">let</span> <span class="ident">range_slice</span> <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(
@@ -7456,26 +7463,29 @@
     <span class="doccomment">/// &gt;      self.push_back(item);</span>
     <span class="doccomment">/// &gt;  }</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">extend_desugared</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">iterator</span>: <span class="ident">I</span>) {
-        <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">iterator</span> {
-            <span class="self">self</span>.<span class="ident">push_back</span>(<span class="ident">item</span>)
-        }
-        <span class="comment">/* FIXME:
-        #[cfg_attr(feature = &quot;cargo-clippy&quot;, allow(while_let_on_iterator))]
-        while let Some(element) = iterator.next() {
-            let len = self.len();
-            if len == self.capacity() {
-                let (lower, _) = iterator.size_hint();
-                self.reserve(lower.saturating_add(1));
+    <span class="kw">fn</span> <span class="ident">extend_desugared</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">iterator</span>: <span class="ident">I</span>) {
+        <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>, <span class="ident">allow</span>(<span class="ident">while_let_on_iterator</span>))]</span>
+        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">element</span>) <span class="op">=</span> <span class="ident">iterator</span>.<span class="ident">next</span>() {
+            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
+            <span class="kw">let</span> <span class="ident">cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">capacity</span>();
+            <span class="kw">if</span> <span class="ident">len</span> <span class="op">==</span> <span class="ident">cap</span> {
+                <span class="kw">let</span> (<span class="ident">lower</span>, <span class="ident">upper</span>) <span class="op">=</span> <span class="ident">iterator</span>.<span class="ident">size_hint</span>();
+                <span class="kw">let</span> <span class="ident">additional_cap</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">upper</span>) <span class="op">=</span> <span class="ident">upper</span> {
+                    <span class="ident">upper</span>
+                } <span class="kw">else</span> {
+                    <span class="ident">lower</span>
+                }.<span class="ident">checked_add</span>(<span class="number">1</span>)
+                .<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+                <span class="self">self</span>.<span class="ident">reserve</span>(<span class="ident">additional_cap</span>);
             }
-            unsafe {
-                ptr::write(self.get_unchecked_mut(len), element);
-                // NB can&#39;t overflow since we would have had to alloc the
-                // address space
-                self.move_tail_unchecked(1);
+            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="number">1</span> <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">capacity</span>());
+            <span class="kw">unsafe</span> {
+                <span class="ident">ptr</span>::<span class="ident">write</span>(<span class="self">self</span>.<span class="ident">get_unchecked_mut</span>(<span class="ident">len</span>), <span class="ident">element</span>);
+                <span class="comment">// NB can&#39;t overflow since we would have had to alloc the</span>
+                <span class="comment">// address space</span>
+                <span class="self">self</span>.<span class="ident">move_tail_unchecked</span>(<span class="number">1</span>);
             }
         }
-        */</span>
     }
 
     <span class="doccomment">/// Creates a splicing iterator that replaces the specified range in the</span>
@@ -8052,7 +8062,7 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">fn</span> <span class="ident">tail</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
         <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">as_ptr</span>().<span class="ident">offset_to_</span>(<span class="self">self</span>.<span class="ident">end</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">t</span> <span class="op">&gt;=</span> <span class="self">self</span>.<span class="ident">head</span>()());
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">t</span> <span class="op">&gt;=</span> <span class="self">self</span>.<span class="ident">head</span>());
         <span class="ident">t</span>
     }
 

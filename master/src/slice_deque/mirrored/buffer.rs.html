@@ -274,6 +274,22 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Implements a mirrored memory buffer.</span>
 
@@ -281,12 +297,12 @@
 
 <span class="doccomment">/// Number of required memory allocation units to hold `bytes`.</span>
 <span class="kw">fn</span> <span class="ident">no_required_allocation_units</span>(<span class="ident">bytes</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
-    <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> (<span class="ident">bytes</span> <span class="op">/</span> <span class="ident">allocation_granularity</span>()).<span class="ident">max</span>(<span class="number">1</span>);
-    <span class="kw">if</span> <span class="ident">r</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span> {
-        <span class="ident">r</span>
-    } <span class="kw">else</span> {
-        <span class="ident">r</span> <span class="op">+</span> <span class="number">1</span>
-    }
+    <span class="kw">let</span> <span class="ident">ag</span> <span class="op">=</span> <span class="ident">allocation_granularity</span>();
+    <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> ((<span class="ident">bytes</span> <span class="op">+</span> <span class="ident">ag</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">/</span> <span class="ident">ag</span>).<span class="ident">max</span>(<span class="number">1</span>);
+    <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">r</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span> { <span class="ident">r</span> } <span class="kw">else</span> { <span class="ident">r</span> <span class="op">+</span> <span class="number">1</span> };
+    <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">r</span> <span class="op">*</span> <span class="ident">ag</span> <span class="op">&gt;=</span> <span class="ident">bytes</span>);
+    <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">r</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>);
+    <span class="ident">r</span>
 }
 
 <span class="doccomment">/// Mirrored memory buffer of length `len`.</span>
@@ -298,7 +314,7 @@
     <span class="ident">ptr</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Length of the buffer:</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// * it is always a multiple of 2</span>
+    <span class="doccomment">/// * it is NOT always a multiple of 2</span>
     <span class="doccomment">/// * the elements in range `[0, len/2)` are mirrored into the range</span>
     <span class="doccomment">/// `[len/2, len)`.</span>
     <span class="ident">len</span>: <span class="ident">usize</span>,
@@ -370,6 +386,7 @@
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="comment">// Zero-sized types are not supported yet:</span>
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">len</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">ptr</span>.<span class="ident">is_null</span>());
         <span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span>),
@@ -379,8 +396,16 @@
 
     <span class="doccomment">/// Total number of bytes in the buffer (including mirrored memory).</span>
     <span class="kw">fn</span> <span class="ident">size_in_bytes</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
-        <span class="ident">no_required_allocation_units</span>(<span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())
-            <span class="op">*</span> <span class="ident">allocation_granularity</span>()
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">no_required_allocation_units</span>(<span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())
+            <span class="op">*</span> <span class="ident">allocation_granularity</span>();
+        <span class="macro">debug_assert</span><span class="macro">!</span>(
+            <span class="ident">v</span> <span class="op">&gt;=</span> <span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="string">&quot;len: {}, so&lt;T&gt;: {}, v: {}&quot;</span>,
+            <span class="ident">len</span>,
+            <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="ident">v</span>
+        );
+        <span class="ident">v</span>
     }
 
     <span class="doccomment">/// Create a mirrored buffer containing `len` `T`s where the first half of</span>
@@ -404,12 +429,15 @@
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">alloc_size</span> <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">alloc_size</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>);
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">alloc_size</span> <span class="op">%</span> <span class="ident">allocation_granularity</span>() <span class="op">==</span> <span class="number">0</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">alloc_size</span> <span class="op">&gt;=</span> <span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
 
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">allocate_mirrored</span>(<span class="ident">alloc_size</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">alloc_size</span> <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
+        <span class="comment">// Note: len is not a multiple of two: debug_assert!(len % 2 == 0);</span>
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="kw">unsafe</span> { <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>) },
-            <span class="ident">len</span>: <span class="ident">alloc_size</span> <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="ident">len</span>,
         })
     }
 }
@@ -531,12 +559,16 @@
             <span class="number">2</span>
         );
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">no_required_allocation_units</span>(<span class="ident">allocation_granularity</span>()), <span class="number">2</span>);
+        <span class="comment">// For sizes larger than the allocation units we always round up to the</span>
+        <span class="comment">// next even number of allocation units:</span>
+        <span class="macro">assert_eq</span><span class="macro">!</span>(
+            <span class="ident">no_required_allocation_units</span>(<span class="ident">allocation_granularity</span>() <span class="op">+</span> <span class="number">1</span>),
+            <span class="number">2</span>
+        );
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="ident">no_required_allocation_units</span>(<span class="number">2</span> <span class="op">*</span> <span class="ident">allocation_granularity</span>()),
             <span class="number">2</span>
         );
-        <span class="comment">// For sizes larger than the allocation units we always round up to the</span>
-        <span class="comment">// next even number of allocation units:</span>
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="ident">no_required_allocation_units</span>(<span class="number">3</span> <span class="op">*</span> <span class="ident">allocation_granularity</span>()),
             <span class="number">4</span>
