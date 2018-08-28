@@ -478,6 +478,8 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
+        // Note: the buffer length is not necessarily a power of two
+        // debug_assert!(self.buf.len() % 2 == 0);
         self.buf.len() / 2
     }
 
@@ -626,8 +628,10 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.len().checked_add(additional).expect("overflow");
+        let old_len = self.len();
+        let new_cap = old_len.checked_add(additional).expect("overflow");
         self.reserve_capacity(new_cap);
+        debug_assert!(self.capacity() >= old_len + additional);
     }
 
     /// Reserves capacity for `new_capacity` elements. Does nothing if the
@@ -644,6 +648,7 @@ impl<T> SliceDeque<T> {
                 Err(()) => panic!("oom"),
                 Ok(new_buffer) => new_buffer,
             };
+            debug_assert!(new_buffer.len() >= 2 * new_capacity);
 
             let len = self.len();
             // Move the elements from the current buffer
@@ -731,10 +736,9 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
-        debug_assert!(
-            x >= -((self.capacity() - self.len()) as isize)
-                && x <= self.len() as isize
-        );
+        // Make sure that the head does not wrap over the tail:
+        debug_assert!(x >= -((self.capacity() - self.len()) as isize));
+        debug_assert!(x <= self.len() as isize);
         let head = self.head() as isize;
         let mut new_head = head + x;
         let tail = self.tail() as isize;
@@ -803,10 +807,10 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_tail_unchecked(&mut self, x: isize) {
-        debug_assert!(
-            x >= -(self.len() as isize)
-                && x <= (self.capacity() - self.len()) as isize
-        );
+        // Make sure that the tail does not wrap over the head:
+        debug_assert!(x >= -(self.len() as isize));
+        debug_assert!(x <= (self.capacity() - self.len()) as isize,
+                      "x = {}, len = {}, cap = {}", x, self.len(), self.capacity());
         let head = self.head() as isize;
         let tail = self.tail() as isize;
         let cap = self.capacity() as isize;
@@ -1692,18 +1696,21 @@ impl<T> SliceDeque<T> {
     /// >      self.push_back(item);
     /// >  }
     #[inline]
-    fn extend_desugared<I: Iterator<Item = T>>(&mut self, iterator: I) {
-        for item in iterator {
-            self.push_back(item)
-        }
-        /* FIXME:
+    fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
         #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
         while let Some(element) = iterator.next() {
             let len = self.len();
-            if len == self.capacity() {
-                let (lower, _) = iterator.size_hint();
-                self.reserve(lower.saturating_add(1));
+            let cap = self.capacity();
+            if len == cap {
+                let (lower, upper) = iterator.size_hint();
+                let additional_cap = if let Some(upper) = upper {
+                    upper
+                } else {
+                    lower
+                }.checked_add(1).expect("overflow");
+                self.reserve(additional_cap);
             }
+            debug_assert!(self.len() + 1 <= self.capacity());
             unsafe {
                 ptr::write(self.get_unchecked_mut(len), element);
                 // NB can't overflow since we would have had to alloc the
@@ -1711,7 +1718,6 @@ impl<T> SliceDeque<T> {
                 self.move_tail_unchecked(1);
             }
         }
-        */
     }
 
     /// Creates a splicing iterator that replaces the specified range in the

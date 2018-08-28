@@ -4,12 +4,12 @@ use super::*;
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {
-    let r = (bytes / allocation_granularity()).max(1);
-    if r % 2 == 0 {
-        r
-    } else {
-        r + 1
-    }
+    let ag = allocation_granularity();
+    let r = ((bytes + ag - 1) / ag).max(1);
+    let r = if r % 2 == 0 { r } else { r + 1 };
+    debug_assert!(r * ag >= bytes);
+    debug_assert!(r % 2 == 0);
+    r
 }
 
 /// Mirrored memory buffer of length `len`.
@@ -21,7 +21,7 @@ pub struct Buffer<T> {
     ptr: NonNull<T>,
     /// Length of the buffer:
     ///
-    /// * it is always a multiple of 2
+    /// * it is NOT always a multiple of 2
     /// * the elements in range `[0, len/2)` are mirrored into the range
     /// `[len/2, len)`.
     len: usize,
@@ -93,6 +93,7 @@ impl<T> Buffer<T> {
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
         // Zero-sized types are not supported yet:
         assert!(mem::size_of::<T>() > 0);
+        assert!(len % 2 == 0);
         assert!(!ptr.is_null());
         Self {
             ptr: NonNull::new_unchecked(ptr),
@@ -102,8 +103,11 @@ impl<T> Buffer<T> {
 
     /// Total number of bytes in the buffer (including mirrored memory).
     fn size_in_bytes(len: usize) -> usize {
-        no_required_allocation_units(len * mem::size_of::<T>())
-            * allocation_granularity()
+        let v = no_required_allocation_units(len * mem::size_of::<T>())
+            * allocation_granularity();
+        debug_assert!(v >= len * mem::size_of::<T>(),
+                      "len: {}, so<T>: {}, v: {}", len, mem::size_of::<T>(), v);
+        v
     }
 
     /// Create a mirrored buffer containing `len` `T`s where the first half of
@@ -127,12 +131,15 @@ impl<T> Buffer<T> {
         debug_assert!(alloc_size > 0);
         debug_assert!(alloc_size % 2 == 0);
         debug_assert!(alloc_size % allocation_granularity() == 0);
+        debug_assert!(alloc_size >= len* mem::size_of::<T>());
 
         let ptr = allocate_mirrored(alloc_size)?;
+        let len = alloc_size / mem::size_of::<T>();
+        // Note: len is not a multiple of two: debug_assert!(len % 2 == 0);
 
         Ok(Self {
             ptr: unsafe { NonNull::new_unchecked(ptr as *mut T) },
-            len: alloc_size / mem::size_of::<T>(),
+            len,
         })
     }
 }
@@ -254,12 +261,16 @@ mod tests {
             2
         );
         assert_eq!(no_required_allocation_units(allocation_granularity()), 2);
+        // For sizes larger than the allocation units we always round up to the
+        // next even number of allocation units:
+        assert_eq!(
+            no_required_allocation_units(allocation_granularity() + 1),
+            2
+        );
         assert_eq!(
             no_required_allocation_units(2 * allocation_granularity()),
             2
         );
-        // For sizes larger than the allocation units we always round up to the
-        // next even number of allocation units:
         assert_eq!(
             no_required_allocation_units(3 * allocation_granularity()),
             4
