@@ -5747,4 +5747,12 @@ fn assert_covariance() {
             buf.truncate_front(cur_len - 10);
         }
     }
+
+    #[test]
+    fn issue_47() {
+        let page_size = ::mirrored::allocation_granularity();
+        let mut sdq = SliceDeque::<u8>::new();
+        let vec = vec![0_u8; page_size + 1];
+        sdq.extend(vec);
+    }
 }
