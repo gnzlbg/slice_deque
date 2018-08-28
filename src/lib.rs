@@ -158,12 +158,10 @@ mod macros;
 #[cfg(any(feature = "use_std", test))]
 extern crate core;
 
-#[cfg(
-    all(
-        any(target_os = "macos", target_os = "ios"),
-        not(feature = "unix_sysv")
-    )
-)]
+#[cfg(all(
+    any(target_os = "macos", target_os = "ios"),
+    not(feature = "unix_sysv")
+))]
 extern crate mach;
 
 #[cfg(unix)]
@@ -809,8 +807,13 @@ impl<T> SliceDeque<T> {
     pub unsafe fn move_tail_unchecked(&mut self, x: isize) {
         // Make sure that the tail does not wrap over the head:
         debug_assert!(x >= -(self.len() as isize));
-        debug_assert!(x <= (self.capacity() - self.len()) as isize,
-                      "x = {}, len = {}, cap = {}", x, self.len(), self.capacity());
+        debug_assert!(
+            x <= (self.capacity() - self.len()) as isize,
+            "x = {}, len = {}, cap = {}",
+            x,
+            self.len(),
+            self.capacity()
+        );
         let head = self.head() as isize;
         let tail = self.tail() as isize;
         let cap = self.capacity() as isize;
@@ -1707,7 +1710,8 @@ impl<T> SliceDeque<T> {
                     upper
                 } else {
                     lower
-                }.checked_add(1).expect("overflow");
+                }.checked_add(1)
+                .expect("overflow");
                 self.reserve(additional_cap);
             }
             debug_assert!(self.len() + 1 <= self.capacity());
