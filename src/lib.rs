@@ -121,13 +121,8 @@
 #![cfg_attr(
     feature = "unstable",
     feature(
-        nonzero,
-        slice_get_slice,
-        fused,
         core_intrinsics,
-        shared,
         exact_size_is_empty,
-        collections_range,
         dropck_eyepatch,
         trusted_len,
         ptr_wrapping_offset_from,
@@ -136,7 +131,7 @@
 )]
 #![cfg_attr(
     all(test, feature = "unstable"),
-    feature(box_syntax, attr_literals, iterator_step_by)
+    feature(box_syntax)
 )]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -1282,7 +1277,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             // set self.deq length's to start, to be safe in case Drain is
             // leaked
-            self.tail() = self.head() + start;;
+            self.tail_ = self.head() + start;;
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
             let range_slice = slice::from_raw_parts_mut(
@@ -2298,7 +2293,7 @@ impl<T> IntoIter<T> {
     #[inline]
     fn tail(&self) -> usize {
         let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
-        debug_assert!(t >= self.head()());
+        debug_assert!(t >= self.head());
         t
     }
 
