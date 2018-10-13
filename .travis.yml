@@ -15,19 +15,15 @@ matrix:
   - env: TARGET=aarch64-linux-android SYSV=1
   - env: DOCS/COVERAGE
   include:
-  - env: RUSTFMT
-    before_script:
-    - rustup component add rustfmt-preview
-    script:
-    - cargo fmt --all -- --check
-  - env: CLIPPY
-    before_script:
-    - rustup component add clippy-preview
-    script:
-    - cargo clippy -- -D clippy::pedantic
-  - env: DOCS/COVERAGE
+  - name: "rustfmt"
+    install: rustup component add rustfmt-preview
+    script: cargo fmt --all -- --check
+  - name: "clippy"
+    install: rustup component add clippy-preview
+    script: cargo clippy -- -D clippy::pedantic
+  - name: "documentation + code coverage"
     sudo: required
-    before_script:
+    install:
     - export PATH=$HOME/.cargo/bin:$PATH
     - cargo install cargo-update || echo "cargo-update already installed"
     - cargo install cargo-travis || echo "cargo-travis already installed"
