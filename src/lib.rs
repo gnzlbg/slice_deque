@@ -176,14 +176,7 @@ use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
 
-#[cfg(feature = "unstable")]
 use core::ptr::NonNull;
-
-#[cfg(not(feature = "unstable"))]
-mod nonnull;
-
-#[cfg(not(feature = "unstable"))]
-use nonnull::NonNull;
 
 #[cfg(feature = "unstable")]
 use core::intrinsics;
