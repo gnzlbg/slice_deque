@@ -133,13 +133,13 @@
 #![cfg_attr(
     feature = "cargo-clippy",
     allow(
-        len_without_is_empty,
-        shadow_reuse,
-        cast_possible_wrap,
-        cast_sign_loss,
-        cast_possible_truncation,
-        inline_always,
-        indexing_slicing
+        clippy::len_without_is_empty,
+        clippy::shadow_reuse,
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_truncation,
+        clippy::inline_always,
+        clippy::indexing_slicing
     )
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
@@ -372,7 +372,7 @@ macro_rules! sdeq {
             unsafe {
                 let array = [$($x),*];
                 let deq = $crate::SliceDeque::steal_from_slice(&array);
-                #[cfg_attr(feature = "cargo-clippy", allow(forget_copy))]
+                #[cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
                 $crate::__mem_forget(array);
                 deq
             }
@@ -1233,7 +1233,7 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     #[cfg(all(feature = "unstable", feature = "use_std"))]
-    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::needless_pass_by_value))]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
         R: ops::RangeBounds<usize>,
@@ -1685,7 +1685,7 @@ impl<T> SliceDeque<T> {
     /// >  }
     #[inline]
     fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
-        #[cfg_attr(feature = "cargo-clippy", allow(while_let_on_iterator))]
+        #[cfg_attr(feature = "cargo-clippy", allow(clippy::while_let_on_iterator))]
         while let Some(element) = iterator.next() {
             let len = self.len();
             let cap = self.capacity();
@@ -1700,7 +1700,7 @@ impl<T> SliceDeque<T> {
                 .expect("overflow");
                 self.reserve(additional_cap);
             }
-            debug_assert!(self.len() + 1 <= self.capacity());
+            debug_assert!(self.len() < self.capacity());
             unsafe {
                 ptr::write(self.get_unchecked_mut(len), element);
                 // NB can't overflow since we would have had to alloc the
@@ -1883,7 +1883,7 @@ where
             unsafe {
                 let len = self.len();
                 self.move_tail_unchecked(other.len() as isize);
-                self.get_unchecked_mut(len..).copy_from_slice(other);
+                self.get_unchecked_mut(len..).clone_from_slice(other);
             }
         }
     }
@@ -2283,7 +2283,7 @@ impl<T> IntoIter<T> {
     /// Returns the index of the head with respect to the beginning of the
     /// buffer.
     #[cfg(feature = "unstable")]
-    #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::option_unwrap_used))]
     #[inline]
     fn head(&self) -> usize {
         self.buf.as_ptr().offset_to_(self.ptr).unwrap() as usize
@@ -2292,7 +2292,7 @@ impl<T> IntoIter<T> {
     /// Returns the index of the tail with respect to the beginning of the
     /// buffer.
     #[cfg(feature = "unstable")]
-    #[cfg_attr(feature = "cargo-clippy", allow(option_unwrap_used))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::option_unwrap_used))]
     #[inline]
     fn tail(&self) -> usize {
         let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
@@ -2503,7 +2503,7 @@ impl<T> IntoIterator for SliceDeque<T> {
                 end,
             };
             debug_assert!(self.len() == it.size_hint().0);
-            #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
+            #[cfg_attr(feature = "cargo-clippy", allow(clippy::mem_forget))]
             mem::forget(self);
             it
         }
@@ -2610,7 +2610,7 @@ where
         deque
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(use_debug))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::use_debug))]
     default fn spec_extend(&mut self, iterator: I) {
         // This is the case for a TrustedLen iterator.
         let (low, high) = iterator.size_hint();
@@ -2654,7 +2654,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.head(),
                     iterator.tail(),
                 );
-                #[cfg_attr(feature = "cargo-clippy", allow(mem_forget))]
+                #[cfg_attr(feature = "cargo-clippy", allow(clippy::mem_forget))]
                 mem::forget(iterator);
                 deq
             }
