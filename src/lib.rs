@@ -1233,7 +1233,10 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     #[cfg(all(feature = "unstable", feature = "use_std"))]
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::needless_pass_by_value))]
+    #[cfg_attr(
+        feature = "cargo-clippy",
+        allow(clippy::needless_pass_by_value)
+    )]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
         R: ops::RangeBounds<usize>,
@@ -1685,7 +1688,10 @@ impl<T> SliceDeque<T> {
     /// >  }
     #[inline]
     fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
-        #[cfg_attr(feature = "cargo-clippy", allow(clippy::while_let_on_iterator))]
+        #[cfg_attr(
+            feature = "cargo-clippy",
+            allow(clippy::while_let_on_iterator)
+        )]
         while let Some(element) = iterator.next() {
             let len = self.len();
             let cap = self.capacity();
@@ -2654,7 +2660,9 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.head(),
                     iterator.tail(),
                 );
-                #[cfg_attr(feature = "cargo-clippy", allow(clippy::mem_forget))]
+                #[cfg_attr(
+                    feature = "cargo-clippy", allow(clippy::mem_forget)
+                )]
                 mem::forget(iterator);
                 deq
             }
