@@ -96,7 +96,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
                 file_mapping,
                 half_size,
                 virt_ptr.offset(half_size as isize),
-            ).is_err()
+            )
+            .is_err()
             {
                 // If this fails, we release the map of the first half and try
                 // again:
