@@ -65,11 +65,9 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         let mut fname = *b"/tmp/slice_deque_fileXXXXXX\0";
         let mut fd: c_long =
             memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
-        if fd == -1 {
-            if errno() == ENOSYS {
-                // memfd_create is not implemented, use mkstemp instead:
-                fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
-            }
+        if fd == -1 && errno() == ENOSYS {
+            // memfd_create is not implemented, use mkstemp instead:
+            fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
         }
         if fd == -1 {
             print_error("memfd_create failed");

@@ -112,8 +112,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         }
 
         // Map the first half to the second half using the object handle:
-        let mut to =
-            (addr as *mut u8).offset(half_size as isize) as mach_vm_address_t;
+        let mut to = (addr as *mut u8).add(half_size) as mach_vm_address_t;
         let mut current_prot: vm_prot_t = mem::uninitialized();
         let mut out_prot: vm_prot_t = mem::uninitialized();
         let r: kern_return_t = mach_vm_remap(
