@@ -529,7 +529,7 @@ impl<T> SliceDeque<T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             let ptr = self.buf.ptr();
-            let ptr = ptr.offset(self.head() as isize);
+            let ptr = ptr.add(self.head());
             slice::from_raw_parts(ptr, self.len())
         }
     }
@@ -539,7 +539,7 @@ impl<T> SliceDeque<T> {
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             let ptr = self.buf.ptr();
-            let ptr = ptr.offset(self.head() as isize);
+            let ptr = ptr.add(self.head());
             slice::from_raw_parts_mut(ptr, self.len())
         }
     }
@@ -597,7 +597,7 @@ impl<T> SliceDeque<T> {
     /// ```
     pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
         let ptr = self.buf.ptr();
-        let ptr = ptr.offset(self.tail() as isize);
+        let ptr = ptr.add(self.tail());
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
     }
 
@@ -718,6 +718,10 @@ impl<T> SliceDeque<T> {
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
+    #[cfg_attr(
+        feature = "cargo-clippy",
+        allow(clippy::cyclomatic_complexity)
+    )]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
         // Make sure that the head does not wrap over the tail:
         debug_assert!(x >= -((self.capacity() - self.len()) as isize));
@@ -1274,7 +1278,7 @@ impl<T> SliceDeque<T> {
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
             let range_slice = slice::from_raw_parts_mut(
-                self.as_mut_ptr().offset(start as isize),
+                self.as_mut_ptr().add(start),
                 end - start,
             );
             Drain {
@@ -1388,8 +1392,8 @@ impl<T> SliceDeque<T> {
                 self.grow();
             }
 
-            let p = self.as_mut_ptr().offset(index as isize);
-            ptr::copy(p, p.offset(1), len - index); // Shift elements
+            let p = self.as_mut_ptr().add(index);
+            ptr::copy(p, p.add(1), len - index); // Shift elements
             ptr::write(p, element); // Overwritte
             self.move_tail_unchecked(1);
         }
@@ -1419,11 +1423,11 @@ impl<T> SliceDeque<T> {
         assert!(index < len);
         unsafe {
             // copy element at pointer:
-            let ptr = self.as_mut_ptr().offset(index as isize);
+            let ptr = self.as_mut_ptr().add(index);
             let ret = ptr::read(ptr);
             // shift everything to the front overwriting the deque copy of the
             // element:
-            ptr::copy(ptr.offset(1), ptr, len - index - 1);
+            ptr::copy(ptr.add(1), ptr, len - index - 1);
             self.move_tail_unchecked(-1);
             ret
         }
@@ -1464,7 +1468,7 @@ impl<T> SliceDeque<T> {
             other.move_tail_unchecked(other_len as isize);
 
             ptr::copy_nonoverlapping(
-                self.as_ptr().offset(at as isize),
+                self.as_ptr().add(at),
                 other.as_mut_ptr(),
                 other.len(),
             );
@@ -1636,11 +1640,11 @@ impl<T> SliceDeque<T> {
             let mut w: usize = 1;
 
             while r < ln {
-                let p_r = p.offset(r as isize);
-                let p_wm1 = p.offset((w - 1) as isize);
+                let p_r = p.add(r);
+                let p_wm1 = p.add(w - 1);
                 if !same_bucket(&mut *p_r, &mut *p_wm1) {
                     if r != w {
-                        let p_w = p_wm1.offset(1);
+                        let p_w = p_wm1.add(1);
                         mem::swap(&mut *p_r, &mut *p_w);
                     }
                     w += 1;
@@ -1658,12 +1662,12 @@ impl<T> SliceDeque<T> {
         self.reserve(n);
 
         unsafe {
-            let mut ptr = self.as_mut_ptr().offset(self.len() as isize);
+            let mut ptr = self.as_mut_ptr().add(self.len());
 
             // Write all elements except the last one
             for _ in 1..n {
                 ptr::write(ptr, value.next());
-                ptr = ptr.offset(1);
+                ptr = ptr.add(1);
                 // Increment the length in every step in case next() panics
                 self.move_tail_unchecked(1);
             }
@@ -2241,8 +2245,8 @@ impl<'a, T> Drop for Drain<'a, T> {
                 // memmove back untouched tail, update to new length
                 let start = source_deq.len();
                 let tail = self.tail_start;
-                let src = source_deq.as_ptr().offset(tail as isize);
-                let dst = source_deq.as_mut_ptr().offset(start as isize);
+                let src = source_deq.as_ptr().add(tail);
+                let dst = source_deq.as_mut_ptr().add(start);
                 ptr::copy(src, dst, self.tail_len);
                 source_deq.move_tail_unchecked(self.tail_len as isize);
             }
@@ -2374,7 +2378,7 @@ impl<T> Iterator for IntoIter<T> {
                 Some(ptr::read(1 as *mut T))
             } else {
                 let old = self.ptr;
-                self.ptr = self.ptr.offset(1);
+                self.ptr = self.ptr.add(1);
 
                 Some(ptr::read(old))
             }
@@ -2499,8 +2503,8 @@ impl<T> IntoIterator for SliceDeque<T> {
             let buf_ptr = self.buf.ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
-            let begin = buf_ptr.offset(self.head() as isize) as *const T;
-            let end = buf_ptr.offset(self.tail() as isize) as *const T;
+            let begin = buf_ptr.add(self.head()) as *const T;
+            let end = buf_ptr.add(self.tail()) as *const T;
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
                 buf: NonNull::new_unchecked(buf_ptr),
@@ -2631,10 +2635,10 @@ where
         if let Some(additional) = high {
             self.reserve(additional);
             unsafe {
-                let mut ptr = self.as_mut_ptr().offset(self.len() as isize);
+                let mut ptr = self.as_mut_ptr().add(self.len());
                 for element in iterator {
                     ptr::write(ptr, element);
-                    ptr = ptr.offset(1);
+                    ptr = ptr.add(1);
                     // NB can't overflow since we would have had to alloc the
                     // address space
                     self.move_tail_unchecked(1);
@@ -2952,7 +2956,7 @@ impl<'a, T> Drain<'a, T> {
         let range_start = deq.len();
         let range_end = self.tail_start;
         let range_slice = slice::from_raw_parts_mut(
-            deq.as_mut_ptr().offset(range_start as isize),
+            deq.as_mut_ptr().add(range_start),
             range_end - range_start,
         );
 
@@ -2974,8 +2978,8 @@ impl<'a, T> Drain<'a, T> {
         deq.reserve_capacity(used_capacity + extra_capacity);
 
         let new_tail_start = self.tail_start + extra_capacity;
-        let src = deq.as_ptr().offset(self.tail_start as isize);
-        let dst = deq.as_mut_ptr().offset(new_tail_start as isize);
+        let src = deq.as_ptr().add(self.tail_start);
+        let dst = deq.as_mut_ptr().add(new_tail_start);
         ptr::copy(src, dst, self.tail_len);
         self.tail_start = new_tail_start;
     }

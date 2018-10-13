@@ -139,12 +139,10 @@ impl<T> Buffer<T> {
         debug_assert!(alloc_size >= len * mem::size_of::<T>());
 
         let ptr = allocate_mirrored(alloc_size)?;
-        let len = alloc_size / mem::size_of::<T>();
-        // Note: len is not a multiple of two: debug_assert!(len % 2 == 0);
-
         Ok(Self {
             ptr: unsafe { NonNull::new_unchecked(ptr as *mut T) },
-            len,
+            len: alloc_size / mem::size_of::<T>(),
+            // Note: len is not a multiple of two: debug_assert!(len % 2 == 0);
         })
     }
 }
