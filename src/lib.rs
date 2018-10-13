@@ -129,10 +129,7 @@
         specialization
     )
 )]
-#![cfg_attr(
-    all(test, feature = "unstable"),
-    feature(box_syntax)
-)]
+#![cfg_attr(all(test, feature = "unstable"), feature(box_syntax))]
 #![cfg_attr(
     feature = "cargo-clippy",
     allow(
@@ -1698,7 +1695,8 @@ impl<T> SliceDeque<T> {
                     upper
                 } else {
                     lower
-                }.checked_add(1)
+                }
+                .checked_add(1)
                 .expect("overflow");
                 self.reserve(additional_cap);
             }
@@ -1875,10 +1873,12 @@ where
     /// ```
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
-        #[cfg(feature = "unstable")] {
+        #[cfg(feature = "unstable")]
+        {
             self.spec_extend(other.iter())
         }
-        #[cfg(not(feature = "unstable"))] {
+        #[cfg(not(feature = "unstable"))]
+        {
             self.reserve(other.len());
             unsafe {
                 let len = self.len();
@@ -2021,17 +2021,17 @@ impl<T: fmt::Debug> fmt::Debug for SliceDeque<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{:?}", self.as_slice())
         /*
-        write!(
-            f,
-            // TODO: "SliceDeque({:?})",
-            "SliceDeque(len: {}, cap: {}, head: {}, tail: {}, elems: {:?})",
-            self.len(),
-            self.capacity(),
-            self.head(),
-            self.tail(),
-            self.as_slice()
-        )
-       */
+         write!(
+             f,
+             // TODO: "SliceDeque({:?})",
+             "SliceDeque(len: {}, cap: {}, head: {}, tail: {}, elems: {:?})",
+             self.len(),
+             self.capacity(),
+             self.head(),
+             self.tail(),
+             self.as_slice()
+         )
+        */
     }
 }
 
@@ -3144,19 +3144,19 @@ mod tests {
         let sample = vec![
             /* powers of 2 */ 2, 4, 8, 16, 32, 64,
             128, /*
-            256,
-            512,
-            1024,
-            2048,
-            4096,
-            8192, 16_384, 32_768,  65_536, 131_072, 262_144,
-            */
-            /*
-            // powers of 2 - 1 or primes
-            1, 3, 7, 13, 17, 31, 61, 127, 257, 509, 1021, 2039, 4093,
-            8191, 16_381, 32_749,  65_537, 131_071, 262_143, 4_194_301,
-            // powers of 10
-            10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/
+                256,
+                512,
+                1024,
+                2048,
+                4096,
+                8192, 16_384, 32_768,  65_536, 131_072, 262_144,
+                */
+                /*
+                // powers of 2 - 1 or primes
+                1, 3, 7, 13, 17, 31, 61, 127, 257, 509, 1021, 2039, 4093,
+                8191, 16_381, 32_749,  65_537, 131_071, 262_143, 4_194_301,
+                // powers of 10
+                10, 100, 1000, 10_000, 100_000, 1_000_000_usize,*/
         ];
         sample.into_iter().collect()
     }
@@ -4063,7 +4063,7 @@ mod tests {
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-
+    
         let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -4153,13 +4153,13 @@ mod tests {
     }
 
     /* into_boxed_slice probably can't be supported portably
-#[test]
-fn vec_into_boxed_slice() {
-    let xs = sdeq![1, 2, 3];
-    let ys = xs.into_boxed_slice();
-    assert_eq!(&*ys, [1, 2, 3]);
-}
-*/
+    #[test]
+    fn vec_into_boxed_slice() {
+        let xs = sdeq![1, 2, 3];
+        let ys = xs.into_boxed_slice();
+        assert_eq!(&*ys, [1, 2, 3]);
+    }
+    */
 
     #[test]
     fn vec_append() {
@@ -4235,40 +4235,40 @@ fn vec_into_boxed_slice() {
     }
 
     /* TODO: Cow support
-#[test]
-    fn vec_cow_from() {
-        use std::borrow::Cow;
-    let borrowed: &[_] = &["borrowed", "(slice)"];
-    let owned = sdeq!["owned", "(vec)"];
-    match (Cow::from(owned.clone()), Cow::from(borrowed)) {
-        (Cow::Owned(o), Cow::Borrowed(b)) => assert!(o == owned && b == borrowed),
-        _ => panic!("invalid `Cow::from`"),
+    #[test]
+        fn vec_cow_from() {
+            use std::borrow::Cow;
+        let borrowed: &[_] = &["borrowed", "(slice)"];
+        let owned = sdeq!["owned", "(vec)"];
+        match (Cow::from(owned.clone()), Cow::from(borrowed)) {
+            (Cow::Owned(o), Cow::Borrowed(b)) => assert!(o == owned && b == borrowed),
+            _ => panic!("invalid `Cow::from`"),
+        }
     }
-}
-
-#[test]
-    fn vec_from_cow() {
-        use std::borrow::Cow;
-    let borrowed: &[_] = &["borrowed", "(slice)"];
-    let owned = sdeq!["owned", "(vec)"];
-    assert_eq!(SliceDeque::from(Cow::Borrowed(borrowed)), sdeq!["borrowed", "(slice)"]);
-    assert_eq!(SliceDeque::from(Cow::Owned(owned)), sdeq!["owned", "(vec)"]);
-}
-     */
+    
+    #[test]
+        fn vec_from_cow() {
+            use std::borrow::Cow;
+        let borrowed: &[_] = &["borrowed", "(slice)"];
+        let owned = sdeq!["owned", "(vec)"];
+        assert_eq!(SliceDeque::from(Cow::Borrowed(borrowed)), sdeq!["borrowed", "(slice)"]);
+        assert_eq!(SliceDeque::from(Cow::Owned(owned)), sdeq!["owned", "(vec)"]);
+    }
+         */
 
     /* TODO: covariance
-use super::{Drain, IntoIter};
-
-#[allow(dead_code)]
-fn assert_covariance() {
-    fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
-        d
+    use super::{Drain, IntoIter};
+    
+    #[allow(dead_code)]
+    fn assert_covariance() {
+        fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
+            d
+        }
+        fn into_iter<'new>(i: IntoIter<&'static str>) -> IntoIter<&'new str> {
+            i
+        }
     }
-    fn into_iter<'new>(i: IntoIter<&'static str>) -> IntoIter<&'new str> {
-        i
-    }
-}
-    */
+        */
 
     #[test]
     fn from_into_inner() {
@@ -5542,13 +5542,13 @@ fn assert_covariance() {
     }
 
     /* TODO: covariance
-#[allow(dead_code)]
-fn assert_covariance() {
-    fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
-        d
+    #[allow(dead_code)]
+    fn assert_covariance() {
+        fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
+            d
+        }
     }
-}
-    */
+        */
 
     #[cfg(feature = "unstable")]
     #[test]
