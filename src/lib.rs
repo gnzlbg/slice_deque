@@ -1875,7 +1875,17 @@ where
     /// ```
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
-        self.spec_extend(other.iter())
+        #[cfg(feature = "unstable")] {
+            self.spec_extend(other.iter())
+        }
+        #[cfg(not(feature = "unstable"))] {
+            self.reserve(other.len());
+            unsafe {
+                let len = self.len();
+                self.move_tail_unchecked(other.len() as isize);
+                self.get_unchecked_mut(len..).copy_from_slice(other);
+            }
+        }
     }
 
     /// Modifies the `SliceDeque` in-place so that `len()` is equal to
