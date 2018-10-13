@@ -5758,4 +5758,53 @@ fn assert_covariance() {
         let vec = vec![0_u8; page_size + 1];
         sdq.extend(vec);
     }
+
+    #[test]
+    fn issue_50() {
+        use std::fs::File;
+        use std::io::Write;
+
+        let out_buffer = SliceDeque::new();
+        let mut out_file = File::create("/tmp/slice_deque_test").unwrap();
+        let res = out_file.write(&out_buffer[..]);
+        println!("Result was {:?}", res);
+        println!("Buffer size: {}", out_buffer.len());
+        println!("Address of buffer was: {:?}", out_buffer.as_ptr());
+    }
+
+    #[test]
+    fn empty_ptr() {
+        {
+            let sdeq = SliceDeque::<i8>::new();
+            let v = Vec::<i8>::new();
+            assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<i8>());
+            assert_eq!(v.as_ptr() as usize, mem::align_of::<i8>());
+        }
+        {
+            let sdeq = SliceDeque::<i16>::new();
+            let v = Vec::<i16>::new();
+            assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<i16>());
+            assert_eq!(v.as_ptr() as usize, mem::align_of::<i16>());
+        }
+        {
+            let sdeq = SliceDeque::<i32>::new();
+            let v = Vec::<i32>::new();
+            assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<i32>());
+            assert_eq!(v.as_ptr() as usize, mem::align_of::<i32>());
+        }
+        {
+            let sdeq = SliceDeque::<i64>::new();
+            let v = Vec::<i64>::new();
+            assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<i64>());
+            assert_eq!(v.as_ptr() as usize, mem::align_of::<i64>());
+        }
+        {
+            #[repr(align(32))]
+            struct Foo(i8);
+            let sdeq = SliceDeque::<Foo>::new();
+            let v = Vec::<Foo>::new();
+            assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<Foo>());
+            assert_eq!(v.as_ptr() as usize, mem::align_of::<Foo>());
+        }
+    }
 }

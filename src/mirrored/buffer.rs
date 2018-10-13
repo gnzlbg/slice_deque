@@ -79,7 +79,7 @@ impl<T> Buffer<T> {
         // will ensure that it is never dereferenced in this state.
         unsafe {
             Self {
-                ptr: NonNull::new_unchecked(usize::max_value() as *mut T),
+                ptr: NonNull::new_unchecked(mem::align_of::<T>() as *mut T),
                 len: 0,
             }
         }
