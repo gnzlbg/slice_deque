@@ -288,8 +288,6 @@
 <span id="288">288</span>
 <span id="289">289</span>
 <span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Implements a mirrored memory buffer.</span>
 
@@ -372,7 +370,7 @@
         <span class="comment">// will ensure that it is never dereferenced in this state.</span>
         <span class="kw">unsafe</span> {
             <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">usize</span>::<span class="ident">max_value</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>),
+                <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>),
                 <span class="ident">len</span>: <span class="number">0</span>,
             }
         }
@@ -432,12 +430,10 @@
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">alloc_size</span> <span class="op">&gt;=</span> <span class="ident">len</span> <span class="op">*</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>());
 
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">allocate_mirrored</span>(<span class="ident">alloc_size</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">alloc_size</span> <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
-        <span class="comment">// Note: len is not a multiple of two: debug_assert!(len % 2 == 0);</span>
-
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="kw">unsafe</span> { <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>) },
-            <span class="ident">len</span>,
+            <span class="ident">len</span>: <span class="ident">alloc_size</span> <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="comment">// Note: len is not a multiple of two: debug_assert!(len % 2 == 0);</span>
         })
     }
 }
