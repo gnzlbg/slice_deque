@@ -612,8 +612,12 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         let old_len = self.len();
-        let new_cap = old_len.checked_add(additional).expect("overflow");
-        self.reserve_capacity(new_cap);
+        let req_cap = old_len.checked_add(additional).expect("overflow");
+        let cur_cap = self.capacity();
+        if req_cap > cur_cap {
+            let dbl_cap = cur_cap * 2;
+            self.reserve_capacity(cmp::max(req_cap, dbl_cap));
+        }
         debug_assert!(self.capacity() >= old_len + additional);
     }
 
@@ -677,31 +681,10 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
-        self.reserve(additional);
-    }
-
-    /// Growth policy of the deque. The capacity is going to be a multiple of
-    /// the page-size anyways, so we just double on growth.
-    #[inline]
-    fn grow_policy(&self) -> usize {
-        unsafe {
-            if intrinsics::unlikely(self.capacity() == 0) {
-                4
-            } else {
-                self.capacity() * 2
-            }
-        }
-    }
-
-    /// Grows the deque.
-    #[inline]
-    fn grow(&mut self) {
-        debug_assert!(self.is_full());
-
-        let new_capacity = self.grow_policy();
-        self.reserve_capacity(new_capacity);
-
-        debug_assert!(!self.is_full());
+        let old_len = self.len();
+        let new_cap = old_len.checked_add(additional).expect("overflow");
+        self.reserve_capacity(new_cap);
+        debug_assert!(self.capacity() >= old_len + additional);
     }
 
     /// Moves the deque head by `x`.
@@ -1000,7 +983,7 @@ impl<T> SliceDeque<T> {
     pub fn push_front(&mut self, value: T) {
         unsafe {
             if intrinsics::unlikely(self.is_full()) {
-                self.grow();
+                self.reserve(1);
             }
 
             self.move_head_unchecked(-1);
@@ -1023,7 +1006,7 @@ impl<T> SliceDeque<T> {
     pub fn push_back(&mut self, value: T) {
         unsafe {
             if intrinsics::unlikely(self.is_full()) {
-                self.grow();
+                self.reserve(1);
             }
             self.move_tail_unchecked(1);
             let len = self.len();
@@ -1389,7 +1372,7 @@ impl<T> SliceDeque<T> {
             assert!(index <= len);
 
             if intrinsics::unlikely(self.is_full()) {
-                self.grow();
+                self.reserve(1);
             }
 
             let p = self.as_mut_ptr().add(index);
@@ -4075,7 +4058,7 @@ mod tests {
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-    
+
         let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -4257,7 +4240,7 @@ mod tests {
             _ => panic!("invalid `Cow::from`"),
         }
     }
-    
+
     #[test]
         fn vec_from_cow() {
             use std::borrow::Cow;
@@ -4270,7 +4253,7 @@ mod tests {
 
     /* TODO: covariance
     use super::{Drain, IntoIter};
-    
+
     #[allow(dead_code)]
     fn assert_covariance() {
         fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
