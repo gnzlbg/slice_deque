@@ -691,7 +691,7 @@ impl<T> SliceDeque<T> {
         let old_len = self.len();
         let req_cap = old_len.checked_add(additional).expect("overflow");
         if req_cap > cur_cap {
-            let dbl_cap = cur_cap * 2;
+            let dbl_cap = cur_cap.saturating_mul(2);
             cmp::max(req_cap, dbl_cap)
         } else {
             req_cap
