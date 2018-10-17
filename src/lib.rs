@@ -612,12 +612,8 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         let old_len = self.len();
-        let req_cap = old_len.checked_add(additional).expect("overflow");
-        let cur_cap = self.capacity();
-        if req_cap > cur_cap {
-            let dbl_cap = cur_cap * 2;
-            self.reserve_capacity(cmp::max(req_cap, dbl_cap));
-        }
+        let new_cap = self.grow_policy(additional);
+        self.reserve_capacity(new_cap);
         debug_assert!(self.capacity() >= old_len + additional);
     }
 
@@ -685,6 +681,21 @@ impl<T> SliceDeque<T> {
         let new_cap = old_len.checked_add(additional).expect("overflow");
         self.reserve_capacity(new_cap);
         debug_assert!(self.capacity() >= old_len + additional);
+    }
+
+    /// Growth policy of the deque. The capacity is going to be a multiple of
+    /// the page-size anyways, so we just double capacity when needed.
+    #[inline]
+    fn grow_policy(&self, additional: usize) -> usize {
+        let cur_cap = self.capacity();
+        let old_len = self.len();
+        let req_cap = old_len.checked_add(additional).expect("overflow");
+        if req_cap > cur_cap {
+            let dbl_cap = cur_cap * 2;
+            cmp::max(req_cap, dbl_cap)
+        } else {
+            req_cap
+        }
     }
 
     /// Moves the deque head by `x`.
