@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -5824,12 +5824,6 @@
 <span id="5824">5824</span>
 <span id="5825">5825</span>
 <span id="5826">5826</span>
-<span id="5827">5827</span>
-<span id="5828">5828</span>
-<span id="5829">5829</span>
-<span id="5830">5830</span>
-<span id="5831">5831</span>
-<span id="5832">5832</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -6445,7 +6439,7 @@
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) {
         <span class="kw">let</span> <span class="ident">old_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
-        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="ident">old_len</span>.<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">grow_policy</span>(<span class="ident">additional</span>);
         <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_cap</span>);
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">&gt;=</span> <span class="ident">old_len</span> <span class="op">+</span> <span class="ident">additional</span>);
     }
@@ -6510,31 +6504,25 @@
     <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) {
-        <span class="self">self</span>.<span class="ident">reserve</span>(<span class="ident">additional</span>);
+        <span class="kw">let</span> <span class="ident">old_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="ident">new_cap</span> <span class="op">=</span> <span class="ident">old_len</span>.<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+        <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_cap</span>);
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">&gt;=</span> <span class="ident">old_len</span> <span class="op">+</span> <span class="ident">additional</span>);
     }
 
     <span class="doccomment">/// Growth policy of the deque. The capacity is going to be a multiple of</span>
-    <span class="doccomment">/// the page-size anyways, so we just double on growth.</span>
+    <span class="doccomment">/// the page-size anyways, so we just double capacity when needed.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">grow_policy</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">if</span> <span class="ident">intrinsics</span>::<span class="ident">unlikely</span>(<span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">==</span> <span class="number">0</span>) {
-                <span class="number">4</span>
-            } <span class="kw">else</span> {
-                <span class="self">self</span>.<span class="ident">capacity</span>() <span class="op">*</span> <span class="number">2</span>
-            }
+    <span class="kw">fn</span> <span class="ident">grow_policy</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">additional</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="kw">let</span> <span class="ident">cur_cap</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">capacity</span>();
+        <span class="kw">let</span> <span class="ident">old_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
+        <span class="kw">let</span> <span class="ident">req_cap</span> <span class="op">=</span> <span class="ident">old_len</span>.<span class="ident">checked_add</span>(<span class="ident">additional</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow&quot;</span>);
+        <span class="kw">if</span> <span class="ident">req_cap</span> <span class="op">&gt;</span> <span class="ident">cur_cap</span> {
+            <span class="kw">let</span> <span class="ident">dbl_cap</span> <span class="op">=</span> <span class="ident">cur_cap</span>.<span class="ident">saturating_mul</span>(<span class="number">2</span>);
+            <span class="ident">cmp</span>::<span class="ident">max</span>(<span class="ident">req_cap</span>, <span class="ident">dbl_cap</span>)
+        } <span class="kw">else</span> {
+            <span class="ident">req_cap</span>
         }
-    }
-
-    <span class="doccomment">/// Grows the deque.</span>
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">is_full</span>());
-
-        <span class="kw">let</span> <span class="ident">new_capacity</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">grow_policy</span>();
-        <span class="self">self</span>.<span class="ident">reserve_capacity</span>(<span class="ident">new_capacity</span>);
-
-        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">is_full</span>());
     }
 
     <span class="doccomment">/// Moves the deque head by `x`.</span>
@@ -6833,7 +6821,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_front</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">T</span>) {
         <span class="kw">unsafe</span> {
             <span class="kw">if</span> <span class="ident">intrinsics</span>::<span class="ident">unlikely</span>(<span class="self">self</span>.<span class="ident">is_full</span>()) {
-                <span class="self">self</span>.<span class="ident">grow</span>();
+                <span class="self">self</span>.<span class="ident">reserve</span>(<span class="number">1</span>);
             }
 
             <span class="self">self</span>.<span class="ident">move_head_unchecked</span>(<span class="op">-</span><span class="number">1</span>);
@@ -6856,7 +6844,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_back</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">T</span>) {
         <span class="kw">unsafe</span> {
             <span class="kw">if</span> <span class="ident">intrinsics</span>::<span class="ident">unlikely</span>(<span class="self">self</span>.<span class="ident">is_full</span>()) {
-                <span class="self">self</span>.<span class="ident">grow</span>();
+                <span class="self">self</span>.<span class="ident">reserve</span>(<span class="number">1</span>);
             }
             <span class="self">self</span>.<span class="ident">move_tail_unchecked</span>(<span class="number">1</span>);
             <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>();
@@ -7222,7 +7210,7 @@
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">index</span> <span class="op">&lt;=</span> <span class="ident">len</span>);
 
             <span class="kw">if</span> <span class="ident">intrinsics</span>::<span class="ident">unlikely</span>(<span class="self">self</span>.<span class="ident">is_full</span>()) {
-                <span class="self">self</span>.<span class="ident">grow</span>();
+                <span class="self">self</span>.<span class="ident">reserve</span>(<span class="number">1</span>);
             }
 
             <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>);
@@ -9908,7 +9896,7 @@
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-    
+
         let mut v = SliceDeque::&lt;()&gt;::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -10090,7 +10078,7 @@
             _ =&gt; panic!(&quot;invalid `Cow::from`&quot;),
         }
     }
-    
+
     #[test]
         fn vec_from_cow() {
             use std::borrow::Cow;
@@ -10103,7 +10091,7 @@
 
     <span class="comment">/* TODO: covariance
     use super::{Drain, IntoIter};
-    
+
     #[allow(dead_code)]
     fn assert_covariance() {
         fn drain&lt;&#39;new&gt;(d: Drain&lt;&#39;static, &amp;&#39;static str&gt;) -&gt; Drain&lt;&#39;new, &amp;&#39;new str&gt; {
