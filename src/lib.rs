@@ -1047,11 +1047,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             let v = match self.get_mut(0) {
                 None => return None,
-                Some(v) => {
-                    let mut o: T = mem::uninitialized();
-                    mem::swap(v, &mut o);
-                    o
-                }
+                Some(v) => ptr::read(v),
             };
             self.move_head_unchecked(1);
             Some(v)
@@ -1081,11 +1077,7 @@ impl<T> SliceDeque<T> {
             let len = self.len();
             let v = match self.get_mut(len.wrapping_sub(1)) {
                 None => return None,
-                Some(v) => {
-                    let mut o: T = mem::uninitialized();
-                    mem::swap(v, &mut o);
-                    o
-                }
+                Some(v) => ptr::read(v),
             };
             self.move_tail_unchecked(-1);
             Some(v)
