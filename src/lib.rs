@@ -5771,9 +5771,10 @@ mod tests {
     fn issue_50() {
         use std::fs::File;
         use std::io::Write;
+        use std::path::Path;
 
         let out_buffer = SliceDeque::new();
-        let mut out_file = File::create("/tmp/slice_deque_test").unwrap();
+        let mut out_file = File::create(Path::new("slice_deque_test")).unwrap();
         let res = out_file.write(&out_buffer[..]);
         println!("Result was {:?}", res);
         println!("Buffer size: {}", out_buffer.len());
