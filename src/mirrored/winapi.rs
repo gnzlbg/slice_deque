@@ -62,7 +62,7 @@ pub fn allocation_granularity() -> usize {
 /// allocation granularity.
 pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
     /// Maximum number of attempts to allocate in case of a race condition.
-    const MAX_NO_ALLOC_ITERS: usize = 5;
+    const MAX_NO_ALLOC_ITERS: usize = 10;
     unsafe {
         let half_size = size / 2;
         assert!(size != 0);
@@ -74,10 +74,10 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         let virt_ptr = loop {
             if no_iters > MAX_NO_ALLOC_ITERS {
                 // If we exceeded the number of iterations try to close the
-                // handle and panic:
+                // handle and error:
                 close_file_mapping(file_mapping)
                     .expect("freeing physical memory failed");
-                panic!("number of iterations exceeded!");
+                return Err(());
             }
 
             // Find large enough virtual memory region (if this fails we are
