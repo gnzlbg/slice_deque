@@ -45,8 +45,8 @@ pub fn allocation_granularity() -> usize {
 ///
 /// On Windows the algorithm is as follows:
 ///
-/// * 1. Allocate physical memory to hold `size / 2` bytes using a
-///   memory mapped file.
+/// * 1. Allocate physical memory to hold `size / 2` bytes using a   memory
+///   mapped file.
 /// * 2. Find a region of virtual memory large enough to hold `size`
 /// bytes (by allocating memory with `VirtualAlloc` and immediately
 /// freeing   it with `VirtualFree`).
