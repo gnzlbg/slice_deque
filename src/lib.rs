@@ -166,7 +166,7 @@ extern crate winapi;
 extern crate bytes;
 
 mod mirrored;
-pub use mirrored::Buffer;
+pub use mirrored::{AllocError, Buffer};
 
 #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 use std::io;
@@ -437,10 +437,10 @@ impl<T> SliceDeque<T> {
             Self {
                 head_: 0,
                 tail_: 0,
-                buf: Buffer::uninitialized(2 * n).unwrap_or_else(|()| {
+                buf: Buffer::uninitialized(2 * n).unwrap_or_else(|e| {
                     let s = tiny_str!(
-                        "failed to allocate a buffer with capacity: {}",
-                        n
+                        "failed to allocate a buffer with capacity \"{}\" due to \"{:?}\"",
+                        n, e
                     );
                     panic!("{}", s.as_str())
                 }),
@@ -611,7 +611,7 @@ impl<T> SliceDeque<T> {
     ///
     /// Panics if the new capacity overflows `usize`.
     #[inline]
-    pub fn try_reserve(&mut self, additional: usize) -> Result<(),()>{
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), AllocError>{
         let old_len = self.len();
         let new_cap = self.grow_policy(additional);
         self.reserve_capacity(new_cap)?;
@@ -630,13 +630,13 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize` or on OOM.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        self.try_reserve(additional).expect("oom");
+        self.try_reserve(additional).unwrap();
     }
 
     /// Attempts to reserve capacity for `new_capacity` elements. Does nothing
     /// if the capacity is already sufficient.
     #[inline]
-    fn reserve_capacity(&mut self, new_capacity: usize) -> Result<(), ()>{
+    fn reserve_capacity(&mut self, new_capacity: usize) -> Result<(), AllocError>{
         unsafe {
             if new_capacity <= self.capacity() {
                 return Ok(());
@@ -693,7 +693,7 @@ impl<T> SliceDeque<T> {
     pub fn reserve_exact(&mut self, additional: usize) {
         let old_len = self.len();
         let new_cap = old_len.checked_add(additional).expect("overflow");
-        self.reserve_capacity(new_cap).expect("oom");
+        self.reserve_capacity(new_cap).unwrap();
         debug_assert!(self.capacity() >= old_len + additional);
     }
 
@@ -1005,11 +1005,11 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.front(), Some(&2));
     /// ```
     #[inline]
-    pub fn try_push_front(&mut self, value: T) -> Result<(), T> {
+    pub fn try_push_front(&mut self, value: T) -> Result<(), (T, AllocError)> {
         unsafe {
             if intrinsics::unlikely(self.is_full()) {
-                if let Err(()) = self.try_reserve(1) {
-                    return Err(value);
+                if let Err(e) = self.try_reserve(1) {
+                    return Err((value, e));
                 }
             }
 
@@ -1036,8 +1036,8 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn push_front(&mut self, value: T) {
-        if let Err(_) = self.try_push_front(value) {
-            panic!("oom");
+        if let Err(e) = self.try_push_front(value) {
+            panic!("{:?}", e);
         }
     }
 
@@ -1054,11 +1054,11 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.back(), Some(&3));
     /// ```
     #[inline]
-    pub fn try_push_back(&mut self, value: T) -> Result<(), T> {
+    pub fn try_push_back(&mut self, value: T) -> Result<(), (T, AllocError)> {
         unsafe {
             if intrinsics::unlikely(self.is_full()) {
-                if let Err(()) = self.try_reserve(1) {
-                    return Err(value);
+                if let Err(e) = self.try_reserve(1) {
+                    return Err((value, e));
                 }
             }
             self.move_tail_unchecked(1);
@@ -1085,8 +1085,8 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn push_back(&mut self, value: T) {
-        if let Err(_) = self.try_push_back(value) {
-            panic!("oom");
+        if let Err(e) = self.try_push_back(value) {
+            panic!("{:?}", e);
         }
     }
 

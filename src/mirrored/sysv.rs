@@ -1,5 +1,5 @@
 //! Racy System V mirrored memory allocation.
-use super::mem;
+use super::{mem, AllocError};
 use libc::{
     c_int, c_void, mmap, munmap, shmat, shmctl, shmdt, shmget, shmid_ds,
     sysconf, IPC_CREAT, IPC_PRIVATE, IPC_RMID, MAP_FAILED, MAP_PRIVATE,
@@ -35,14 +35,14 @@ impl SharedMemory {
     /// # Panics
     ///
     /// If `size` is zero or not a multiple of the allocation granularity.
-    pub fn allocate(size: usize) -> Result<SharedMemory, ()> {
+    pub fn allocate(size: usize) -> Result<SharedMemory, AllocError> {
         assert!(size != 0);
         assert!(size % allocation_granularity() == 0);
         unsafe {
             let id = shmget(IPC_PRIVATE, size, IPC_CREAT | 448);
             if id == -1 {
                 print_error("shmget");
-                return Err(());
+                return Err(AllocError::Oom);
             }
             Ok(SharedMemory { id })
         }
@@ -61,13 +61,13 @@ impl SharedMemory {
             let r = shmat(self.id, ptr, 0);
             if r as isize == -1 {
                 print_error("shmat");
-                return Err(());
+                return Err(AllocError::Other);
             }
             let map = MemoryMap(ptr);
             if r != ptr {
                 print_error("shmat2");
                 // map is dropped here, freeing the memory.
-                return Err(());
+                return Err(AllocError::Other);
             }
             Ok(map)
         }
@@ -101,9 +101,9 @@ impl MemoryMap {
     ///
     /// If `ptr` does not point to a memory map created using
     /// `SharedMemory::attach` that has not been dropped yet..
-    unsafe fn from_raw(ptr: *mut c_void) -> Result<MemoryMap, ()> {
+    unsafe fn from_raw(ptr: *mut c_void) -> MemoryMap {
         assert!(!ptr.is_null());
-        Ok(MemoryMap(ptr))
+        MemoryMap(ptr)
     }
 }
 
@@ -134,7 +134,7 @@ impl Drop for MemoryMap {
 /// There is a race between steps 2 and 3 because after unmapping the memory
 /// and before attaching the shared memory to it another process might use that
 /// memory.
-pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
+pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
     unsafe {
         assert!(size != 0);
         let half_size = size / 2;
@@ -148,7 +148,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         let ptr = loop {
             counter += 1;
             if counter > MAX_NO_ITERS {
-                return Err(());
+                return Err(AllocError::Other);
             }
 
             // 2. Reserve virtual memory:
@@ -162,7 +162,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             );
             if ptr == MAP_FAILED {
                 print_error("mmap initial");
-                return Err(());
+                return Err(AllocError::Oom);
             }
 
             let ptr2 =

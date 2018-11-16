@@ -21,6 +21,8 @@ use mach::vm_prot::{vm_prot_t, VM_PROT_READ, VM_PROT_WRITE};
 use mach::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED};
 use mach::vm_types::mach_vm_address_t;
 
+use super::AllocError;
+
 /// TODO: not exposed by the mach crate
 const VM_FLAGS_OVERWRITE: ::libc::c_int = 0x4000_i32;
 
@@ -50,7 +52,7 @@ pub fn allocation_granularity() -> usize {
 ///
 /// If `size` is zero or `size / 2` is not a multiple of the
 /// allocation granularity.
-pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
+pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
     unsafe {
         assert!(size != 0);
         let half_size = size / 2;
@@ -70,7 +72,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             // If the first allocation fails, there is nothing to
             // deallocate and we can just fail to allocate:
             print_error("initial alloc", r);
-            return Err(());
+            return Err(AllocError::Oom);
         }
         debug_assert!(addr != 0);
 
@@ -85,7 +87,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             // If the first allocation fails, there is nothing to
             // deallocate and we can just fail to allocate:
             print_error("first half alloc", r);
-            return Err(());
+            return Err(AllocError::Other);
         }
 
         // Get an object handle to the first memory region:
@@ -108,7 +110,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             if dealloc(addr as *mut u8, size).is_err() {
                 panic!("failed to deallocate after error");
             }
-            return Err(());
+            return Err(AllocError::Other);
         }
 
         // Map the first half to the second half using the object handle:
@@ -135,7 +137,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             if dealloc(addr as *mut u8, size).is_err() {
                 panic!("failed to deallocate after error");
             }
-            return Err(());
+            return Err(AllocError::Other);
         }
 
         // TODO: object_handle is leaked here. Investigate whether this is ok.

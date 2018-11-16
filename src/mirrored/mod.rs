@@ -68,3 +68,22 @@ pub(crate) use self::winapi::{
 pub use self::buffer::Buffer;
 
 use super::*;
+
+/// Allocation error.
+pub enum AllocError {
+    /// The system is Out-of-memory.
+    Oom,
+    /// Other allocation errors (not out-of-memory).
+    ///
+    /// Race conditions, exhausted file descriptors, etc.
+    Other,
+}
+
+impl ::fmt::Debug for AllocError {
+    fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+        match self {
+            AllocError::Oom => write!(f, "out-of-memory"),
+            AllocError::Other => write!(f, "other (not out-of-memory)"),
+        }
+    }
+}
