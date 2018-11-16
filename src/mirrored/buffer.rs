@@ -117,7 +117,7 @@ impl<T> Buffer<T> {
 
     /// Create a mirrored buffer containing `len` `T`s where the first half of
     /// the buffer is mirrored into the second half.
-    pub fn uninitialized(len: usize) -> Result<Self, ()> {
+    pub fn uninitialized(len: usize) -> Result<Self, AllocError> {
         // Zero-sized types are not supported yet:
         assert!(mem::size_of::<T>() > 0);
         // The alignment requirements of `T` must be smaller than the

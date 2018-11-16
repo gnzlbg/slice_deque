@@ -19,6 +19,8 @@ use winapi::um::sysinfoapi::{GetSystemInfo, LPSYSTEM_INFO, SYSTEM_INFO};
 
 pub use winapi::shared::ntdef::HANDLE;
 
+use AllocError;
+
 /// Returns the size of an allocation unit in bytes.
 ///
 /// In Windows calls to `VirtualAlloc` must specify a multiple of
@@ -60,7 +62,7 @@ pub fn allocation_granularity() -> usize {
 ///
 /// If `size` is zero or `size / 2` is not a multiple of the
 /// allocation granularity.
-pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
+pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
     /// Maximum number of attempts to allocate in case of a race condition.
     const MAX_NO_ALLOC_ITERS: usize = 10;
     unsafe {
@@ -77,7 +79,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
                 // handle and error:
                 close_file_mapping(file_mapping)
                     .expect("freeing physical memory failed");
-                return Err(());
+                return Err(AllocError::Other);
             }
 
             // Find large enough virtual memory region (if this fails we are
@@ -152,7 +154,7 @@ pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
 /// # Panics
 ///
 /// If `size` is zero or not a multiple of the `allocation_granularity`.
-fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
+fn create_file_mapping(size: usize) -> Result<HANDLE, AllocError> {
     unsafe {
         assert!(size != 0);
         assert!(size % allocation_granularity() == 0);
@@ -180,7 +182,7 @@ fn create_file_mapping(size: usize) -> Result<HANDLE, ()> {
         if h.is_null() {
             let s = tiny_str!("create_file_mapping (with size: {})", size);
             print_error(s.as_str());
-            return Err(());
+            return Err(AllocError::Oom);
         }
         Ok(h)
     }
@@ -216,7 +218,7 @@ unsafe fn close_file_mapping(file_mapping: HANDLE) -> Result<(), ()> {
 /// # Panics
 ///
 /// If `size` is not a multiple of the `allocation_granularity`.
-fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
+fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), AllocError> {
     unsafe {
         assert!(size != 0);
         assert!(size % allocation_granularity() == 0);
@@ -230,7 +232,7 @@ fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
 
         if r.is_null() {
             print_error("reserve_virtual_memory(alloc failed)");
-            return Err(());
+            return Err(AllocError::Oom);
         }
 
         let fr = VirtualFree(
@@ -240,7 +242,7 @@ fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), ()> {
         );
         if fr == 0 {
             print_error("reserve_virtual_memory(free failed)");
-            return Err(());
+            return Err(AllocError::Other);
         }
 
         Ok(r as *mut u8)

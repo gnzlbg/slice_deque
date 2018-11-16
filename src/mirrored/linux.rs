@@ -10,7 +10,7 @@ use libc::__errno;
 #[cfg(not(target_os = "android"))]
 use libc::__errno_location;
 
-use super::ptr;
+use super::{ptr, AllocError};
 
 /// [`memfd_create`] - create an anonymous file
 ///
@@ -55,7 +55,7 @@ fn errno() -> c_int {
 ///
 /// If `size` is zero or `size / 2` is not a multiple of the
 /// allocation granularity.
-pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
+pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
     unsafe {
         let half_size = size / 2;
         assert!(size != 0);
@@ -71,7 +71,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
         }
         if fd == -1 {
             print_error("memfd_create failed");
-            return Err(());
+            return Err(AllocError::Other);
         }
         let fd = fd as c_int;
         if ftruncate(fd, half_size as off_t) == -1 {
@@ -79,7 +79,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             if close(fd) == -1 {
                 print_error("@ftruncate: close failed");
             }
-            return Err(());
+            return Err(AllocError::Oom);
         };
 
         // mmap memory
@@ -96,7 +96,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             if close(fd) == -1 {
                 print_error("@first: close failed");
             }
-            return Err(());
+            return Err(AllocError::Oom);
         }
 
         let ptr2 = mmap(
@@ -115,7 +115,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, ()> {
             if close(fd) == -1 {
                 print_error("@second: close failed");
             }
-            return Err(());
+            return Err(AllocError::Other);
         }
 
         if close(fd) == -1 {
