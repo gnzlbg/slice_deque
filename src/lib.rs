@@ -5841,8 +5841,14 @@ mod tests {
         use std::path::Path;
 
         let out_buffer = SliceDeque::new();
-        let mut out_file =
-            File::create(Path::new("slice_deque_test")).unwrap();
+
+        let p = if cfg!(target_os = "windows") {
+            "slice_deque_test"
+        } else {
+            "/tmp/slice_deque_test"
+        };
+
+        let mut out_file = File::create(Path::new(p)).unwrap();
         let res = out_file.write(&out_buffer[..]);
         println!("Result was {:?}", res);
         println!("Buffer size: {}", out_buffer.len());
