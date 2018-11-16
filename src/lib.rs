@@ -601,8 +601,9 @@ impl<T> SliceDeque<T> {
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
     }
 
-    /// Reserves capacity for inserting at least `additional` elements without
-    /// reallocating. Does nothing if the capacity is already sufficient.
+    /// Attempts to reserve capacity for inserting at least `additional`
+    /// elements without reallocating. Does nothing if the capacity is already
+    /// sufficient.
     ///
     /// The collection always reserves memory in multiples of the page size.
     ///
@@ -610,27 +611,38 @@ impl<T> SliceDeque<T> {
     ///
     /// Panics if the new capacity overflows `usize`.
     #[inline]
-    pub fn reserve(&mut self, additional: usize) {
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(),()>{
         let old_len = self.len();
         let new_cap = self.grow_policy(additional);
-        self.reserve_capacity(new_cap);
+        self.reserve_capacity(new_cap)?;
         debug_assert!(self.capacity() >= old_len + additional);
+        Ok(())
     }
 
-    /// Reserves capacity for `new_capacity` elements. Does nothing if the
-    /// capacity is already sufficient.
+
+    /// Reserves capacity for inserting at least `additional` elements without
+    /// reallocating. Does nothing if the capacity is already sufficient.
+    ///
+    /// The collection always reserves memory in multiples of the page size.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new capacity overflows `usize` or on OOM.
     #[inline]
-    fn reserve_capacity(&mut self, new_capacity: usize) {
+    pub fn reserve(&mut self, additional: usize) {
+        self.try_reserve(additional).expect("oom");
+    }
+
+    /// Attempts to reserve capacity for `new_capacity` elements. Does nothing
+    /// if the capacity is already sufficient.
+    #[inline]
+    fn reserve_capacity(&mut self, new_capacity: usize) -> Result<(), ()>{
         unsafe {
             if new_capacity <= self.capacity() {
-                return;
+                return Ok(());
             }
 
-            let mut new_buffer = match Buffer::uninitialized(2 * new_capacity)
-            {
-                Err(()) => panic!("oom"),
-                Ok(new_buffer) => new_buffer,
-            };
+            let mut new_buffer = Buffer::uninitialized(2 * new_capacity)?;
             debug_assert!(new_buffer.len() >= 2 * new_capacity);
 
             let len = self.len();
@@ -649,6 +661,8 @@ impl<T> SliceDeque<T> {
             // beginning of the of the new buffer)
             self.head_ = 0;
             self.tail_ = len;
+
+            Ok(())
         }
     }
 
@@ -679,7 +693,7 @@ impl<T> SliceDeque<T> {
     pub fn reserve_exact(&mut self, additional: usize) {
         let old_len = self.len();
         let new_cap = old_len.checked_add(additional).expect("overflow");
-        self.reserve_capacity(new_cap);
+        self.reserve_capacity(new_cap).expect("oom");
         debug_assert!(self.capacity() >= old_len + additional);
     }
 
@@ -979,7 +993,37 @@ impl<T> SliceDeque<T> {
         self.get_mut(last_idx)
     }
 
+    /// Attempts to prepend `value` to the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
+    /// deq.try_push_front(1).unwrap();
+    /// deq.try_push_front(2).unwrap();
+    /// assert_eq!(deq.front(), Some(&2));
+    /// ```
+    #[inline]
+    pub fn try_push_front(&mut self, value: T) -> Result<(), T> {
+        unsafe {
+            if intrinsics::unlikely(self.is_full()) {
+                if let Err(()) = self.try_reserve(1) {
+                    return Err(value);
+                }
+            }
+
+            self.move_head_unchecked(-1);
+            ptr::write(self.get_mut(0).unwrap(), value);
+            Ok(())
+        }
+    }
+
     /// Prepends `value` to the deque.
+    ///
+    /// # Panics
+    ///
+    /// On OOM.
     ///
     /// # Examples
     ///
@@ -992,17 +1036,43 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn push_front(&mut self, value: T) {
+        if let Err(_) = self.try_push_front(value) {
+            panic!("oom");
+        }
+    }
+
+
+    /// Attempts to appends `value` to the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use slice_deque::SliceDeque;
+    /// let mut deq = SliceDeque::new();
+    /// deq.try_push_back(1).unwrap();
+    /// deq.try_push_back(3).unwrap();
+    /// assert_eq!(deq.back(), Some(&3));
+    /// ```
+    #[inline]
+    pub fn try_push_back(&mut self, value: T) -> Result<(), T> {
         unsafe {
             if intrinsics::unlikely(self.is_full()) {
-                self.reserve(1);
+                if let Err(()) = self.try_reserve(1) {
+                    return Err(value);
+                }
             }
-
-            self.move_head_unchecked(-1);
-            ptr::write(self.get_mut(0).unwrap(), value);
+            self.move_tail_unchecked(1);
+            let len = self.len();
+            ptr::write(self.get_mut(len - 1).unwrap(), value);
+            Ok(())
         }
     }
 
     /// Appends `value` to the deque.
+    ///
+    /// # Panics
+    ///
+    /// On OOM.
     ///
     /// # Examples
     ///
@@ -1015,15 +1085,11 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn push_back(&mut self, value: T) {
-        unsafe {
-            if intrinsics::unlikely(self.is_full()) {
-                self.reserve(1);
-            }
-            self.move_tail_unchecked(1);
-            let len = self.len();
-            ptr::write(self.get_mut(len - 1).unwrap(), value);
+        if let Err(_) = self.try_push_back(value) {
+            panic!("oom");
         }
     }
+
 
     /// Removes the first element and returns it, or `None` if the deque is
     /// empty.
@@ -2961,7 +3027,7 @@ impl<'a, T> Drain<'a, T> {
     unsafe fn move_tail_unchecked(&mut self, extra_capacity: usize) {
         let deq = self.deq.as_mut();
         let used_capacity = self.tail_start + self.tail_len;
-        deq.reserve_capacity(used_capacity + extra_capacity);
+        deq.reserve_capacity(used_capacity + extra_capacity).expect("oom");
 
         let new_tail_start = self.tail_start + extra_capacity;
         let src = deq.as_ptr().add(self.tail_start);
