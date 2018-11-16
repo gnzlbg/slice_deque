@@ -611,14 +611,15 @@ impl<T> SliceDeque<T> {
     ///
     /// Panics if the new capacity overflows `usize`.
     #[inline]
-    pub fn try_reserve(&mut self, additional: usize) -> Result<(), AllocError>{
+    pub fn try_reserve(
+        &mut self, additional: usize,
+    ) -> Result<(), AllocError> {
         let old_len = self.len();
         let new_cap = self.grow_policy(additional);
         self.reserve_capacity(new_cap)?;
         debug_assert!(self.capacity() >= old_len + additional);
         Ok(())
     }
-
 
     /// Reserves capacity for inserting at least `additional` elements without
     /// reallocating. Does nothing if the capacity is already sufficient.
@@ -636,7 +637,9 @@ impl<T> SliceDeque<T> {
     /// Attempts to reserve capacity for `new_capacity` elements. Does nothing
     /// if the capacity is already sufficient.
     #[inline]
-    fn reserve_capacity(&mut self, new_capacity: usize) -> Result<(), AllocError>{
+    fn reserve_capacity(
+        &mut self, new_capacity: usize,
+    ) -> Result<(), AllocError> {
         unsafe {
             if new_capacity <= self.capacity() {
                 return Ok(());
@@ -726,10 +729,7 @@ impl<T> SliceDeque<T> {
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
-    #[cfg_attr(
-        feature = "cargo-clippy",
-        allow(clippy::cyclomatic_complexity)
-    )]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::cyclomatic_complexity))]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
         // Make sure that the head does not wrap over the tail:
         debug_assert!(x >= -((self.capacity() - self.len()) as isize));
@@ -1041,7 +1041,6 @@ impl<T> SliceDeque<T> {
         }
     }
 
-
     /// Attempts to appends `value` to the deque.
     ///
     /// # Examples
@@ -1089,7 +1088,6 @@ impl<T> SliceDeque<T> {
             panic!("{:?}", e.1);
         }
     }
-
 
     /// Removes the first element and returns it, or `None` if the deque is
     /// empty.
@@ -1840,14 +1838,15 @@ impl<T> SliceDeque<T> {
     /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
     /// # fn main() {
-    /// # let some_predicate = |x: &mut i32| { *x == 2 || *x == 3 || *x == 6 };
+    /// # let some_predicate = |x: &mut i32| { *x == 2 || *x == 3 || *x == 6
+    /// # };
     /// let mut deq = SliceDeque::new();
     /// deq.extend(1..7);
     /// let mut i = 0;
     /// while i != deq.len() {
     ///     if some_predicate(&mut deq[i]) {
     ///         let val = deq.remove(i);
-    ///         // your code here
+    ///     // your code here
     ///     } else {
     ///         i += 1;
     ///     }
@@ -2717,7 +2716,8 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.tail(),
                 );
                 #[cfg_attr(
-                    feature = "cargo-clippy", allow(clippy::mem_forget)
+                    feature = "cargo-clippy",
+                    allow(clippy::mem_forget)
                 )]
                 mem::forget(iterator);
                 deq
@@ -3027,7 +3027,8 @@ impl<'a, T> Drain<'a, T> {
     unsafe fn move_tail_unchecked(&mut self, extra_capacity: usize) {
         let deq = self.deq.as_mut();
         let used_capacity = self.tail_start + self.tail_len;
-        deq.reserve_capacity(used_capacity + extra_capacity).expect("oom");
+        deq.reserve_capacity(used_capacity + extra_capacity)
+            .expect("oom");
 
         let new_tail_start = self.tail_start + extra_capacity;
         let src = deq.as_ptr().add(self.tail_start);
@@ -4127,7 +4128,7 @@ mod tests {
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-
+    
         let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -4309,7 +4310,7 @@ mod tests {
             _ => panic!("invalid `Cow::from`"),
         }
     }
-
+    
     #[test]
         fn vec_from_cow() {
             use std::borrow::Cow;
@@ -4322,7 +4323,7 @@ mod tests {
 
     /* TODO: covariance
     use super::{Drain, IntoIter};
-
+    
     #[allow(dead_code)]
     fn assert_covariance() {
         fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
@@ -5840,7 +5841,8 @@ mod tests {
         use std::path::Path;
 
         let out_buffer = SliceDeque::new();
-        let mut out_file = File::create(Path::new("slice_deque_test")).unwrap();
+        let mut out_file =
+            File::create(Path::new("slice_deque_test")).unwrap();
         let res = out_file.write(&out_buffer[..]);
         println!("Result was {:?}", res);
         println!("Buffer size: {}", out_buffer.len());
