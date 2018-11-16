@@ -1037,7 +1037,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn push_front(&mut self, value: T) {
         if let Err(e) = self.try_push_front(value) {
-            panic!("{:?}", e);
+            panic!("{:?}", e.1);
         }
     }
 
@@ -1086,7 +1086,7 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn push_back(&mut self, value: T) {
         if let Err(e) = self.try_push_back(value) {
-            panic!("{:?}", e);
+            panic!("{:?}", e.1);
         }
     }
 

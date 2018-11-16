@@ -54,7 +54,7 @@ impl SharedMemory {
     /// # Panics
     ///
     /// If `ptr` is null.
-    pub fn attach(&self, ptr: *mut c_void) -> Result<MemoryMap, ()> {
+    pub fn attach(&self, ptr: *mut c_void) -> Result<MemoryMap, AllocError> {
         unsafe {
             // note: the success of allocate guarantees `shm_id != -1`.
             assert!(!ptr.is_null());
@@ -206,10 +206,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
 /// allocation granularity, or `ptr` is null.
 pub unsafe fn deallocate_mirrored(ptr: *mut u8, size: usize) {
     let ptr2 = ptr.offset(size as isize / 2);
-    MemoryMap::from_raw(ptr as *mut c_void)
-        .expect("deallocate mirrored first failed");
-    MemoryMap::from_raw(ptr2 as *mut c_void)
-        .expect("deallocate mirrored second failed");
+    MemoryMap::from_raw(ptr as *mut c_void);
+    MemoryMap::from_raw(ptr2 as *mut c_void);
 }
 
 /// Unmaps the memory region at `[ptr, ptr+size)`.
