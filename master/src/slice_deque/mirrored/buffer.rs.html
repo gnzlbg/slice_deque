@@ -408,7 +408,7 @@
 
     <span class="doccomment">/// Create a mirrored buffer containing `len` `T`s where the first half of</span>
     <span class="doccomment">/// the buffer is mirrored into the second half.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uninitialized</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, ()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uninitialized</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">AllocError</span><span class="op">&gt;</span> {
         <span class="comment">// Zero-sized types are not supported yet:</span>
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="comment">// The alignment requirements of `T` must be smaller than the</span>

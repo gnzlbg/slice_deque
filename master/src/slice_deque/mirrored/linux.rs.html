@@ -171,7 +171,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">__errno_location</span>;
 
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">ptr</span>;
+<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">ptr</span>, <span class="ident">AllocError</span>};
 
 <span class="doccomment">/// [`memfd_create`] - create an anonymous file</span>
 <span class="doccomment">///</span>
@@ -216,7 +216,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// If `size` is zero or `size / 2` is not a multiple of the</span>
 <span class="doccomment">/// allocation granularity.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allocate_mirrored</span>(<span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, ()<span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allocate_mirrored</span>(<span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">AllocError</span><span class="op">&gt;</span> {
     <span class="kw">unsafe</span> {
         <span class="kw">let</span> <span class="ident">half_size</span> <span class="op">=</span> <span class="ident">size</span> <span class="op">/</span> <span class="number">2</span>;
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">size</span> <span class="op">!=</span> <span class="number">0</span>);
@@ -232,7 +232,7 @@
         }
         <span class="kw">if</span> <span class="ident">fd</span> <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
             <span class="ident">print_error</span>(<span class="string">&quot;memfd_create failed&quot;</span>);
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(());
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">AllocError</span>::<span class="ident">Other</span>);
         }
         <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="ident">fd</span> <span class="kw">as</span> <span class="ident">c_int</span>;
         <span class="kw">if</span> <span class="ident">ftruncate</span>(<span class="ident">fd</span>, <span class="ident">half_size</span> <span class="kw">as</span> <span class="ident">off_t</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
@@ -240,7 +240,7 @@
             <span class="kw">if</span> <span class="ident">close</span>(<span class="ident">fd</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
                 <span class="ident">print_error</span>(<span class="string">&quot;@ftruncate: close failed&quot;</span>);
             }
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(());
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">AllocError</span>::<span class="ident">Oom</span>);
         };
 
         <span class="comment">// mmap memory</span>
@@ -257,7 +257,7 @@
             <span class="kw">if</span> <span class="ident">close</span>(<span class="ident">fd</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
                 <span class="ident">print_error</span>(<span class="string">&quot;@first: close failed&quot;</span>);
             }
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(());
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">AllocError</span>::<span class="ident">Oom</span>);
         }
 
         <span class="kw">let</span> <span class="ident">ptr2</span> <span class="op">=</span> <span class="ident">mmap</span>(
@@ -276,7 +276,7 @@
             <span class="kw">if</span> <span class="ident">close</span>(<span class="ident">fd</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
                 <span class="ident">print_error</span>(<span class="string">&quot;@second: close failed&quot;</span>);
             }
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(());
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">AllocError</span>::<span class="ident">Other</span>);
         }
 
         <span class="kw">if</span> <span class="ident">close</span>(<span class="ident">fd</span>) <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
