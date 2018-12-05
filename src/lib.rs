@@ -4130,7 +4130,7 @@ mod tests {
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-    
+
         let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -4312,7 +4312,7 @@ mod tests {
             _ => panic!("invalid `Cow::from`"),
         }
     }
-    
+
     #[test]
         fn vec_from_cow() {
             use std::borrow::Cow;
@@ -4325,7 +4325,7 @@ mod tests {
 
     /* TODO: covariance
     use super::{Drain, IntoIter};
-    
+
     #[allow(dead_code)]
     fn assert_covariance() {
         fn drain<'new>(d: Drain<'static, &'static str>) -> Drain<'new, &'new str> {
