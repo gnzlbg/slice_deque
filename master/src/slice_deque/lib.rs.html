@@ -5891,6 +5891,25 @@
 <span id="5891">5891</span>
 <span id="5892">5892</span>
 <span id="5893">5893</span>
+<span id="5894">5894</span>
+<span id="5895">5895</span>
+<span id="5896">5896</span>
+<span id="5897">5897</span>
+<span id="5898">5898</span>
+<span id="5899">5899</span>
+<span id="5900">5900</span>
+<span id="5901">5901</span>
+<span id="5902">5902</span>
+<span id="5903">5903</span>
+<span id="5904">5904</span>
+<span id="5905">5905</span>
+<span id="5906">5906</span>
+<span id="5907">5907</span>
+<span id="5908">5908</span>
+<span id="5909">5909</span>
+<span id="5910">5910</span>
+<span id="5911">5911</span>
+<span id="5912">5912</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -6642,7 +6661,7 @@
             <span class="ident">new_head</span> <span class="op">+=</span> <span class="ident">cap</span> <span class="kw">as</span> <span class="ident">isize</span>;
             <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">new_head</span> <span class="op">&gt;=</span> <span class="number">0</span>);
             <span class="self">self</span>.<span class="ident">tail_</span> <span class="op">+=</span> <span class="ident">cap</span>;
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">new_head</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">cap</span> {
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">new_head</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;=</span> <span class="ident">cap</span> {
             <span class="comment">// cannot panic because new_head &gt;= 0</span>
             <span class="comment">// If the new head is larger than the capacity, we shift the range</span>
             <span class="comment">// by -capacity to move it towards the first mirrored</span>
@@ -6659,6 +6678,8 @@
 
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">tail</span>() <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">tail_upper_bound</span>());
         <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">head</span>() <span class="op">&lt;=</span> <span class="self">self</span>.<span class="ident">head_upper_bound</span>());
+
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">head</span>() <span class="op">!=</span> <span class="self">self</span>.<span class="ident">capacity</span>());
     }
 
     <span class="doccomment">/// Moves the deque head by `x`.</span>
@@ -10022,7 +10043,7 @@
         }
         for _ in v.drain(usize::max_value() - 1..) {}
         assert_eq!(v.len(), usize::max_value() - 1);
-    
+
         let mut v = SliceDeque::&lt;()&gt;::with_capacity(usize::max_value());
         unsafe {
             v.set_len(usize::max_value());
@@ -10204,7 +10225,7 @@
             _ =&gt; panic!(&quot;invalid `Cow::from`&quot;),
         }
     }
-    
+
     #[test]
         fn vec_from_cow() {
             use std::borrow::Cow;
@@ -10217,7 +10238,7 @@
 
     <span class="comment">/* TODO: covariance
     use super::{Drain, IntoIter};
-    
+
     #[allow(dead_code)]
     fn assert_covariance() {
         fn drain&lt;&#39;new&gt;(d: Drain&lt;&#39;static, &amp;&#39;static str&gt;) -&gt; Drain&lt;&#39;new, &amp;&#39;new str&gt; {
@@ -11784,6 +11805,23 @@
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">Foo</span><span class="op">&gt;</span>());
         }
     }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">issue_57</span>() {
+        <span class="kw">const</span> <span class="ident">C</span>: [<span class="ident">i16</span>; <span class="number">3</span>] <span class="op">=</span> [<span class="number">42</span>; <span class="number">3</span>];
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deque</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="ident">new</span>();
+
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">918</span> {
+            <span class="ident">deque</span>.<span class="ident">push_front</span>(<span class="ident">C</span>);
+        }
+
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">237</span> {
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">deque</span>.<span class="ident">pop_front</span>(), <span class="prelude-val">Some</span>(<span class="ident">C</span>));
+            <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">deque</span>.<span class="ident">is_empty</span>());
+            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">deque</span>.<span class="ident">back</span>().<span class="ident">unwrap</span>(), <span class="ident">C</span>);
+        }
+    }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "slice_deque";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "slice_deque";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-files.js"></script><script src="../../source-script.js"></script><script defer src="../../search-index.js"></script></body></html>
