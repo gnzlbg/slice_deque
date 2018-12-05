@@ -748,7 +748,7 @@ impl<T> SliceDeque<T> {
             new_head += cap as isize;
             debug_assert!(new_head >= 0);
             self.tail_ += cap;
-        } else if new_head as usize > cap {
+        } else if new_head as usize >= cap {
             // cannot panic because new_head >= 0
             // If the new head is larger than the capacity, we shift the range
             // by -capacity to move it towards the first mirrored
@@ -765,6 +765,8 @@ impl<T> SliceDeque<T> {
 
         debug_assert!(self.tail() <= self.tail_upper_bound());
         debug_assert!(self.head() <= self.head_upper_bound());
+
+        debug_assert!(self.head() != self.capacity());
     }
 
     /// Moves the deque head by `x`.
@@ -5888,6 +5890,23 @@ mod tests {
             let v = Vec::<Foo>::new();
             assert_eq!(sdeq.as_ptr() as usize, mem::align_of::<Foo>());
             assert_eq!(v.as_ptr() as usize, mem::align_of::<Foo>());
+        }
+    }
+
+    #[test]
+    fn issue_57() {
+        const C: [i16; 3] = [42; 3];
+
+        let mut deque = SliceDeque::new();
+
+        for _ in 0..918 {
+            deque.push_front(C);
+        }
+
+        for _ in 0..237 {
+            assert_eq!(deque.pop_front(), Some(C));
+            assert!(!deque.is_empty());
+            assert_eq!(*deque.back().unwrap(), C);
         }
     }
 }
