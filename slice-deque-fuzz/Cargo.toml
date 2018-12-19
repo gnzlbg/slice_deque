@@ -1,0 +1,13 @@
+[package]
+name = "slice-deque-fuzz"
+version = "0.1.0"
+authors = ["gnzlbg <gonzalobg88@gmail.com>"]
+edition = "2018"
+
+[dependencies.slice-deque]
+path = ".."
+
+[dependencies]
+afl       = "0.4"
+arbitrary = "0.2"
+bh_alloc  = "0.1"
