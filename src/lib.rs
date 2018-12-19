@@ -1465,12 +1465,12 @@ impl<T> SliceDeque<T> {
     /// # use slice_deque::SliceDeque;
     /// # fn main() {
     /// let mut deq = sdeq![1, 2, 3];
-    /// assert_eq!(deq.remove(1), 2);
+    /// assert_eq!(deq.remove_shift_tail(1), 2);
     /// assert_eq!(deq, [1, 3]);
     /// # }
     /// ```
     #[inline]
-    pub fn remove(&mut self, index: usize) -> T {
+    pub fn remove_shift_tail(&mut self, index: usize) -> T {
         let len = self.len();
         assert!(index < len);
         unsafe {
@@ -1482,6 +1482,73 @@ impl<T> SliceDeque<T> {
             ptr::copy(ptr.add(1), ptr, len - index - 1);
             self.move_tail_unchecked(-1);
             ret
+        }
+    }
+
+    /// Removes and returns the element at position `index` within the deque,
+    /// shifting all elements before it to the back.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut deq = sdeq![1, 2, 3];
+    /// assert_eq!(deq.remove_shift_head(1), 2);
+    /// assert_eq!(deq, [1, 3]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn remove_shift_head(&mut self, index: usize) -> T {
+        let len = self.len();
+        assert!(index < len);
+        unsafe {
+            // copy element at pointer:
+            let ptr = self.as_mut_ptr();
+            let ret = ptr::read(ptr.add(index));
+            // shift everything to the back overwriting the deque copy of the
+            // element:
+            ptr::copy(ptr, ptr.add(1), index);
+            self.move_head_unchecked(1);
+            ret
+        }
+    }
+
+    /// Removes and returns the element at `index` from the `VecDeque`.
+    /// Whichever end is closer to the removal point will be moved to make
+    /// room, and all the affected elements will be moved to new positions.
+    /// Returns `None` if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #[macro_use] extern crate slice_deque;
+    /// # use slice_deque::SliceDeque;
+    /// # fn main() {
+    /// let mut buf = sdeq![1, 2, 3];
+    /// assert_eq!(buf, [1, 2, 3]);
+    ///
+    /// assert_eq!(buf.remove(1), Some(2));
+    /// assert_eq!(buf, [1, 3]);
+    /// # }
+    /// ```
+    #[inline]
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        let len = self.len();
+        if self.is_empty() || len <= index {
+            return None;
+        }
+        let distance_to_head = index;
+        let distance_to_tail = len - index;
+        if distance_to_head <= distance_to_tail {
+            Some(self.remove_shift_tail(index))
+        } else {
+            Some(self.remove_shift_head(index))
         }
     }
 
@@ -1847,7 +1914,7 @@ impl<T> SliceDeque<T> {
     /// let mut i = 0;
     /// while i != deq.len() {
     ///     if some_predicate(&mut deq[i]) {
-    ///         let val = deq.remove(i);
+    ///         let val = deq.remove_shift_tail(i);
     ///     // your code here
     ///     } else {
     ///         i += 1;
@@ -2076,7 +2143,7 @@ impl<T: PartialEq> SliceDeque<T> {
             Some(x) => x,
             None => return None,
         };
-        Some(self.remove(pos))
+        self.remove(pos)
     }
 }
 
@@ -5907,6 +5974,185 @@ mod tests {
             assert_eq!(deque.pop_front(), Some(C));
             assert!(!deque.is_empty());
             assert_eq!(*deque.back().unwrap(), C);
+        }
+    }
+
+    #[test]
+    fn test_remove() {
+        // This test checks that every single combination of tail position,
+        // length, and removal position is tested. Capacity 15
+        // should be large enough to cover every case.
+
+        #[repr(align(32))]
+        #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
+        struct I(u64);
+
+        let mut tester = SliceDeque::with_capacity(15);
+        // can't guarantee we got 15, so have to get what we got.
+        // 15 would be great, but we will definitely get 2^k - 1, for k >=
+        // 4, or else this test isn't covering what it wants to
+        let cap = tester.capacity();
+
+        // len is the length *after* removal
+        for len in 0..cap - 1 {
+            // 0, 1, 2, .., len - 1
+            let expected =
+                (0..).take(len).map(|v| I(v)).collect::<SliceDeque<_>>();
+            for tail_pos in 0..cap {
+                for to_remove in 0..=len {
+                    tester.tail_ = tail_pos;
+                    tester.head_ = tail_pos;
+                    for i in 0..len {
+                        if i == to_remove {
+                            tester.push_back(I(1234));
+                        }
+                        tester.push_back(I(i as _));
+                    }
+                    if to_remove == len {
+                        tester.push_back(I(1234));
+                    }
+                    tester.remove(to_remove);
+                    assert!(tester.tail() < 2 * tester.capacity());
+                    assert!(tester.head() < 2 * tester.capacity());
+                    assert_eq!(
+                        tester, expected,
+                        "len = {}, tail_pos = {}, to_remove = {}",
+                        len, tail_pos, to_remove
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_remove_shift_head() {
+        // This test checks that every single combination of tail position,
+        // length, and removal position is tested. Capacity 15
+        // should be large enough to cover every case.
+
+        #[repr(align(32))]
+        #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
+        struct I(u64);
+
+        let mut tester = SliceDeque::with_capacity(15);
+        // can't guarantee we got 15, so have to get what we got.
+        // 15 would be great, but we will definitely get 2^k - 1, for k >=
+        // 4, or else this test isn't covering what it wants to
+        let cap = tester.capacity();
+
+        // len is the length *after* removal
+        for len in 0..cap - 1 {
+            // 0, 1, 2, .., len - 1
+            let expected =
+                (0..).take(len).map(|v| I(v)).collect::<SliceDeque<_>>();
+            for tail_pos in 0..cap {
+                for to_remove in 0..=len {
+                    tester.tail_ = tail_pos;
+                    tester.head_ = tail_pos;
+                    for i in 0..len {
+                        if i == to_remove {
+                            tester.push_back(I(1234));
+                        }
+                        tester.push_back(I(i as _));
+                    }
+                    if to_remove == len {
+                        tester.push_back(I(1234));
+                    }
+                    tester.remove_shift_head(to_remove);
+                    assert!(tester.tail() < 2 * tester.capacity());
+                    assert!(tester.head() < 2 * tester.capacity());
+                    assert_eq!(
+                        tester, expected,
+                        "len = {}, tail_pos = {}, to_remove = {}",
+                        len, tail_pos, to_remove
+                    );
+                }
+            }
+        }
+    }
+
+
+    #[test]
+    fn test_remove_shift_tail() {
+        // This test checks that every single combination of tail position,
+        // length, and removal position is tested. Capacity 15
+        // should be large enough to cover every case.
+
+        #[repr(align(32))]
+        #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
+        struct I(u64);
+
+        let mut tester = SliceDeque::with_capacity(15);
+        // can't guarantee we got 15, so have to get what we got.
+        // 15 would be great, but we will definitely get 2^k - 1, for k >=
+        // 4, or else this test isn't covering what it wants to
+        let cap = tester.capacity();
+
+        // len is the length *after* removal
+        for len in 0..cap - 1 {
+            // 0, 1, 2, .., len - 1
+            let expected =
+                (0..).take(len).map(|v| I(v)).collect::<SliceDeque<_>>();
+            for tail_pos in 0..cap {
+                for to_remove in 0..=len {
+                    tester.tail_ = tail_pos;
+                    tester.head_ = tail_pos;
+                    for i in 0..len {
+                        if i == to_remove {
+                            tester.push_back(I(1234));
+                        }
+                        tester.push_back(I(i as _));
+                    }
+                    if to_remove == len {
+                        tester.push_back(I(1234));
+                    }
+                    tester.remove_shift_tail(to_remove);
+                    assert!(tester.tail() < 2 * tester.capacity());
+                    assert!(tester.head() < 2 * tester.capacity());
+                    assert_eq!(
+                        tester, expected,
+                        "len = {}, tail_pos = {}, to_remove = {}",
+                        len, tail_pos, to_remove
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_insert() {
+        // This test checks that every single combination of tail position, length, and
+        // insertion position is tested. Capacity 15 should be large enough to cover every case.
+
+        #[repr(align(32))]
+        #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord)]
+        struct I(u64);
+
+        let mut tester = SliceDeque::with_capacity(15);
+        // can't guarantee we got 15, so have to get what we got.
+        // 15 would be great, but we will definitely get 2^k - 1, for k >= 4, or else
+        // this test isn't covering what it wants to
+        let cap = tester.capacity();
+
+        // len is the length *after* insertion
+        for len in 1..cap {
+            // 0, 1, 2, .., len - 1
+            let expected = (0..).take(len).map(|v| I(v)).collect::<SliceDeque<_>>();
+            for tail_pos in 0..cap {
+                for to_insert in 0..len {
+                    tester.tail_ = tail_pos;
+                    tester.head_ = tail_pos;
+                    for i in 0..len {
+                        if i != to_insert {
+                            tester.push_back(I(i as _));
+                        }
+                    }
+                    tester.insert(to_insert, I(to_insert as _));
+                    assert!(tester.tail() < 2 * tester.capacity());
+                    assert!(tester.head() < 2 * tester.capacity());
+                    assert_eq!(tester, expected);
+                }
+            }
         }
     }
 }
