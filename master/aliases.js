@@ -1,2 +1,2 @@
 var ALIASES = {};
-ALIASES['slice_deque'] = {};
+ALIASES["slice_deque"] = {};
