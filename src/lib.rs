@@ -1442,17 +1442,30 @@ impl<T> SliceDeque<T> {
 
             if intrinsics::unlikely(self.is_full()) {
                 self.reserve(1);
+                // TODO: when the deque needs to grow, reserve should
+                // copy the memory to the new storage leaving a whole
+                // at the index where the new elements are to be inserted
+                // to avoid having to copy the memory again
             }
 
-            let p = self.as_mut_ptr().add(index);
-            ptr::copy(p, p.add(1), len - index); // Shift elements
+            let p = if index > self.len() / 2 {
+                let p = self.as_mut_ptr().add(index);
+                // Shift elements towards the back
+                ptr::copy(p, p.add(1), len - index);
+                self.move_tail_unchecked(1);
+                p
+            } else {
+                // Shift elements towards the front
+                self.move_head_unchecked(-1);
+                let p = self.as_mut_ptr().add(index);
+                ptr::copy(p, p.sub(1), index);
+                p
+            };
             ptr::write(p, element); // Overwritte
-            self.move_tail_unchecked(1);
         }
     }
 
-    /// Removes and returns the element at position `index` within the deque,
-    /// shifting all elements after it to the front.
+    /// Removes and returns the element at position `index` within the deque.
     ///
     /// # Panics
     ///
@@ -1464,9 +1477,9 @@ impl<T> SliceDeque<T> {
     /// # #[macro_use] extern crate slice_deque;
     /// # use slice_deque::SliceDeque;
     /// # fn main() {
-    /// let mut deq = sdeq![1, 2, 3];
+    /// let mut deq = sdeq![1, 2, 3, 4, 5];
     /// assert_eq!(deq.remove(1), 2);
-    /// assert_eq!(deq, [1, 3]);
+    /// assert_eq!(deq, [1, 3, 4, 5]);
     /// # }
     /// ```
     #[inline]
@@ -1477,10 +1490,19 @@ impl<T> SliceDeque<T> {
             // copy element at pointer:
             let ptr = self.as_mut_ptr().add(index);
             let ret = ptr::read(ptr);
-            // shift everything to the front overwriting the deque copy of the
-            // element:
-            ptr::copy(ptr.add(1), ptr, len - index - 1);
-            self.move_tail_unchecked(-1);
+            if index > self.len() / 2 {
+                // If the index is close to the back, shift elements from the
+                // back towards the front
+                ptr::copy(ptr.add(1), ptr, len - index - 1);
+                self.move_tail_unchecked(-1);
+            } else {
+                // If the index is close to the front, shift elements from the
+                // front towards the back
+                let ptr = self.as_mut_ptr();
+                ptr::copy(ptr, ptr.add(1), index);
+                self.move_head_unchecked(1);
+            }
+
             ret
         }
     }
