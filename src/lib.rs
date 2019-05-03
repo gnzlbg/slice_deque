@@ -285,14 +285,27 @@ impl<T: Sized> OffsetToMut for *mut T {
     }
 }
 
+/// Is `p` in bounds of `s` ?
+///
+/// Does it point to an element of `s` ? That is, one past the end of `s` is
+/// not in bounds.
+fn in_bounds<T>(s: &[T], p: *mut T) -> bool {
+    let p = p as usize;
+    let s_begin = s.as_ptr() as usize;
+    let s_end = s_begin + mem::size_of::<T>() * s.len();
+    s_begin <= p && p < s_end
+}
+
+unsafe fn nonnull_raw_slice<T>(ptr: *mut T, len: usize) -> NonNull<[T]> {
+    NonNull::new_unchecked(slice::from_raw_parts_mut(ptr, len))
+}
+
 /// A double-ended queue that derefs into a slice.
 ///
 /// It is implemented with a growable virtual ring buffer.
 pub struct SliceDeque<T> {
-    /// Index of the first element in the queue.
-    head_: usize,
-    /// Index of one past the last element in the queue.
-    tail_: usize,
+    /// Elements in the queue.
+    elems_: NonNull<[T]>,
     /// Mirrored memory buffer.
     buf: Buffer<T>,
 }
@@ -390,33 +403,32 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        Self {
-            head_: 0,
-            tail_: 0,
-            buf: Buffer::new(),
+        unsafe {
+            let buf = Buffer::new();
+            Self {
+                elems_: nonnull_raw_slice(buf.ptr(), 0),
+                buf,
+            }
         }
     }
 
     /// Creates a SliceDeque from its raw components.
     ///
     /// The `ptr` must be a pointer to the beginning of the memory buffer from
-    /// another `SliceDeque`, and `capacity` the capacity of this `SliceDeque`.
+    /// another `SliceDeque`, `capacity` the capacity of this `SliceDeque`, and
+    /// `elems` the elements of this `SliceDeque`.
     #[inline]
     pub unsafe fn from_raw_parts(
-        ptr: *mut T, capacity: usize, head: usize, tail: usize,
+        ptr: *mut T, capacity: usize, elems: &mut [T],
     ) -> Self {
-        debug_assert!(head <= tail);
+        let begin = elems.as_mut_ptr();
+        debug_assert!(in_bounds(slice::from_raw_parts(ptr, capacity), begin));
+        debug_assert!(elems.len() < capacity);
 
-        let d = Self {
-            head_: head,
-            tail_: tail,
+        Self {
+            elems_: NonNull::new_unchecked(elems),
             buf: Buffer::from_raw_parts(ptr, capacity * 2),
-        };
-
-        debug_assert!(d.tail() <= d.tail_upper_bound());
-        debug_assert!(d.head() <= d.head_upper_bound());
-
-        d
+        }
     }
 
     /// Create an empty deque with capacity to hold `n` elements.
@@ -431,16 +443,16 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
         unsafe {
+            let buf = Buffer::uninitialized(2 * n).unwrap_or_else(|e| {
+                let s = tiny_str!(
+                    "failed to allocate a buffer with capacity \"{}\" due to \"{:?}\"",
+                    n, e
+                );
+                panic!("{}", s.as_str())
+            });
             Self {
-                head_: 0,
-                tail_: 0,
-                buf: Buffer::uninitialized(2 * n).unwrap_or_else(|e| {
-                    let s = tiny_str!(
-                        "failed to allocate a buffer with capacity \"{}\" due to \"{:?}\"",
-                        n, e
-                    );
-                    panic!("{}", s.as_str())
-                }),
+                elems_: nonnull_raw_slice(buf.ptr(), 0),
+                buf,
             }
         }
     }
@@ -463,30 +475,6 @@ impl<T> SliceDeque<T> {
         self.buf.len() / 2
     }
 
-    /// Largest tail value
-    #[inline]
-    fn tail_upper_bound(&self) -> usize {
-        self.capacity() * 2
-    }
-
-    /// Largest head value
-    #[inline]
-    fn head_upper_bound(&self) -> usize {
-        self.capacity()
-    }
-
-    /// Get index to the head
-    #[inline]
-    fn head(&self) -> usize {
-        self.head_
-    }
-
-    /// Get index to the tail
-    #[inline]
-    fn tail(&self) -> usize {
-        self.tail_
-    }
-
     /// Number of elements in the ring buffer.
     ///
     /// # Examples
@@ -500,8 +488,7 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn len(&self) -> usize {
-        let l = self.tail() - self.head();
-        debug_assert!(self.tail() >= self.head());
+        let l = self.as_slice().len();
         debug_assert!(l <= self.capacity());
         l
     }
@@ -524,21 +511,13 @@ impl<T> SliceDeque<T> {
     /// Extracts a slice containing the entire deque.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        unsafe {
-            let ptr = self.buf.ptr();
-            let ptr = ptr.add(self.head());
-            slice::from_raw_parts(ptr, self.len())
-        }
+        unsafe { self.elems_.as_ref() }
     }
 
     /// Extracts a mutable slice containing the entire deque.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe {
-            let ptr = self.buf.ptr();
-            let ptr = ptr.add(self.head());
-            slice::from_raw_parts_mut(ptr, self.len())
-        }
+        unsafe { self.elems_.as_mut() }
     }
 
     /// Returns a pair of slices, where the first slice contains the contents
@@ -566,7 +545,7 @@ impl<T> SliceDeque<T> {
     }
 
     /// Returns the slice of uninitialized memory between the `tail` and the
-    /// `head`.
+    /// `begin`.
     ///
     /// # Examples
     ///
@@ -593,8 +572,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     pub unsafe fn tail_head_slice(&mut self) -> &mut [T] {
-        let ptr = self.buf.ptr();
-        let ptr = ptr.add(self.tail());
+        let ptr = self.as_mut_slice().as_mut_ptr().add(self.len());
         slice::from_raw_parts_mut(ptr, self.capacity() - self.len())
     }
 
@@ -657,11 +635,9 @@ impl<T> SliceDeque<T> {
             // Exchange buffers
             mem::swap(&mut self.buf, &mut new_buffer);
 
-            // Correct head and tail (we copied to the
-            // beginning of the of the new buffer)
-            self.head_ = 0;
-            self.tail_ = len;
-
+            // Correct the slice - we copied to the
+            // beginning of the of the new buffer:
+            self.elems_ = nonnull_raw_slice(self.buf.ptr(), len);
             Ok(())
         }
     }
@@ -716,7 +692,7 @@ impl<T> SliceDeque<T> {
     ///
     /// # Panics
     ///
-    /// If the `head` wraps over the `tail` the behavior is undefined, that is,
+    /// If the head wraps over the tail the behavior is undefined, that is,
     /// if `x` is out-of-range `[-(capacity() - len()), len()]`.
     ///
     /// If `-C debug-assertions=1` violating this pre-condition `panic!`s.
@@ -726,44 +702,51 @@ impl<T> SliceDeque<T> {
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
-    #[allow(clippy::cognitive_complexity)]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
-        // Make sure that the head does not wrap over the tail:
-        debug_assert!(x >= -((self.capacity() - self.len()) as isize));
-        debug_assert!(x <= self.len() as isize);
-        let head = self.head() as isize;
-        let mut new_head = head + x;
-        let tail = self.tail() as isize;
         let cap = self.capacity();
-        debug_assert!(new_head <= tail);
-        debug_assert!(tail - new_head <= cap as isize);
+        let len = self.len();
+        // Make sure that the begin does not wrap over the end:
+        debug_assert!(x >= -((cap - len) as isize));
+        debug_assert!(x <= len as isize);
 
-        if intrinsics::unlikely(new_head < 0) {
-            // If the new head is negative we shift the range by capacity to
-            // move it towards the second mirrored memory region.
-            debug_assert!(tail < cap as isize);
-            new_head += cap as isize;
-            debug_assert!(new_head >= 0);
-            self.tail_ += cap;
-        } else if new_head as usize >= cap {
-            // cannot panic because new_head >= 0
-            // If the new head is larger than the capacity, we shift the range
-            // by -capacity to move it towards the first mirrored
-            // memory region.
-            debug_assert!(tail >= cap as isize);
-            new_head -= cap as isize;
-            debug_assert!(new_head >= 0);
-            self.tail_ -= cap;
+        // Obtain the begin of the slice and offset it by x:
+        let mut new_begin = self.as_mut_ptr().offset(x) as usize;
+
+        // Compute the boundaries of the first and second memory regions:
+        let first_region_begin = self.buf.ptr() as usize;
+        let region_size = Buffer::<T>::size_in_bytes(self.buf.len()) / 2;
+        debug_assert!(cap * mem::size_of::<T>() <= region_size);
+        let second_region_begin = first_region_begin + region_size;
+
+        // If the new begin is not inside the first memory region, we shift it
+        // by the region size into it:
+        if new_begin < first_region_begin {
+            new_begin += region_size;
+        } else if new_begin >= second_region_begin {
+            // Should be within the second region:
+            debug_assert!(new_begin < second_region_begin + region_size);
+            new_begin -= region_size;
         }
+        debug_assert!(new_begin >= first_region_begin);
+        debug_assert!(new_begin < second_region_begin);
 
-        self.head_ = new_head as usize;
-        debug_assert!(self.len() as isize == (tail - head) - x);
-        debug_assert!(self.head() <= self.tail());
+        // The new begin is now in the first memory region:
+        let new_begin = new_begin as *mut T;
+        debug_assert!(in_bounds(
+            slice::from_raw_parts(self.buf.ptr() as *mut u8, region_size),
+            new_begin as *mut u8
+        ));
 
-        debug_assert!(self.tail() <= self.tail_upper_bound());
-        debug_assert!(self.head() <= self.head_upper_bound());
-
-        debug_assert!(self.head() != self.capacity());
+        let new_len = len as isize - x;
+        debug_assert!(
+            new_len >= 0,
+            "len = {}, x = {}, new_len = {}",
+            len,
+            x,
+            new_len
+        );
+        debug_assert!(new_len <= cap as isize);
+        self.elems_ = nonnull_raw_slice(new_begin, new_len as usize);
     }
 
     /// Moves the deque head by `x`.
@@ -801,39 +784,17 @@ impl<T> SliceDeque<T> {
     /// tail of the deque points to within the allocated buffer.
     #[inline]
     pub unsafe fn move_tail_unchecked(&mut self, x: isize) {
-        // Make sure that the tail does not wrap over the head:
-        debug_assert!(x >= -(self.len() as isize));
-        debug_assert!(
-            x <= (self.capacity() - self.len()) as isize,
-            "x = {}, len = {}, cap = {}",
-            x,
-            self.len(),
-            self.capacity()
-        );
-        let head = self.head() as isize;
-        let tail = self.tail() as isize;
-        let cap = self.capacity() as isize;
-        let mut new_tail = tail + x;
-        debug_assert!(new_tail >= 0);
-        debug_assert!(head <= new_tail);
-        debug_assert!(new_tail - head <= cap);
+        // Make sure that the end does not wrap over the begin:
+        let len = self.len();
+        let cap = self.capacity();
+        debug_assert!(x >= -(len as isize));
+        debug_assert!(x <= (cap - len) as isize);
 
-        // If the new tail falls of the mirrored region of virtual memory we
-        // shift the range by -capacity to move it towards the first mirrored
-        // memory region.
+        let new_len = len as isize + x;
+        debug_assert!(new_len >= 0);
+        debug_assert!(new_len <= cap as isize);
 
-        if intrinsics::unlikely(new_tail >= 2 * cap) {
-            debug_assert!(head >= cap);
-            self.head_ -= cap as usize;
-            new_tail -= cap as isize;
-            debug_assert!(new_tail <= cap);
-        }
-
-        self.tail_ = new_tail as usize;
-        debug_assert!(self.len() as isize == (tail - head) + x);
-
-        debug_assert!(self.tail() <= self.tail_upper_bound());
-        debug_assert!(self.head() <= self.head_upper_bound());
+        self.elems_ = nonnull_raw_slice(self.as_mut_ptr(), new_len as usize);
     }
 
     /// Moves the deque tail by `x`.
@@ -901,8 +862,7 @@ impl<T> SliceDeque<T> {
     pub fn append(&mut self, other: &mut Self) {
         unsafe {
             self.append_elements(other.as_slice() as _);
-            other.head_ = 0;
-            other.tail_ = 0;
+            other.elems_ = nonnull_raw_slice(other.buf.ptr(), 0);
         }
     }
 
@@ -1171,17 +1131,20 @@ impl<T> SliceDeque<T> {
             return;
         }
 
-        let mut new_vd = Self::with_capacity(self.len());
-        if new_vd.capacity() < self.capacity() {
+        // FIXME: we should compute the capacity and only allocate a shrunk
+        // deque if that's worth it.
+        let mut new_sdeq = Self::with_capacity(self.len());
+        if new_sdeq.capacity() < self.capacity() {
             unsafe {
                 ::core::ptr::copy_nonoverlapping(
                     self.as_mut_ptr(),
-                    new_vd.as_mut_ptr(),
+                    new_sdeq.as_mut_ptr(),
                     self.len(),
                 );
+                new_sdeq.elems_ =
+                    nonnull_raw_slice(new_sdeq.buf.ptr(), self.len());
+                mem::swap(self, &mut new_sdeq);
             }
-            new_vd.tail_ = self.len();
-            mem::swap(self, &mut new_vd);
         }
     }
 
@@ -2570,8 +2533,8 @@ impl<T> IntoIterator for SliceDeque<T> {
             let buf_ptr = self.buf.ptr();
             intrinsics::assume(!buf_ptr.is_null());
             assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
-            let begin = buf_ptr.add(self.head()) as *const T;
-            let end = buf_ptr.add(self.tail()) as *const T;
+            let begin = self.as_ptr();
+            let end = begin.add(self.len());
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
                 buf: NonNull::new_unchecked(buf_ptr),
@@ -3115,10 +3078,7 @@ where
 
         unsafe {
             let new_len = self.old_len - self.del;
-            let new_tail = self.deq.head() + new_len;
-            let old_tail = self.deq.tail();
-            self.deq
-                .move_tail_unchecked(new_tail as isize - old_tail as isize);
+            self.deq.move_tail_unchecked(new_len as isize);
         }
     }
 }
@@ -5922,9 +5882,93 @@ mod tests {
     }
 
     #[test]
+    fn drop_count() {
+        #[repr(C)]
+        struct Foo(*mut usize);
+        impl Drop for Foo {
+            fn drop(&mut self) {
+                unsafe {
+                    *self.0 += 1;
+                }
+            }
+        }
+
+        let mut count = 0_usize;
+        {
+            let mut deque = SliceDeque::new();
+            for _ in 0..10 {
+                deque.push_back(Foo(&mut count as *mut _));
+                deque.pop_front();
+            }
+        }
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn non_fitting_elem_type() {
+        // This type does not perfectly fit in an "allocation granularity"
+        // unit (e.g. a memory page). A new type has always (1, 2, 3),
+        // while free-ing the type writes (4, 5, 6) to the memory.
+        #[repr(C)]
+        struct NonFitting(u8, u8, u8);
+        impl NonFitting {
+            fn new() -> Self {
+                Self(1, 2, 3)
+            }
+            fn valid(&self) -> bool {
+                dbg!("valid", self as *const Self as usize);
+                if self.0 == 1 && self.1 == 2 && self.2 == 3 {
+                    true
+                } else {
+                    dbg!((self.0, self.1, self.2));
+                    false
+                }
+            }
+        }
+
+        impl Drop for NonFitting {
+            fn drop(&mut self) {
+                dbg!(("drop", self as *mut Self as usize));
+                unsafe {
+                    let ptr = self as *mut Self as *mut u8;
+                    ptr.write_volatile(4);
+                    ptr.add(1).write_volatile(5);
+                    ptr.add(2).write_volatile(6);
+                }
+            }
+        }
+
+        let page_size = ::mirrored::allocation_granularity();
+        let elem_size = mem::size_of::<NonFitting>();
+
+        assert!(elem_size % page_size != 0);
+        let no_elements_that_fit = page_size / elem_size;
+
+        // Create a deque, which has a single element
+        // right at the end of the first page.
+        //
+        // We do that by shifting a single element till the end, which can be
+        // achieved by pushing an element and while popping the previous one.
+        let mut deque = SliceDeque::new();
+        deque.push_back(NonFitting::new());
+
+        for i in 0..no_elements_that_fit {
+            if i > no_elements_that_fit - 2 {
+                dbg!((i, deque.len()));
+            }
+            dbg!(("push_back", deque.len()));
+            deque.push_back(NonFitting::new());
+            dbg!(("pop_front", deque.len()));
+            deque.truncate_front(1);
+            assert_eq!(deque.len(), 1);
+            assert!(deque[0].valid());
+        }
+    }
+
+    #[test]
     fn issue_57_2() {
         let mut deque = SliceDeque::new();
-        loop {
+        for _ in 0..30_000 {
             deque.push_back(String::from("test"));
             if deque.len() == 8 {
                 deque.pop_front();

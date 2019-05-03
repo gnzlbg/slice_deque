@@ -77,11 +77,9 @@ impl<T> Buffer<T> {
         assert!(mem::size_of::<T>() > 0);
         // Here `ptr` is initialized to a magic value but `len == 0`
         // will ensure that it is never dereferenced in this state.
-        unsafe {
-            Self {
-                ptr: NonNull::new_unchecked(mem::align_of::<T>() as *mut T),
-                len: 0,
-            }
+        Self {
+            ptr: NonNull::dangling(),
+            len: 0,
         }
     }
 
@@ -101,8 +99,8 @@ impl<T> Buffer<T> {
         }
     }
 
-    /// Total number of bytes in the buffer (including mirrored memory).
-    fn size_in_bytes(len: usize) -> usize {
+    /// Total number of bytes in the buffer.
+    pub fn size_in_bytes(len: usize) -> usize {
         let v = no_required_allocation_units(len * mem::size_of::<T>())
             * allocation_granularity();
         debug_assert!(
