@@ -130,17 +130,14 @@
     )
 )]
 #![cfg_attr(all(test, feature = "unstable"), feature(box_syntax))]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(
-        clippy::len_without_is_empty,
-        clippy::shadow_reuse,
-        clippy::cast_possible_wrap,
-        clippy::cast_sign_loss,
-        clippy::cast_possible_truncation,
-        clippy::inline_always,
-        clippy::indexing_slicing
-    )
+#![allow(
+    clippy::len_without_is_empty,
+    clippy::shadow_reuse,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_truncation,
+    clippy::inline_always,
+    clippy::indexing_slicing
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
 
@@ -372,7 +369,7 @@ macro_rules! sdeq {
             unsafe {
                 let array = [$($x),*];
                 let deq = $crate::SliceDeque::steal_from_slice(&array);
-                #[cfg_attr(feature = "cargo-clippy", allow(clippy::forget_copy))]
+                #[allow(clippy::forget_copy)]
                 $crate::__mem_forget(array);
                 deq
             }
@@ -729,7 +726,7 @@ impl<T> SliceDeque<T> {
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
     #[inline]
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::cyclomatic_complexity))]
+    #[allow(clippy::cognitive_complexity)]
     pub unsafe fn move_head_unchecked(&mut self, x: isize) {
         // Make sure that the head does not wrap over the tail:
         debug_assert!(x >= -((self.capacity() - self.len()) as isize));
@@ -1289,10 +1286,7 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     #[cfg(all(feature = "unstable", feature = "use_std"))]
-    #[cfg_attr(
-        feature = "cargo-clippy",
-        allow(clippy::needless_pass_by_value)
-    )]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
         R: ops::RangeBounds<usize>,
@@ -1483,6 +1477,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[allow(clippy::shadow_unrelated)] // FIXME: bug in clippy due to ptr
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.len();
         assert!(index < len);
@@ -1766,10 +1761,7 @@ impl<T> SliceDeque<T> {
     /// >  }
     #[inline]
     fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
-        #[cfg_attr(
-            feature = "cargo-clippy",
-            allow(clippy::while_let_on_iterator)
-        )]
+        #[allow(clippy::while_let_on_iterator)]
         while let Some(element) = iterator.next() {
             let len = self.len();
             let cap = self.capacity();
@@ -2368,7 +2360,7 @@ impl<T> IntoIter<T> {
     /// Returns the index of the head with respect to the beginning of the
     /// buffer.
     #[cfg(feature = "unstable")]
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::option_unwrap_used))]
+    #[allow(clippy::option_unwrap_used)]
     #[inline]
     fn head(&self) -> usize {
         self.buf.as_ptr().offset_to_(self.ptr).unwrap() as usize
@@ -2377,7 +2369,7 @@ impl<T> IntoIter<T> {
     /// Returns the index of the tail with respect to the beginning of the
     /// buffer.
     #[cfg(feature = "unstable")]
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::option_unwrap_used))]
+    #[allow(clippy::option_unwrap_used)]
     #[inline]
     fn tail(&self) -> usize {
         let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
@@ -2588,7 +2580,7 @@ impl<T> IntoIterator for SliceDeque<T> {
                 end,
             };
             debug_assert!(self.len() == it.size_hint().0);
-            #[cfg_attr(feature = "cargo-clippy", allow(clippy::mem_forget))]
+            #[allow(clippy::mem_forget)]
             mem::forget(self);
             it
         }
@@ -2695,7 +2687,7 @@ where
         deque
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::use_debug))]
+    #[allow(clippy::use_debug)]
     default fn spec_extend(&mut self, iterator: I) {
         // This is the case for a TrustedLen iterator.
         let (low, high) = iterator.size_hint();
@@ -2739,10 +2731,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                     iterator.head(),
                     iterator.tail(),
                 );
-                #[cfg_attr(
-                    feature = "cargo-clippy",
-                    allow(clippy::mem_forget)
-                )]
+                #[allow(clippy::mem_forget)]
                 mem::forget(iterator);
                 deq
             }
@@ -3389,7 +3378,7 @@ mod tests {
     #[test]
     fn drop() {
         for size in sizes_to_test() {
-            let mut counter = Rc::new(RefCell::new(0));
+            let counter = Rc::new(RefCell::new(0));
             let val = WithDrop {
                 counter: counter.clone(),
             };
@@ -3403,7 +3392,7 @@ mod tests {
     #[test]
     fn clear() {
         for size in sizes_to_test() {
-            let mut counter = Rc::new(RefCell::new(0));
+            let counter = Rc::new(RefCell::new(0));
             let val = WithDrop {
                 counter: counter.clone(),
             };
@@ -5929,6 +5918,17 @@ mod tests {
             assert_eq!(deque.pop_front(), Some(C));
             assert!(!deque.is_empty());
             assert_eq!(*deque.back().unwrap(), C);
+        }
+    }
+
+    #[test]
+    fn issue_57_2() {
+        let mut deque = SliceDeque::new();
+        loop {
+            deque.push_back(String::from("test"));
+            if deque.len() == 8 {
+                deque.pop_front();
+            }
         }
     }
 }
