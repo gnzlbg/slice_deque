@@ -1,6 +1,6 @@
 //! Implements the allocator hooks on top of mach.
 
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::shadow_unrelated))]
+#![allow(clippy::shadow_unrelated)]
 
 use mem;
 

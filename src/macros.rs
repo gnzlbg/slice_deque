@@ -20,7 +20,7 @@ impl TinyAsciiString {
 impl ::fmt::Write for TinyAsciiString {
     fn write_str(&mut self, s: &str) -> Result<(), ::fmt::Error> {
         for (idx, b) in s.bytes().enumerate() {
-            if let Some(mut v) = self.buf.get_mut(idx) {
+            if let Some(v) = self.buf.get_mut(idx) {
                 *v = b;
             } else {
                 return Err(::fmt::Error);

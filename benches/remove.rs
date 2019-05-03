@@ -115,5 +115,3 @@ fn remove_three_quarter_sdeq(b: &mut test::Bencher) {
         test::black_box(&mut deq);
     });
 }
-
-
