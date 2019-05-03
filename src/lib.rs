@@ -1283,7 +1283,7 @@ impl<T> SliceDeque<T> {
         unsafe {
             // set self.deq length's to start, to be safe in case Drain is
             // leaked
-            self.tail_ = self.head() + start;;
+            self.elems_ = nonnull_raw_slice(self.as_mut_ptr(), start);
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
             let range_slice = slice::from_raw_parts_mut(
@@ -2320,24 +2320,17 @@ impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
 }
 
 impl<T> IntoIter<T> {
-    /// Returns the index of the head with respect to the beginning of the
-    /// buffer.
+    /// Returns the element slice
     #[cfg(feature = "unstable")]
     #[allow(clippy::option_unwrap_used)]
     #[inline]
-    fn head(&self) -> usize {
-        self.buf.as_ptr().offset_to_(self.ptr).unwrap() as usize
-    }
-
-    /// Returns the index of the tail with respect to the beginning of the
-    /// buffer.
-    #[cfg(feature = "unstable")]
-    #[allow(clippy::option_unwrap_used)]
-    #[inline]
-    fn tail(&self) -> usize {
-        let t = self.buf.as_ptr().offset_to_(self.end).unwrap() as usize;
-        debug_assert!(t >= self.head());
-        t
+    fn elems(&mut self) -> &mut [T] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.ptr as *mut _,
+                (self.end as usize - self.ptr as usize) / mem::size_of::<T>(),
+            )
+        }
     }
 
     /// Returns the remaining items of this iterator as a slice.
@@ -2682,7 +2675,7 @@ where
 
 #[cfg(feature = "unstable")]
 impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
-    fn from_iter(iterator: IntoIter<T>) -> Self {
+    fn from_iter(mut iterator: IntoIter<T>) -> Self {
         // A common case is passing a deque into a function which immediately
         // re-collects into a deque. We can short circuit this if the IntoIter
         // has not been advanced at all.
@@ -2691,8 +2684,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for SliceDeque<T> {
                 let deq = Self::from_raw_parts(
                     iterator.buf.as_ptr(),
                     iterator.cap,
-                    iterator.head(),
-                    iterator.tail(),
+                    iterator.elems(),
                 );
                 #[allow(clippy::mem_forget)]
                 mem::forget(iterator);
@@ -2842,7 +2834,7 @@ macro_rules! impl_spec_from_elem {
         #[cfg(feature = "unstable")]
         impl SpecFromElem for $t {
             #[inline]
-            fn from_elem(elem: $t, n: usize) -> SliceDeque<$t> {
+            fn from_elem(elem: Self, n: usize) -> SliceDeque<Self> {
                 let mut v = SliceDeque::with_capacity(n);
                 v.extend_with(n, ExtendElement(elem));
                 v
