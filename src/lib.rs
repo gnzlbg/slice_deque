@@ -5908,7 +5908,7 @@ mod tests {
                 Self(1, 2, 3)
             }
             fn valid(&self) -> bool {
-                dbg!("valid", self as *const Self as usize);
+                //dbg!("valid", self as *const Self as usize);
                 if self.0 == 1 && self.1 == 2 && self.2 == 3 {
                     true
                 } else {
@@ -5920,7 +5920,7 @@ mod tests {
 
         impl Drop for NonFitting {
             fn drop(&mut self) {
-                dbg!(("drop", self as *mut Self as usize));
+                //dbg!(("drop", self as *mut Self as usize));
                 unsafe {
                     let ptr = self as *mut Self as *mut u8;
                     ptr.write_volatile(4);
@@ -5946,11 +5946,11 @@ mod tests {
 
         for i in 0..no_elements_that_fit {
             if i > no_elements_that_fit - 2 {
-                dbg!((i, deque.len()));
+                //dbg!((i, deque.len()));
             }
-            dbg!(("push_back", deque.len()));
+            //dbg!(("push_back", deque.len()));
             deque.push_back(NonFitting::new());
-            dbg!(("pop_front", deque.len()));
+            //dbg!(("pop_front", deque.len()));
             deque.truncate_front(1);
             assert_eq!(deque.len(), 1);
             assert!(deque[0].valid());
