@@ -6,7 +6,7 @@ export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
 export RUST_TEST_NOCAPTURE=1
 
-export RUSTFLAGS="-Z sanitizer=${SANITIZER}"
+export RUSTFLAGS="-C panic=abort -Z sanitizer=${SANITIZER}"
 export ASAN_OPTIONS="detect_odr_violation=0:detect_leaks=0"
 
 export OPT="--no-default-features --features=unstable --target=x86_64-unknown-linux-gnu"
