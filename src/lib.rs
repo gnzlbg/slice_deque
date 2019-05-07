@@ -126,7 +126,7 @@
         dropck_eyepatch,
         trusted_len,
         ptr_wrapping_offset_from,
-        specialization
+        specialization,
     )
 )]
 #![cfg_attr(all(test, feature = "unstable"), feature(box_syntax))]
@@ -203,24 +203,16 @@ mod intrinsics {
     }
 }
 
-/// Stable implementation of `.offset_to` for pointers.
-trait OffsetTo {
-    /// Stable implementation of `.offset_to` for pointers.
-    fn offset_to_(self, other: Self) -> Option<isize>;
-}
-
-/// Stable implementation of `.offset_to` for pointers.
-trait OffsetToMut {
-    /// A const pointer type.
-    type Other;
-    /// Stable implementation of `.offset_to` for pointers.
-    fn offset_to_(self, other: Self::Other) -> Option<isize>;
+/// Stable implementation of `.wrapping_offset_from` for pointers.
+trait WrappingOffsetFrom {
+    /// Stable implementation of `.wrapping_offset_from` for pointers.
+    fn wrapping_offset_from_(self, other: Self) -> Option<isize>;
 }
 
 #[cfg(not(feature = "unstable"))]
-impl<T: Sized> OffsetTo for *const T {
+impl<T: Sized> WrappingOffsetFrom for *const T {
     #[inline(always)]
-    fn offset_to_(self, other: Self) -> Option<isize>
+    fn wrapping_offset_from_(self, other: Self) -> Option<isize>
     where
         T: Sized,
     {
@@ -235,44 +227,9 @@ impl<T: Sized> OffsetTo for *const T {
 }
 
 #[cfg(feature = "unstable")]
-impl<T: Sized> OffsetTo for *const T {
+impl<T: Sized> WrappingOffsetFrom for *const T {
     #[inline(always)]
-    fn offset_to_(self, other: Self) -> Option<isize>
-    where
-        T: Sized,
-    {
-        let size = mem::size_of::<T>();
-        if size == 0 {
-            None
-        } else {
-            Some(other.wrapping_offset_from(self))
-        }
-    }
-}
-
-#[cfg(not(feature = "unstable"))]
-impl<T: Sized> OffsetToMut for *mut T {
-    type Other = *const T;
-    #[inline(always)]
-    fn offset_to_(self, other: Self::Other) -> Option<isize>
-    where
-        T: Sized,
-    {
-        let size = mem::size_of::<T>();
-        if size == 0 {
-            None
-        } else {
-            let diff = (other as isize).wrapping_sub(self as isize);
-            Some(diff / size as isize)
-        }
-    }
-}
-
-#[cfg(feature = "unstable")]
-impl<T: Sized> OffsetToMut for *mut T {
-    type Other = *const T;
-    #[inline(always)]
-    fn offset_to_(self, other: Self::Other) -> Option<isize>
+    fn wrapping_offset_from_(self, other: Self) -> Option<isize>
     where
         T: Sized,
     {
@@ -2410,7 +2367,7 @@ impl<T> Iterator for IntoIter<T> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let exact = match self.ptr.offset_to_(self.end) {
+        let exact = match self.ptr.wrapping_offset_from_(self.end) {
             Some(x) => x as usize,
             None => (self.end as usize).wrapping_sub(self.ptr as usize),
         };
