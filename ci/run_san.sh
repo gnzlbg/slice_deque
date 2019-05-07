@@ -9,7 +9,7 @@ export RUST_TEST_NOCAPTURE=1
 export RUSTFLAGS="${RUSTFLAGS} -Z sanitizer=${SANITIZER}"
 export ASAN_OPTIONS="detect_odr_violation=0:detect_leaks=0"
 
-export OPT="--no-default-features --features=unstable --target=x86_64-unknown-linux-gnu"
+export OPT="--no-default-features --target=x86_64-unknown-linux-gnu"
 export OPT_RELEASE="--release ${OPT}"
 
 if [[ $SANITIZER == "memory" ]]; then
