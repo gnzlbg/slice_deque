@@ -12,6 +12,7 @@ readme = "readme.md"
 keywords = ["collection", "deque", "ring", "circular", "buffer"]
 categories = ["data-structures", "no-std"]
 license = "MIT/Apache-2.0"
+edition = "2018"
 
 [badges]
 appveyor = { repository = "gnzlbg/slice_deque" }

@@ -13,17 +13,17 @@ impl TinyAsciiString {
     }
     /// Converts the Tiny Ascii String to an UTF-8 string (unchecked).
     pub unsafe fn as_str(&self) -> &str {
-        ::str::from_utf8_unchecked(&self.buf)
+        crate::str::from_utf8_unchecked(&self.buf)
     }
 }
 
-impl ::fmt::Write for TinyAsciiString {
-    fn write_str(&mut self, s: &str) -> Result<(), ::fmt::Error> {
+impl crate::fmt::Write for TinyAsciiString {
+    fn write_str(&mut self, s: &str) -> Result<(), crate::fmt::Error> {
         for (idx, b) in s.bytes().enumerate() {
             if let Some(v) = self.buf.get_mut(idx) {
                 *v = b;
             } else {
-                return Err(::fmt::Error);
+                return Err(crate::fmt::Error);
             }
         }
         Ok(())
@@ -33,8 +33,9 @@ impl ::fmt::Write for TinyAsciiString {
 macro_rules! tiny_str {
     ($($t:tt)*) => (
         {
-            use ::fmt::Write;
-            let mut s: ::macros::TinyAsciiString = ::macros::TinyAsciiString::new();
+            use crate::fmt::Write;
+            let mut s: crate::macros::TinyAsciiString
+                = crate::macros::TinyAsciiString::new();
             write!(&mut s, $($t)*).unwrap();
             s
         }
