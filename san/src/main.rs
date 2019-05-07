@@ -1,40 +1,12 @@
 //! Tests that run under the sanitizers.
-#![no_std]
-#![no_main]
-#![feature(core_intrinsics, lang_items)]
 #![allow(clippy::cognitive_complexity, clippy::option_unwrap_used)]
 
 #[macro_use]
 extern crate slice_deque;
 
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    unsafe { core::intrinsics::abort() }
-}
-
-#[lang = "eh_personality"]
-extern "C" fn eh_personality() {}
-
 use slice_deque::SliceDeque;
 
-macro_rules! assert {
-    ($e:expr) => {
-        if !$e {
-            return 1;
-        }
-    };
-}
-
-macro_rules! assert_eq {
-    ($a:expr, $b:expr) => {
-        if $a != $b {
-            return 1;
-        }
-    };
-}
-
-#[no_mangle]
-pub extern "C" fn main() -> i32 {
+fn main() {
     // Single-threaded stable no-std asserts:
     {
         let mut deq: SliceDeque<u32> = SliceDeque::with_capacity(10);
@@ -85,5 +57,4 @@ pub extern "C" fn main() -> i32 {
         deq.shrink_to_fit();
         assert_eq!(deq.capacity(), cap);
     }
-    0
 }

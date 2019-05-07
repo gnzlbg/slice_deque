@@ -5,7 +5,7 @@ authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-slice-deque = { path = "..", default-features=false, features = ["unstable"] }
+slice-deque = { path = "..", features = ["unstable", "use_std"] }
 
 [profile.dev]
 panic = 'abort'
