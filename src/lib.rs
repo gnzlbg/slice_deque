@@ -1205,7 +1205,6 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[allow(clippy::needless_pass_by_value)]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
@@ -1747,7 +1746,6 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     pub fn splice<R, I>(
         &mut self, range: R, replace_with: I,
     ) -> Splice<I::IntoIter>
@@ -3944,7 +3942,6 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_items() {
         let mut deq = sdeq![1, 2, 3];
@@ -3956,7 +3953,6 @@ mod tests {
         assert_eq!(deq2, [1, 2, 3]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_items_reverse() {
         let mut deq = sdeq![1, 2, 3];
@@ -3968,7 +3964,6 @@ mod tests {
         assert_eq!(deq2, [3, 2, 1]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_items_zero_sized() {
@@ -3981,7 +3976,6 @@ mod tests {
         assert_eq!(deq2, [(), (), ()]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_out_of_bounds() {
@@ -3989,7 +3983,6 @@ mod tests {
         v.drain(5..6);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -4005,7 +3998,6 @@ mod tests {
         assert_eq!(v, &[1.to_string(), 5.to_string()]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized types
     fn vec_drain_range_zst() {
@@ -4014,7 +4006,6 @@ mod tests {
         assert_eq!(v, &[(), ()]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_drain_inclusive_range() {
         let mut v = sdeq!['a', 'b', 'c', 'd', 'e'];
@@ -4040,7 +4031,6 @@ mod tests {
     }
 
     /*
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized types
     fn vec_drain_max_vec_size() {
@@ -4059,7 +4049,6 @@ mod tests {
         assert_eq!(v.len(), usize::max_value() - 1);
     }*/
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_drain_inclusive_out_of_bounds() {
@@ -4067,7 +4056,6 @@ mod tests {
         v.drain(5..=5);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -4078,7 +4066,6 @@ mod tests {
         assert_eq!(v, &[1, 20, 11, 12, 5]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_inclusive_range() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -4091,7 +4078,6 @@ mod tests {
         assert_eq!(t2, &[2, 10]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_splice_out_of_bounds() {
@@ -4100,7 +4086,6 @@ mod tests {
         v.splice(5..6, a.iter().cloned());
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic]
     fn vec_splice_inclusive_out_of_bounds() {
@@ -4109,7 +4094,6 @@ mod tests {
         v.splice(5..=5, a.iter().cloned());
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     #[should_panic] // TODO: zero-sized
     fn vec_splice_items_zero_sized() {
@@ -4121,7 +4105,6 @@ mod tests {
         assert_eq!(t, &[()]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_unbounded() {
         let mut deq = sdeq![1, 2, 3, 4, 5];
@@ -4130,7 +4113,6 @@ mod tests {
         assert_eq!(t, &[1, 2, 3, 4, 5]);
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vec_splice_forget() {
         let mut v = sdeq![1, 2, 3, 4, 5];
@@ -4907,7 +4889,6 @@ mod tests {
         }
     }
 
-    #[cfg(all(feature = "unstable", feature = "use_std"))]
     #[test]
     fn vecdeque_drain() {
         // Empty iter

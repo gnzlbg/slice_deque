@@ -8,6 +8,10 @@
 )]
 
 #[cfg(not(feature = "use_std"))]
+#[macro_use]
+extern crate slice_deque;
+
+#[cfg(not(feature = "use_std"))]
 mod san {
     #[panic_handler]
     fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -16,9 +20,6 @@ mod san {
 
     #[lang = "eh_personality"]
     extern "C" fn eh_personality() {}
-
-    #[macro_use]
-    extern crate slice_deque;
 
     use slice_deque::SliceDeque;
 
