@@ -71,15 +71,21 @@ impl<T> Buffer<T> {
         &mut self.as_mut_slice()[i]
     }
 
+    fn empty_len() -> usize {
+        if mem::size_of::<T>() == 0 {
+            isize::max_value() as usize * 2
+        } else {
+            0
+        }
+    }
+
     /// Creates a new empty `Buffer`.
     pub fn new() -> Self {
-        // Zero-sized elements are not supported yet:
-        assert!(mem::size_of::<T>() > 0);
         // Here `ptr` is initialized to a magic value but `len == 0`
         // will ensure that it is never dereferenced in this state.
         Self {
             ptr: NonNull::dangling(),
-            len: 0,
+            len: Self::empty_len(),
         }
     }
 
@@ -89,10 +95,11 @@ impl<T> Buffer<T> {
     ///
     /// If `ptr` is null.
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
-        // Zero-sized types are not supported yet:
-        assert!(mem::size_of::<T>() > 0);
         assert!(len % 2 == 0);
         assert!(!ptr.is_null());
+        if mem::size_of::<T>() == 0 {
+            debug_assert_eq!(len, Self::empty_len());
+        }
         Self {
             ptr: NonNull::new_unchecked(ptr),
             len,
@@ -116,8 +123,13 @@ impl<T> Buffer<T> {
     /// Create a mirrored buffer containing `len` `T`s where the first half of
     /// the buffer is mirrored into the second half.
     pub fn uninitialized(len: usize) -> Result<Self, AllocError> {
-        // Zero-sized types are not supported yet:
-        assert!(mem::size_of::<T>() > 0);
+        // Zero-sized types:
+        if mem::size_of::<T>() == 0 {
+            return Ok(Self {
+                ptr: NonNull::dangling(),
+                len: Self::empty_len(),
+            });
+        }
         // The alignment requirements of `T` must be smaller than the
         // allocation granularity.
         assert!(mem::align_of::<T>() <= allocation_granularity());
@@ -147,6 +159,10 @@ impl<T> Buffer<T> {
 
 impl<T> Drop for Buffer<T> {
     fn drop(&mut self) {
+        if mem::size_of::<T>() == 0 {
+            debug_assert_eq!(self.len, Self::empty_len());
+            return;
+        }
         if self.is_empty() {
             return;
         }

@@ -1243,7 +1243,14 @@ impl<T> SliceDeque<T> {
             // Use the borrow in the IterMut to indicate borrowing behavior of
             // the whole Drain iterator (like &mut T).
             let range_slice = slice::from_raw_parts_mut(
-                self.as_mut_ptr().add(start),
+                if mem::size_of::<T>() == 0 {
+                    intrinsics::arith_offset(
+                        self.as_mut_ptr() as *mut i8,
+                        start as _,
+                    ) as *mut _
+                } else {
+                    self.as_mut_ptr().add(start)
+                },
                 end - start,
             );
             Drain {
@@ -1838,9 +1845,6 @@ impl<T> SliceDeque<T> {
             pred: filter,
         }
     }
-
-    // TODO: fn place_back(&mut self) -> PlaceBack<T>
-    // TODO: fn place_front(&mut self) -> PlaceFront<T>
 }
 
 impl<T> SliceDeque<T>
@@ -2033,7 +2037,14 @@ impl<T: fmt::Debug> fmt::Debug for SliceDeque<T> {
 impl<T> Drop for SliceDeque<T> {
     #[inline]
     fn drop(&mut self) {
-        self.clear();
+        // In Rust, if Drop::drop panics, the value must be leaked,
+        // therefore we don't need to make sure that we handle that case
+        // here:
+        unsafe {
+            // use drop for [T]
+            ptr::drop_in_place(&mut self[..]);
+        }
+        // Buffer handles deallocation
     }
 }
 
@@ -2480,9 +2491,13 @@ impl<T> IntoIterator for SliceDeque<T> {
         unsafe {
             let buf_ptr = self.buf.ptr();
             intrinsics::assume(!buf_ptr.is_null());
-            assert!(mem::size_of::<T>() != 0); // TODO: zero-sized types
             let begin = self.as_ptr();
-            let end = begin.add(self.len());
+            let end = if mem::size_of::<T>() == 0 {
+                intrinsics::arith_offset(begin as *const i8, self.len() as _)
+                    as *const _
+            } else {
+                begin.add(self.len())
+            };
             assert!(begin as usize <= end as usize);
             let it = IntoIter {
                 buf: NonNull::new_unchecked(buf_ptr),
@@ -2490,7 +2505,7 @@ impl<T> IntoIterator for SliceDeque<T> {
                 ptr: begin,
                 end,
             };
-            debug_assert!(self.len() == it.size_hint().0);
+            debug_assert_eq!(self.len(), it.size_hint().0);
             #[allow(clippy::mem_forget)]
             mem::forget(self);
             it
@@ -3535,7 +3550,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized types
     fn vec_extend_zst() {
         // Zero sized types
         #[derive(PartialEq, Debug)]
@@ -3733,7 +3747,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized types
     fn zero_sized_values() {
         let mut v = SliceDeque::new();
         assert_eq!(v.len(), 0);
@@ -3932,7 +3945,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized types
     fn vec_move_items_zero_sized() {
         let deq = sdeq![(), (), ()];
         let mut deq2 = sdeq![];
@@ -3965,7 +3977,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn vec_drain_items_zero_sized() {
         let mut deq = sdeq![(), (), ()];
         let mut deq2 = sdeq![];
@@ -3999,7 +4010,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized types
     fn vec_drain_range_zst() {
         let mut v: SliceDeque<_> = sdeq![(); 5];
         for _ in v.drain(1..4).rev() {}
@@ -4030,24 +4040,21 @@ mod tests {
         assert_eq!(v, &["1".to_string()]);
     }
 
-    /*
     #[test]
-    #[should_panic] // TODO: zero-sized types
     fn vec_drain_max_vec_size() {
-        let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
-        unsafe {
-            v.set_len(usize::max_value());
-        }
-        for _ in v.drain(usize::max_value() - 1..) {}
-        assert_eq!(v.len(), usize::max_value() - 1);
+        const M: usize = isize::max_value() as usize;
+        let mut v = SliceDeque::<()>::with_capacity(M);
+        unsafe { v.move_tail_unchecked(M as isize) };
+        assert_eq!(v.len(), M as usize);
+        for _ in v.drain(M - 1..) {}
+        assert_eq!(v.len(), M - 1);
 
-        let mut v = SliceDeque::<()>::with_capacity(usize::max_value());
-        unsafe {
-            v.set_len(usize::max_value());
-        }
-        for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {}
-        assert_eq!(v.len(), usize::max_value() - 1);
-    }*/
+        let mut v = SliceDeque::<()>::with_capacity(M);
+        unsafe { v.move_tail_unchecked(M as isize) };
+        assert_eq!(v.len(), M as usize);
+        for _ in v.drain(M - 1..=M - 1) {}
+        assert_eq!(v.len(), M - 1);
+    }
 
     #[test]
     #[should_panic]
@@ -4095,7 +4102,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized
     fn vec_splice_items_zero_sized() {
         let mut deq = sdeq![(), (), ()];
         let deq2 = sdeq![];
@@ -4292,7 +4298,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zst
     fn drain_filter_zst() {
         let mut deq = sdeq![(), (), (), (), ()];
         let initial_len = deq.len();
@@ -5126,7 +5131,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic] // TODO: zero-sized
     fn vecdeque_drop_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
@@ -5172,7 +5176,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn vecdeque_drop_with_pop_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
@@ -5225,7 +5228,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn vecdeque_drop_clear_zst() {
         static mut DROPS: i32 = 0;
         struct Elem;
@@ -5904,5 +5906,18 @@ mod tests {
                 deque.pop_front();
             }
         }
+    }
+
+    #[test]
+    fn zst() {
+        struct A;
+        let mut s = SliceDeque::<A>::new();
+        assert_eq!(s.len(), 0);
+        assert_eq!(s.capacity(), isize::max_value() as usize);
+
+        for _ in 0..10 {
+            s.push_back(A);
+        }
+        assert_eq!(s.len(), 10);
     }
 }
