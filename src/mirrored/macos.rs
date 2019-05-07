@@ -2,7 +2,7 @@
 
 #![allow(clippy::shadow_unrelated)]
 
-use mem;
+use super::mem;
 
 use mach;
 use mach::boolean::boolean_t;

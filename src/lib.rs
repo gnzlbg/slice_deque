@@ -629,11 +629,11 @@ impl<T> SliceDeque<T> {
             {
                 let from_ptr = self.as_mut_ptr();
                 let to_ptr = new_buffer.as_mut_slice().as_mut_ptr();
-                ::core::ptr::copy_nonoverlapping(from_ptr, to_ptr, len);
+                crate::ptr::copy_nonoverlapping(from_ptr, to_ptr, len);
             }
 
             // Exchange buffers
-            mem::swap(&mut self.buf, &mut new_buffer);
+            crate::mem::swap(&mut self.buf, &mut new_buffer);
 
             // Correct the slice - we copied to the
             // beginning of the of the new buffer:
@@ -1136,7 +1136,7 @@ impl<T> SliceDeque<T> {
         let mut new_sdeq = Self::with_capacity(self.len());
         if new_sdeq.capacity() < self.capacity() {
             unsafe {
-                ::core::ptr::copy_nonoverlapping(
+                crate::ptr::copy_nonoverlapping(
                     self.as_mut_ptr(),
                     new_sdeq.as_mut_ptr(),
                     self.len(),
@@ -4639,8 +4639,8 @@ mod tests {
         t: Taggy,
     }
 
-    use tests::Taggy::*;
-    use tests::Taggypar::*;
+    use self::Taggy::*;
+    use self::Taggypar::*;
 
     fn hash<T: hash::Hash>(t: &T) -> u64 {
         let mut s = collections::hash_map::DefaultHasher::new();
@@ -5750,7 +5750,7 @@ mod tests {
     #[test]
     fn issue_42() {
         // https://github.com/gnzlbg/slice_deque/issues/42
-        let page_size = ::mirrored::allocation_granularity();
+        let page_size = crate::mirrored::allocation_granularity();
         let mut deque = SliceDeque::<u8>::with_capacity(page_size);
         let page_size = page_size as isize;
 
@@ -5793,7 +5793,7 @@ mod tests {
 
     #[test]
     fn issue_47() {
-        let page_size = ::mirrored::allocation_granularity();
+        let page_size = crate::mirrored::allocation_granularity();
         let mut sdq = SliceDeque::<u8>::new();
         let vec = vec![0_u8; page_size + 1];
         sdq.extend(vec);
@@ -5930,7 +5930,7 @@ mod tests {
             }
         }
 
-        let page_size = ::mirrored::allocation_granularity();
+        let page_size = crate::mirrored::allocation_granularity();
         let elem_size = mem::size_of::<NonFitting>();
 
         assert!(elem_size % page_size != 0);

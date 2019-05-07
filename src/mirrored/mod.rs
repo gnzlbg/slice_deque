@@ -79,8 +79,8 @@ pub enum AllocError {
     Other,
 }
 
-impl ::fmt::Debug for AllocError {
-    fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+impl crate::fmt::Debug for AllocError {
+    fn fmt(&self, f: &mut crate::fmt::Formatter) -> crate::fmt::Result {
         match self {
             AllocError::Oom => write!(f, "out-of-memory"),
             AllocError::Other => write!(f, "other (not out-of-memory)"),
