@@ -21,5 +21,6 @@ if [[ $SANITIZER == "address" ]]; then
     cargo test --lib $OPT_RELEASE
 fi
 
-cargo run --example san $OPT
-cargo run --example san $OPT_RELEASE
+cd san
+cargo run $OPT
+cargo run $OPT_RELEASE
