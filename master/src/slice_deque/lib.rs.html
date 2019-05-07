@@ -5906,6 +5906,21 @@
 <span id="5906">5906</span>
 <span id="5907">5907</span>
 <span id="5908">5908</span>
+<span id="5909">5909</span>
+<span id="5910">5910</span>
+<span id="5911">5911</span>
+<span id="5912">5912</span>
+<span id="5913">5913</span>
+<span id="5914">5914</span>
+<span id="5915">5915</span>
+<span id="5916">5916</span>
+<span id="5917">5917</span>
+<span id="5918">5918</span>
+<span id="5919">5919</span>
+<span id="5920">5920</span>
+<span id="5921">5921</span>
+<span id="5922">5922</span>
+<span id="5923">5923</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -7152,7 +7167,14 @@
             <span class="comment">// Use the borrow in the IterMut to indicate borrowing behavior of</span>
             <span class="comment">// the whole Drain iterator (like &amp;mut T).</span>
             <span class="kw">let</span> <span class="ident">range_slice</span> <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(
-                <span class="self">self</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">start</span>),
+                <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+                    <span class="ident">intrinsics</span>::<span class="ident">arith_offset</span>(
+                        <span class="self">self</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i8</span>,
+                        <span class="ident">start</span> <span class="kw">as</span> <span class="kw">_</span>,
+                    ) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>
+                } <span class="kw">else</span> {
+                    <span class="self">self</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">add</span>(<span class="ident">start</span>)
+                },
                 <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>,
             );
             <span class="ident">Drain</span> {
@@ -7747,9 +7769,6 @@
             <span class="ident">pred</span>: <span class="ident">filter</span>,
         }
     }
-
-    <span class="comment">// TODO: fn place_back(&amp;mut self) -&gt; PlaceBack&lt;T&gt;</span>
-    <span class="comment">// TODO: fn place_front(&amp;mut self) -&gt; PlaceFront&lt;T&gt;</span>
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
@@ -7942,7 +7961,14 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">clear</span>();
+        <span class="comment">// In Rust, if Drop::drop panics, the value must be leaked,</span>
+        <span class="comment">// therefore we don&#39;t need to make sure that we handle that case</span>
+        <span class="comment">// here:</span>
+        <span class="kw">unsafe</span> {
+            <span class="comment">// use drop for [T]</span>
+            <span class="ident">ptr</span>::<span class="ident">drop_in_place</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>[..]);
+        }
+        <span class="comment">// Buffer handles deallocation</span>
     }
 }
 
@@ -8389,9 +8415,13 @@
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">ptr</span>();
             <span class="ident">intrinsics</span>::<span class="ident">assume</span>(<span class="op">!</span><span class="ident">buf_ptr</span>.<span class="ident">is_null</span>());
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">!=</span> <span class="number">0</span>); <span class="comment">// TODO: zero-sized types</span>
             <span class="kw">let</span> <span class="ident">begin</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">as_ptr</span>();
-            <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">begin</span>.<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">len</span>());
+            <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+                <span class="ident">intrinsics</span>::<span class="ident">arith_offset</span>(<span class="ident">begin</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i8</span>, <span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>)
+                    <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>
+            } <span class="kw">else</span> {
+                <span class="ident">begin</span>.<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">len</span>())
+            };
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">begin</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&lt;=</span> <span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span>);
             <span class="kw">let</span> <span class="ident">it</span> <span class="op">=</span> <span class="ident">IntoIter</span> {
                 <span class="ident">buf</span>: <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">buf_ptr</span>),
@@ -8399,7 +8429,7 @@
                 <span class="ident">ptr</span>: <span class="ident">begin</span>,
                 <span class="ident">end</span>,
             };
-            <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">it</span>.<span class="ident">size_hint</span>().<span class="number">0</span>);
+            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">len</span>(), <span class="ident">it</span>.<span class="ident">size_hint</span>().<span class="number">0</span>);
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">mem_forget</span>)]</span>
             <span class="ident">mem</span>::<span class="ident">forget</span>(<span class="self">self</span>);
             <span class="ident">it</span>
@@ -9444,7 +9474,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized types</span>
     <span class="kw">fn</span> <span class="ident">vec_extend_zst</span>() {
         <span class="comment">// Zero sized types</span>
         <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
@@ -9642,7 +9671,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized types</span>
     <span class="kw">fn</span> <span class="ident">zero_sized_values</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="ident">new</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="number">0</span>);
@@ -9841,7 +9869,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized types</span>
     <span class="kw">fn</span> <span class="ident">vec_move_items_zero_sized</span>() {
         <span class="kw">let</span> <span class="ident">deq</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[(), (), ()];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq2</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[];
@@ -9874,7 +9901,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span>
     <span class="kw">fn</span> <span class="ident">vec_drain_items_zero_sized</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[(), (), ()];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq2</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[];
@@ -9908,7 +9934,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized types</span>
     <span class="kw">fn</span> <span class="ident">vec_drain_range_zst</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span>: <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[(); <span class="number">5</span>];
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">v</span>.<span class="ident">drain</span>(<span class="number">1</span>..<span class="number">4</span>).<span class="ident">rev</span>() {}
@@ -9939,24 +9964,21 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;1&quot;</span>.<span class="ident">to_string</span>()]);
     }
 
-    <span class="comment">/*
-    #[test]
-    #[should_panic] // TODO: zero-sized types
-    fn vec_drain_max_vec_size() {
-        let mut v = SliceDeque::&lt;()&gt;::with_capacity(usize::max_value());
-        unsafe {
-            v.set_len(usize::max_value());
-        }
-        for _ in v.drain(usize::max_value() - 1..) {}
-        assert_eq!(v.len(), usize::max_value() - 1);
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">vec_drain_max_vec_size</span>() {
+        <span class="kw">const</span> <span class="ident">M</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">isize</span>::<span class="ident">max_value</span>() <span class="kw">as</span> <span class="ident">usize</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="ident">M</span>);
+        <span class="kw">unsafe</span> { <span class="ident">v</span>.<span class="ident">move_tail_unchecked</span>(<span class="ident">M</span> <span class="kw">as</span> <span class="ident">isize</span>) };
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="ident">M</span> <span class="kw">as</span> <span class="ident">usize</span>);
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">v</span>.<span class="ident">drain</span>(<span class="ident">M</span> <span class="op">-</span> <span class="number">1</span>..) {}
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="ident">M</span> <span class="op">-</span> <span class="number">1</span>);
 
-        let mut v = SliceDeque::&lt;()&gt;::with_capacity(usize::max_value());
-        unsafe {
-            v.set_len(usize::max_value());
-        }
-        for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {}
-        assert_eq!(v.len(), usize::max_value() - 1);
-    }*/</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>::<span class="ident">with_capacity</span>(<span class="ident">M</span>);
+        <span class="kw">unsafe</span> { <span class="ident">v</span>.<span class="ident">move_tail_unchecked</span>(<span class="ident">M</span> <span class="kw">as</span> <span class="ident">isize</span>) };
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="ident">M</span> <span class="kw">as</span> <span class="ident">usize</span>);
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">v</span>.<span class="ident">drain</span>(<span class="ident">M</span> <span class="op">-</span> <span class="number">1</span>..=<span class="ident">M</span> <span class="op">-</span> <span class="number">1</span>) {}
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>.<span class="ident">len</span>(), <span class="ident">M</span> <span class="op">-</span> <span class="number">1</span>);
+    }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">should_panic</span>]</span>
@@ -10004,7 +10026,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized</span>
     <span class="kw">fn</span> <span class="ident">vec_splice_items_zero_sized</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[(), (), ()];
         <span class="kw">let</span> <span class="ident">deq2</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[];
@@ -10201,7 +10222,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zst</span>
     <span class="kw">fn</span> <span class="ident">drain_filter_zst</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deq</span> <span class="op">=</span> <span class="macro">sdeq</span><span class="macro">!</span>[(), (), (), (), ()];
         <span class="kw">let</span> <span class="ident">initial_len</span> <span class="op">=</span> <span class="ident">deq</span>.<span class="ident">len</span>();
@@ -11035,7 +11055,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span> <span class="comment">// TODO: zero-sized</span>
     <span class="kw">fn</span> <span class="ident">vecdeque_drop_zst</span>() {
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">DROPS</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">struct</span> <span class="ident">Elem</span>;
@@ -11081,7 +11100,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span>
     <span class="kw">fn</span> <span class="ident">vecdeque_drop_with_pop_zst</span>() {
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">DROPS</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">struct</span> <span class="ident">Elem</span>;
@@ -11134,7 +11152,6 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">should_panic</span>]</span>
     <span class="kw">fn</span> <span class="ident">vecdeque_drop_clear_zst</span>() {
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">DROPS</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">struct</span> <span class="ident">Elem</span>;
@@ -11813,6 +11830,19 @@
                 <span class="ident">deque</span>.<span class="ident">pop_front</span>();
             }
         }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">zst</span>() {
+        <span class="kw">struct</span> <span class="ident">A</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span><span class="ident">A</span><span class="op">&gt;</span>::<span class="ident">new</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">len</span>(), <span class="number">0</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">capacity</span>(), <span class="ident">isize</span>::<span class="ident">max_value</span>() <span class="kw">as</span> <span class="ident">usize</span>);
+
+        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
+            <span class="ident">s</span>.<span class="ident">push_back</span>(<span class="ident">A</span>);
+        }
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">len</span>(), <span class="number">10</span>);
     }
 }
 </pre></div>

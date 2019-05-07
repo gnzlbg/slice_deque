@@ -286,6 +286,22 @@
 <span id="286">286</span>
 <span id="287">287</span>
 <span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Implements a mirrored memory buffer.</span>
 
@@ -360,15 +376,21 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">as_mut_slice</span>()[<span class="ident">i</span>]
     }
 
+    <span class="kw">fn</span> <span class="ident">empty_len</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="ident">isize</span>::<span class="ident">max_value</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">*</span> <span class="number">2</span>
+        } <span class="kw">else</span> {
+            <span class="number">0</span>
+        }
+    }
+
     <span class="doccomment">/// Creates a new empty `Buffer`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// Zero-sized elements are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="comment">// Here `ptr` is initialized to a magic value but `len == 0`</span>
         <span class="comment">// will ensure that it is never dereferenced in this state.</span>
         <span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">dangling</span>(),
-            <span class="ident">len</span>: <span class="number">0</span>,
+            <span class="ident">len</span>: <span class="self">Self</span>::<span class="ident">empty_len</span>(),
         }
     }
 
@@ -378,10 +400,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// If `ptr` is null.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(<span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>, <span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// Zero-sized types are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">len</span> <span class="op">%</span> <span class="number">2</span> <span class="op">==</span> <span class="number">0</span>);
         <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">ptr</span>.<span class="ident">is_null</span>());
+        <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">len</span>, <span class="self">Self</span>::<span class="ident">empty_len</span>());
+        }
         <span class="self">Self</span> {
             <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span>),
             <span class="ident">len</span>,
@@ -405,8 +428,13 @@
     <span class="doccomment">/// Create a mirrored buffer containing `len` `T`s where the first half of</span>
     <span class="doccomment">/// the buffer is mirrored into the second half.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uninitialized</span>(<span class="ident">len</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">AllocError</span><span class="op">&gt;</span> {
-        <span class="comment">// Zero-sized types are not supported yet:</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="comment">// Zero-sized types:</span>
+        <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">ptr</span>: <span class="ident">NonNull</span>::<span class="ident">dangling</span>(),
+                <span class="ident">len</span>: <span class="self">Self</span>::<span class="ident">empty_len</span>(),
+            });
+        }
         <span class="comment">// The alignment requirements of `T` must be smaller than the</span>
         <span class="comment">// allocation granularity.</span>
         <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&lt;=</span> <span class="ident">allocation_granularity</span>());
@@ -436,6 +464,10 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Buffer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+            <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">len</span>, <span class="self">Self</span>::<span class="ident">empty_len</span>());
+            <span class="kw">return</span>;
+        }
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span>;
         }
