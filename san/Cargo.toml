@@ -1,0 +1,14 @@
+[package]
+name = "san"
+version = "0.1.0"
+authors = ["gnzlbg <gonzalobg88@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+slice-deque = { path = "..", default-features=false, features = ["unstable"] }
+
+[profile.dev]
+panic = 'abort'
+
+[profile.release]
+panic = 'abort'
