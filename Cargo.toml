@@ -2,7 +2,7 @@
 # dev-dependencies which causes 
 [package]
 name = "slice-deque"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
