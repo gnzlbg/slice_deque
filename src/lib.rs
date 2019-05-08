@@ -267,6 +267,11 @@ pub struct SliceDeque<T> {
     buf: Buffer<T>,
 }
 
+// Safe because it is possible to free this from a different thread
+unsafe impl<T> Send for SliceDeque<T> where T: Send {}
+// Safe because this doesn't use any kind of interior mutability.
+unsafe impl<T> Sync for SliceDeque<T> where T: Sync {}
+
 /// Implementation detail of the sdeq! macro.
 #[doc(hidden)]
 pub use mem::forget as __mem_forget;
@@ -5919,5 +5924,25 @@ mod tests {
             s.push_back(A);
         }
         assert_eq!(s.len(), 10);
+    }
+
+    #[test]
+    fn sync() {
+        fn assert_sync<T: Sync>(_: T) {}
+
+        struct S(*mut u8);
+        unsafe impl Sync for S {}
+        let x = SliceDeque::<S>::new();
+        assert_sync(x);
+    }
+
+    #[test]
+    fn send() {
+        fn assert_send<T: Send>(_: T) {}
+
+        struct S(*mut u8);
+        unsafe impl Send for S {}
+        let x = SliceDeque::<S>::new();
+        assert_send(x);
     }
 }
