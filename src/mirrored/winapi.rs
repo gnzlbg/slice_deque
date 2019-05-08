@@ -1,6 +1,6 @@
 //! Implements the allocator hooks on top of window's virtual alloc.
 
-use mem;
+use super::mem;
 
 use winapi::shared::basetsd::SIZE_T;
 use winapi::shared::minwindef::{BOOL, DWORD, LPCVOID, LPVOID};
@@ -19,7 +19,7 @@ use winapi::um::sysinfoapi::{GetSystemInfo, LPSYSTEM_INFO, SYSTEM_INFO};
 
 pub use winapi::shared::ntdef::HANDLE;
 
-use AllocError;
+use super::AllocError;
 
 /// Returns the size of an allocation unit in bytes.
 ///
