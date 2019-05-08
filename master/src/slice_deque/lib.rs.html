@@ -5921,6 +5921,31 @@
 <span id="5921">5921</span>
 <span id="5922">5922</span>
 <span id="5923">5923</span>
+<span id="5924">5924</span>
+<span id="5925">5925</span>
+<span id="5926">5926</span>
+<span id="5927">5927</span>
+<span id="5928">5928</span>
+<span id="5929">5929</span>
+<span id="5930">5930</span>
+<span id="5931">5931</span>
+<span id="5932">5932</span>
+<span id="5933">5933</span>
+<span id="5934">5934</span>
+<span id="5935">5935</span>
+<span id="5936">5936</span>
+<span id="5937">5937</span>
+<span id="5938">5938</span>
+<span id="5939">5939</span>
+<span id="5940">5940</span>
+<span id="5941">5941</span>
+<span id="5942">5942</span>
+<span id="5943">5943</span>
+<span id="5944">5944</span>
+<span id="5945">5945</span>
+<span id="5946">5946</span>
+<span id="5947">5947</span>
+<span id="5948">5948</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A double-ended queue that `Deref`s into a slice.</span>
 <span class="doccomment">//!</span>
@@ -6190,6 +6215,11 @@
     <span class="doccomment">/// Mirrored memory buffer.</span>
     <span class="ident">buf</span>: <span class="ident">Buffer</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
 }
+
+<span class="comment">// Safe because it is possible to free this from a different thread</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">where</span> <span class="ident">T</span>: <span class="ident">Send</span> {}
+<span class="comment">// Safe because this doesn&#39;t use any kind of interior mutability.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">SliceDeque</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">where</span> <span class="ident">T</span>: <span class="ident">Sync</span> {}
 
 <span class="doccomment">/// Implementation detail of the sdeq! macro.</span>
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
@@ -11843,6 +11873,26 @@
             <span class="ident">s</span>.<span class="ident">push_back</span>(<span class="ident">A</span>);
         }
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">s</span>.<span class="ident">len</span>(), <span class="number">10</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">sync</span>() {
+        <span class="kw">fn</span> <span class="ident">assert_sync</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Sync</span><span class="op">&gt;</span>(<span class="kw">_</span>: <span class="ident">T</span>) {}
+
+        <span class="kw">struct</span> <span class="ident">S</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>);
+        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">S</span> {}
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">new</span>();
+        <span class="ident">assert_sync</span>(<span class="ident">x</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">send</span>() {
+        <span class="kw">fn</span> <span class="ident">assert_send</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span><span class="op">&gt;</span>(<span class="kw">_</span>: <span class="ident">T</span>) {}
+
+        <span class="kw">struct</span> <span class="ident">S</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>);
+        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">S</span> {}
+        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">SliceDeque</span>::<span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>::<span class="ident">new</span>();
+        <span class="ident">assert_send</span>(<span class="ident">x</span>);
     }
 }
 </pre></div>
