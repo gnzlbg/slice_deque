@@ -1130,13 +1130,17 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn truncate_back(&mut self, len: usize) {
         unsafe {
-            while len < self.len() {
-                // decrement tail before the drop_in_place(), so a panic on
-                // Drop doesn't re-drop the just-failed value.
-                self.move_tail(-1);
-                let len = self.len();
-                core::ptr::drop_in_place(self.get_unchecked_mut(len));
+            if len >= self.len() {
+                return;
             }
+
+            let diff = self.len() - len;
+            let s = &mut self[len..] as *mut [_];
+            // decrement tail before the drop_in_place(), so a panic on
+            // Drop doesn't re-drop the just-failed value.
+            self.move_tail(-(diff as isize));
+            ptr::drop_in_place(&mut *s);
+            debug_assert_eq!(self.len(), len);
         }
     }
 
@@ -1169,13 +1173,17 @@ impl<T> SliceDeque<T> {
     #[inline]
     pub fn truncate_front(&mut self, len: usize) {
         unsafe {
-            while len < self.len() {
-                let head: *mut T = self.get_unchecked_mut(0) as *mut _;
-                // increment head before the drop_in_place(), so a panic on
-                // Drop doesn't re-drop the just-failed value.
-                self.move_head(1);
-                core::ptr::drop_in_place(head);
+            if len >= self.len() {
+                return;
             }
+
+            let diff = self.len() - len;
+            let s = &mut self[..diff] as *mut [_];
+            // increment head before the drop_in_place(), so a panic on
+            // Drop doesn't re-drop the just-failed value.
+            self.move_head(diff as isize);
+            ptr::drop_in_place(&mut *s);
+            debug_assert_eq!(self.len(), len);
         }
     }
 
