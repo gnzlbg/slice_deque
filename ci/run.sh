@@ -64,8 +64,8 @@ if [[ $NOSTD != "1" ]]; then # These builds require a std component
     $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_ND
     $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_RELEASE_ND
 
-    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
-    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf,serde,serde_test" $OPT_ND
+    $CARGO_CMD $CARGO_SUBCMD --features "bytes_buf,serde,serde_test" $OPT_RELEASE_ND
 fi
 
 if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then

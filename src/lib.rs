@@ -162,6 +162,17 @@ extern crate winapi;
 #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 extern crate bytes;
 
+#[cfg(feature = "serde")]
+extern crate serde;
+
+#[cfg(all(test, feature = "serde", feature = "serde_test"))]
+extern crate serde_test;
+
+#[cfg(all(test, feature = "serde", not(feature = "serde_test")))]
+compile_error!(
+    "feautre `serde` enabled but `serde_test` disabled when testing"
+);
+
 mod mirrored;
 pub use mirrored::{AllocError, Buffer};
 
@@ -3134,6 +3145,32 @@ impl ::bytes::buf::FromBuf for SliceDeque<u8> {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de>
+    for SliceDeque<T>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        serde::Deserialize::deserialize(deserializer).map(|s: Vec<T>| {
+            let d = unsafe { SliceDeque::steal_from_slice(&s) };
+            mem::forget(s);
+            d
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<T: serde::Serialize> serde::Serialize for SliceDeque<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_seq(&self as &[T])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use self::collections::HashMap;
@@ -5558,7 +5595,7 @@ mod tests {
     #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
     #[test]
     fn bytes_bufmut() {
-        use bytes::{BigEndian, BufMut};
+        use bytes::BufMut;
         use std::io::Write;
 
         {
@@ -5625,7 +5662,7 @@ mod tests {
         }
         {
             let mut buf = sdeq![];
-            buf.put_u16::<BigEndian>(0x0809);
+            buf.put_u16_be(0x0809);
             assert_eq!(buf, b"\x08\x09");
         }
         {
@@ -5952,5 +5989,26 @@ mod tests {
         unsafe impl Send for S {}
         let x = SliceDeque::<S>::new();
         assert_send(x);
+    }
+
+    #[cfg(all(feature = "serde", feature = "serde_test"))]
+    #[test]
+    fn serde() {
+        use serde_test::{assert_tokens, Token};
+        let deq = SliceDeque::<i32>::new();
+        assert_tokens(&deq, &[Token::Seq { len: Some(0) }, Token::SeqEnd]);
+
+        let deq = sdeq![4, 3, 2, 1];
+        assert_tokens(
+            &deq,
+            &[
+                Token::Seq { len: Some(4) },
+                Token::I32(4),
+                Token::I32(3),
+                Token::I32(2),
+                Token::I32(1),
+                Token::SeqEnd,
+            ],
+        );
     }
 }
