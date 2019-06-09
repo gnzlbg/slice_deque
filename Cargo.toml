@@ -2,7 +2,7 @@
 # dev-dependencies which causes 
 [package]
 name = "slice-deque"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
@@ -38,7 +38,7 @@ default = [ "use_std" ]
 use_std = [ "libc/use_std", "mach/use_std" ]
 # Enables support for the bytes_buf trait. That is,
 # SliceDeque implements the Buf and BufMut traits.
-#bytes_buf = ["bytes", "use_std"]
+bytes_buf = ["bytes", "use_std"]
 # Enable features that require unstable Rust (nightly).
 unstable = [ "mach/unstable" ]
 # Uses a super-portable but potentially slower System V interprocess
@@ -46,8 +46,10 @@ unstable = [ "mach/unstable" ]
 # targets.
 unix_sysv = []
 
-#[dependencies]
-#bytes = { version = "0.4.*", optional = true }
+[dependencies]
+serde = { version = "1.0", optional = true }
+serde_test = { version = "1.0", optional = true }
+bytes = { version = "0.4.*", optional = true }
 
 [target.'cfg(any(unix, target_os = "dragonfly"))'.dependencies.libc]
 version = "0.2"
