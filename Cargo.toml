@@ -2,7 +2,7 @@
 # dev-dependencies which causes 
 [package]
 name = "slice-deque"
-version = "0.2.4"
+version = "0.3.0"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
@@ -35,12 +35,10 @@ default-features = false
 default = [ "use_std" ]
 
 # Enables features that require the standard library
-use_std = [ "libc/use_std", "mach/use_std" ]
+use_std = [ "libc/use_std" ]
 # Enables support for the bytes_buf trait. That is,
 # SliceDeque implements the Buf and BufMut traits.
 #bytes_buf = ["bytes", "use_std"]
-# Enable features that require unstable Rust (nightly).
-unstable = [ "mach/unstable" ]
 # Uses a super-portable but potentially slower System V interprocess
 # shared-memory implementation instead of system-specific ones on unix-like
 # targets.
@@ -56,10 +54,10 @@ default-features = false
 [profile.dev]
 opt-level = 0
 debug = true
-rpath = false
 lto = false
 debug-assertions = true
 codegen-units = 4
+incremental = true
 panic = 'unwind'
 
 [profile.bench]
