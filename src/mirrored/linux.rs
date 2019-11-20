@@ -1,13 +1,13 @@
 //! Non-racy linux-specific mirrored memory allocation.
 use libc::{
     c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp, mmap,
-    munmap, off_t, size_t, syscall, sysconf, SYS_memfd_create, ENOSYS,
+    munmap, off_t, size_t, sysconf, ENOSYS, unlink,
     MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE, _SC_PAGESIZE,
 };
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "openbsd"))]
 use libc::__errno;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "openbsd")))]
 use libc::__errno_location;
 
 use super::{ptr, AllocError};
@@ -15,8 +15,17 @@ use super::{ptr, AllocError};
 /// [`memfd_create`] - create an anonymous file
 ///
 /// [`memfd_create`]: http://man7.org/linux/man-pages/man2/memfd_create.2.html
+#[cfg(not(target_os = "openbsd"))]
 fn memfd_create(name: *const c_char, flags: c_uint) -> c_long {
+    use libc::{syscall, SYS_memfd_create};
+
     unsafe { syscall(SYS_memfd_create, name, flags) }
+}
+
+#[cfg(target_os = "openbsd")]
+fn memfd_create(_name: *mut c_char, _flags: c_uint) -> c_long {
+    unsafe { *__errno() = ENOSYS };
+    return -1;
 }
 
 /// Returns the size of a memory allocation unit.
@@ -28,11 +37,11 @@ pub fn allocation_granularity() -> usize {
 
 /// Reads `errno`.
 fn errno() -> c_int {
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "openbsd")))]
     unsafe {
         *__errno_location()
     }
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "openbsd"))]
     unsafe {
         *__errno()
     }
@@ -68,6 +77,10 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
         if fd == -1 && errno() == ENOSYS {
             // memfd_create is not implemented, use mkstemp instead:
             fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
+            // and unlink the file
+            if fd != -1 {
+                unlink(fname.as_mut_ptr() as *mut c_char);
+            }
         }
         if fd == -1 {
             print_error("memfd_create failed");
