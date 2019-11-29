@@ -1,0 +1,40 @@
+name: CI
+
+on: [push]
+
+jobs:
+  style:
+    name: Check Style
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            rust: nightly
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            rust: nightly
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            rust: nightly
+    steps:
+    - uses: actions/checkout@master
+      with:
+        submodules: true
+    - name: Install Rust
+      run: |
+        rustup update ${{ matrix.rust }}
+        rustup default ${{ matrix.rust }}
+      if: matrix.os != 'macos-latest'
+    - name: Install Rust
+      run: |
+        curl https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ matrix.rust }}
+        echo "##[add-path]$HOME/.cargo/bin"
+      if: matrix.os == 'macos-latest'
+    - name: Style checks
+      run: ci/style.sh      
