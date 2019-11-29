@@ -1,8 +1,8 @@
 //! Non-racy linux-specific mirrored memory allocation.
 use libc::{
     c_char, c_int, c_long, c_uint, c_void, close, ftruncate, mkstemp, mmap,
-    munmap, off_t, size_t, sysconf, ENOSYS, unlink,
-    MAP_FAILED, MAP_FIXED, MAP_SHARED, PROT_READ, PROT_WRITE, _SC_PAGESIZE,
+    munmap, off_t, size_t, sysconf, unlink, ENOSYS, MAP_FAILED, MAP_FIXED,
+    MAP_SHARED, PROT_READ, PROT_WRITE, _SC_PAGESIZE,
 };
 
 #[cfg(any(target_os = "android", target_os = "openbsd"))]

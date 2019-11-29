@@ -33,19 +33,12 @@ pub(crate) use self::sysv::{
 };
 
 #[cfg(all(
-    any(target_os = "linux",
-        target_os = "android",
-        target_os = "openbsd"
-    ),
+    any(target_os = "linux", target_os = "android", target_os = "openbsd"),
     not(feature = "unix_sysv")
 ))]
 mod linux;
 #[cfg(all(
-    any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "openbsd"
-    ),
+    any(target_os = "linux", target_os = "android", target_os = "openbsd"),
     not(feature = "unix_sysv")
 ))]
 pub(crate) use self::linux::{
