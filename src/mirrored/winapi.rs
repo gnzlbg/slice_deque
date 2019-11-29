@@ -30,8 +30,9 @@ use super::AllocError;
 /// size (64k vs 4k), so determining the page size here is not necessary.
 pub fn allocation_granularity() -> usize {
     unsafe {
-        let mut system_info: SYSTEM_INFO = mem::uninitialized();
-        GetSystemInfo(&mut system_info as LPSYSTEM_INFO);
+        let mut system_info = mem::MaybeUninit::<SYSTEM_INFO>::uninit();
+        GetSystemInfo(system_info.as_mut_ptr() as LPSYSTEM_INFO);
+        let system_info = system_info.assume_init();
         let allocation_granularity =
             system_info.dwAllocationGranularity as usize;
         let page_size = system_info.dwPageSize as usize;

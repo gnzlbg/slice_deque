@@ -92,14 +92,15 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
 
         // Get an object handle to the first memory region:
         let mut memory_object_size = half_size as memory_object_size_t;
-        let mut object_handle: mem_entry_name_port_t = mem::uninitialized();
+        let mut object_handle =
+            mem::MaybeUninit::<mem_entry_name_port_t>::uninit();
         let parent_handle: mem_entry_name_port_t = 0;
         let r: kern_return_t = mach_make_memory_entry_64(
             task,
             &mut memory_object_size as *mut memory_object_size_t,
             addr as memory_object_offset_t,
             VM_PROT_READ | VM_PROT_WRITE,
-            &mut object_handle as *mut mem_entry_name_port_t,
+            object_handle.as_mut_ptr(),
             parent_handle,
         );
 
@@ -115,8 +116,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
 
         // Map the first half to the second half using the object handle:
         let mut to = (addr as *mut u8).add(half_size) as mach_vm_address_t;
-        let mut current_prot: vm_prot_t = mem::uninitialized();
-        let mut out_prot: vm_prot_t = mem::uninitialized();
+        let mut current_prot = mem::MaybeUninit::<vm_prot_t>::uninit();
+        let mut out_prot = mem::MaybeUninit::<vm_prot_t>::uninit();
         let r: kern_return_t = mach_vm_remap(
             task,
             &mut to as *mut mach_vm_address_t,
@@ -126,8 +127,8 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
             task,
             addr,
             /* copy: */ 0 as boolean_t,
-            &mut current_prot as *mut vm_prot_t,
-            &mut out_prot as *mut vm_prot_t,
+            current_prot.as_mut_ptr(),
+            out_prot.as_mut_ptr(),
             VM_INHERIT_NONE,
         );
 
