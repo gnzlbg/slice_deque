@@ -76,16 +76,19 @@ pub struct Buffer<T> {
 
 impl<T> Buffer<T> {
     /// Number of elements in the buffer.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Is the buffer empty?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Pointer to the first element in the buffer.
+    #[must_use]
     pub unsafe fn ptr(&self) -> *mut T {
         self.ptr.as_ptr()
     }
@@ -107,6 +110,7 @@ impl<T> Buffer<T> {
     /// Interprets content as a slice and access the `i`-th element.
     ///
     /// Warning: The memory of the `i`-th element might be uninitialized.
+    #[must_use]
     pub unsafe fn get(&self, i: usize) -> &T {
         &self.as_slice()[i]
     }
@@ -114,6 +118,7 @@ impl<T> Buffer<T> {
     /// Interprets content as a mut slice and access the `i`-th element.
     ///
     /// Warning: The memory of the `i`-th element might be uninitialized.
+    #[must_use]
     pub unsafe fn get_mut(&mut self, i: usize) -> &mut T {
         &mut self.as_mut_slice()[i]
     }
@@ -127,6 +132,7 @@ impl<T> Buffer<T> {
     }
 
     /// Creates a new empty `Buffer`.
+    #[must_use]
     pub fn new() -> Self {
         // Here `ptr` is initialized to a magic value but `len == 0`
         // will ensure that it is never dereferenced in this state.
@@ -154,6 +160,7 @@ impl<T> Buffer<T> {
     }
 
     /// Total number of bytes in the buffer.
+    #[must_use]
     pub fn size_in_bytes(len: usize) -> usize {
         let v = no_required_allocation_units(len * mem::size_of::<T>())
             * allocation_granularity();

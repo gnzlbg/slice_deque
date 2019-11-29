@@ -163,7 +163,8 @@ extern crate winapi;
 extern crate bytes;
 
 mod mirrored;
-pub use mirrored::{AllocError, Buffer};
+pub use mirrored::AllocError;
+use mirrored::Buffer;
 
 #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 use std::io;
