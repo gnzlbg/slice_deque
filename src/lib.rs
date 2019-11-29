@@ -168,7 +168,7 @@ pub use mirrored::{AllocError, Buffer};
 #[cfg(all(feature = "bytes_buf", feature = "use_std"))]
 use std::io;
 
-use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
+use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str, sync};
 
 use core::ptr::NonNull;
 

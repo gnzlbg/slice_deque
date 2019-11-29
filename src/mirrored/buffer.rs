@@ -1,6 +1,53 @@
 //! Implements a mirrored memory buffer.
 
-use super::*;
+use super::{
+    allocate_mirrored, deallocate_mirrored, mem, slice,
+    sync::atomic::{AtomicPtr, AtomicUsize, Ordering},
+    AllocError, NonNull,
+};
+
+// Querying the allocation granularity is very expensive on some platforms [0]
+// so we cache it here in a branchless way.
+//
+// The `ALLOC_GRANULARITY` contains the cached value, and
+// `GET_ALLOC_GRANULARITY` contains a function pointer that obtains the value.
+// This function pointer is initialized to a function that computes the value,
+// stores it in the cache, and replaces itself with another function that just
+// reads the cache.
+//
+// [0]: https://github.com/gnzlbg/slice_deque/issues/79
+union FnTransmute {
+    fn_ptr: fn() -> usize,
+    raw_ptr: *mut (),
+}
+static ALLOC_GRANULARITY: AtomicUsize = AtomicUsize::new(0);
+static GET_ALLOC_GRANULARITY: AtomicPtr<()> = AtomicPtr::<()>::new(unsafe {
+    FnTransmute {
+        fn_ptr: || {
+            // Query allocation granularity:
+            let val = super::allocation_granularity();
+            // Cache the value:
+            ALLOC_GRANULARITY.store(val, Ordering::Relaxed);
+            // Make sure that subsequent calls just read the cached value:
+            let ptr: fn() -> usize =
+                || ALLOC_GRANULARITY.load(Ordering::Relaxed);
+            GET_ALLOC_GRANULARITY.store(ptr as *mut (), Ordering::Relaxed);
+            // Return the value:
+            val
+        },
+    }
+    .raw_ptr
+});
+
+// Returns the allocation granularity
+fn allocation_granularity() -> usize {
+    unsafe {
+        (FnTransmute {
+            raw_ptr: GET_ALLOC_GRANULARITY.load(Ordering::Relaxed),
+        }
+        .fn_ptr)()
+    }
+}
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {
