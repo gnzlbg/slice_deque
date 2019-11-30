@@ -107,22 +107,6 @@ impl<T> Buffer<T> {
         slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len())
     }
 
-    /// Interprets content as a slice and access the `i`-th element.
-    ///
-    /// Warning: The memory of the `i`-th element might be uninitialized.
-    #[must_use]
-    pub unsafe fn get(&self, i: usize) -> &T {
-        &self.as_slice()[i]
-    }
-
-    /// Interprets content as a mut slice and access the `i`-th element.
-    ///
-    /// Warning: The memory of the `i`-th element might be uninitialized.
-    #[must_use]
-    pub unsafe fn get_mut(&mut self, i: usize) -> &mut T {
-        &mut self.as_mut_slice()[i]
-    }
-
     fn empty_len() -> usize {
         if mem::size_of::<T>() == 0 {
             isize::max_value() as usize * 2
