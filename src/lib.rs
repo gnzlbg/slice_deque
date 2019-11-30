@@ -138,7 +138,8 @@
     clippy::cast_possible_truncation,
     clippy::inline_always,
     clippy::indexing_slicing,
-    clippy::needless_doctest_main
+    clippy::needless_doctest_main,
+    clippy::use_self
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
 
@@ -1115,8 +1116,17 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if unsafe { intrinsics::unlikely(self.is_empty()) } {
-            return;
+        #[cfg(feature = "unstable")]
+        {
+            if intrinsics::unlikely(self.is_empty()) {
+                return;
+            }
+        }
+        #[cfg(not(feature = "unstable"))]
+        {
+            if self.is_empty() {
+                return;
+            }
         }
 
         // FIXME: we should compute the capacity and only allocate a shrunk
