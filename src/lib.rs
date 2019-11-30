@@ -137,7 +137,8 @@
     clippy::cast_sign_loss,
     clippy::cast_possible_truncation,
     clippy::inline_always,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    clippy::needless_doctest_main
 )]
 #![cfg_attr(not(any(feature = "use_std", test)), no_std)]
 
@@ -365,6 +366,7 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
         unsafe {
             let buf = Buffer::new();
@@ -375,11 +377,13 @@ impl<T> SliceDeque<T> {
         }
     }
 
-    /// Creates a SliceDeque from its raw components.
+    /// Creates a `SliceDeque` from its raw components.
     ///
-    /// The `ptr` must be a pointer to the beginning of the memory buffer from
-    /// another `SliceDeque`, `capacity` the capacity of this `SliceDeque`, and
-    /// `elems` the elements of this `SliceDeque`.
+    /// # Safety
+    ///
+    /// The `ptr` is the pointer to the beginning of a memory buffer allocated
+    /// by a `SliceDeque`, `capacity` its actual capacity, and `elems` the
+    /// sub-slice within the allocation containing live elements.
     #[inline]
     pub unsafe fn from_raw_parts(
         ptr: *mut T, capacity: usize, elems: &mut [T],
@@ -404,6 +408,7 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
+    #[must_use]
     pub fn with_capacity(n: usize) -> Self {
         unsafe {
             let buf = Buffer::uninitialized(2 * n).unwrap_or_else(|e| {
@@ -432,6 +437,7 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
+    #[must_use]
     pub fn capacity(&self) -> usize {
         // Note: the buffer length is not necessarily a power of two
         // debug_assert!(self.buf.len() % 2 == 0);
@@ -450,6 +456,7 @@ impl<T> SliceDeque<T> {
     /// assert!(deq.len() == 1);
     /// ```
     #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         let l = self.as_slice().len();
         debug_assert!(l <= self.capacity());
@@ -467,18 +474,21 @@ impl<T> SliceDeque<T> {
     /// # let o: SliceDeque<u32> = deq;
     /// ```
     #[inline]
+    #[must_use]
     pub fn is_full(&self) -> bool {
         self.len() == self.capacity()
     }
 
     /// Extracts a slice containing the entire deque.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[T] {
         unsafe { self.elems_.as_ref() }
     }
 
     /// Extracts a mutable slice containing the entire deque.
     #[inline]
+    #[must_use]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe { self.elems_.as_mut() }
     }
@@ -486,6 +496,7 @@ impl<T> SliceDeque<T> {
     /// Returns a pair of slices, where the first slice contains the contents
     /// of the deque and the second one is empty.
     #[inline]
+    #[must_use]
     pub fn as_slices(&self) -> (&[T], &[T]) {
         unsafe {
             let left = self.as_slice();
@@ -498,6 +509,7 @@ impl<T> SliceDeque<T> {
     /// Returns a pair of slices, where the first slice contains the contents
     /// of the deque and the second one is empty.
     #[inline]
+    #[must_use]
     pub fn as_mut_slices(&mut self) -> (&mut [T], &mut [T]) {
         unsafe {
             let left = self.as_mut_slice();
@@ -518,25 +530,29 @@ impl<T> SliceDeque<T> {
     /// let mut d = sdeq![1, 2, 3];
     /// let cap = d.capacity();
     /// let len = d.len();
-    /// unsafe {
-    ///     {
-    ///         // This slice contains the uninitialized elements in
-    ///         // the deque:
-    ///         let mut s = d.tail_head_slice();
-    ///         assert_eq!(s.len(), cap - len);
-    ///         // We can write to them and for example bump the tail of
-    ///         // the deque:
-    ///         s[0] = std::mem::MaybeUninit::new(4);
-    ///         s[1] = std::mem::MaybeUninit::new(5);
-    ///     }
-    ///     d.move_tail(2);
+    /// {
+    ///     // This slice contains the uninitialized elements in
+    ///     // the deque:
+    ///     let mut s = d.tail_head_slice();
+    ///     assert_eq!(s.len(), cap - len);
+    ///     // We can write to them and for example bump the tail of
+    ///     // the deque:
+    ///     s[0] = std::mem::MaybeUninit::new(4);
+    ///     s[1] = std::mem::MaybeUninit::new(5);
     /// }
+    /// unsafe { d.move_tail(2) };
     /// assert_eq!(d, sdeq![1, 2, 3, 4, 5]);
     /// # }
     /// ```
-    pub unsafe fn tail_head_slice(&mut self) -> &mut [mem::MaybeUninit<T>] {
-        let ptr = self.as_mut_slice().as_mut_ptr().add(self.len());
-        slice::from_raw_parts_mut(ptr as _, self.capacity() - self.len())
+    #[must_use]
+    pub fn tail_head_slice(&mut self) -> &mut [mem::MaybeUninit<T>] {
+        // This is safe because the uninitialized elements are exposed
+        // as `MaybeUninit` preventing the violation of any validity invariants
+        // and their memory is dereferenceable.
+        unsafe {
+            let ptr = self.as_mut_slice().as_mut_ptr().add(self.len());
+            slice::from_raw_parts_mut(ptr as _, self.capacity() - self.len())
+        }
     }
 
     /// Attempts to reserve capacity for inserting at least `additional`
@@ -660,7 +676,7 @@ impl<T> SliceDeque<T> {
     ///
     /// If `-C debug-assertions=1` violating this pre-condition `panic!`s.
     ///
-    /// # Unsafe
+    /// # Safety
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
@@ -719,7 +735,7 @@ impl<T> SliceDeque<T> {
     /// If the `head` wraps over the `tail`, that is, if `x` is out-of-range
     /// `[-(capacity() - len()), len()]`.
     ///
-    /// # Unsafe
+    /// # Safety
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
@@ -741,7 +757,7 @@ impl<T> SliceDeque<T> {
     ///
     /// If `-C debug-assertions=1` violating this pre-condition `panic!`s.
     ///
-    /// # Unsafe
+    /// # Safety
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
@@ -767,7 +783,7 @@ impl<T> SliceDeque<T> {
     /// If the `tail` wraps over the `head`, that is, if `x` is out-of-range
     /// `[-len(), capacity() - len()]`.
     ///
-    /// # Unsafe
+    /// # Safety
     ///
     /// It does not `drop` nor initialize elements, it just moves where the
     /// tail of the deque points to within the allocated buffer.
@@ -794,8 +810,13 @@ impl<T> SliceDeque<T> {
         self.move_tail_unchecked(count as isize);
     }
 
-    /// Steal the elements from the slice `s`. You should `mem::forget` the
-    /// slice afterwards.
+    /// Steal the elements from the slice `s`.
+    ///
+    /// # Safety
+    ///
+    /// You should `mem::forget` the slice afterwards, otherwise, the elements
+    /// might be dropped twice. Once when the `SliceDeque` is dropped, and once
+    /// when the owner of the slice is dropped.
     pub unsafe fn steal_from_slice(s: &[T]) -> Self {
         let mut deq = Self::new();
         deq.append_elements(s as *const _);
@@ -846,6 +867,7 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.front(), Some(&3));
     /// ```
     #[inline]
+    #[must_use]
     pub fn front(&self) -> Option<&T> {
         self.get(0)
     }
@@ -867,6 +889,7 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.front(), Some(&3));
     /// ```
     #[inline]
+    #[must_use]
     pub fn front_mut(&mut self) -> Option<&mut T> {
         self.get_mut(0)
     }
@@ -888,6 +911,7 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.back(), Some(&2));
     /// ```
     #[inline]
+    #[must_use]
     pub fn back(&self) -> Option<&T> {
         let last_idx = self.len().wrapping_sub(1);
         self.get(last_idx)
@@ -910,6 +934,7 @@ impl<T> SliceDeque<T> {
     /// assert_eq!(deq.back(), Some(&3));
     /// ```
     #[inline]
+    #[must_use]
     pub fn back_mut(&mut self) -> Option<&mut T> {
         let last_idx = self.len().wrapping_sub(1);
         self.get_mut(last_idx)
@@ -1113,7 +1138,7 @@ impl<T> SliceDeque<T> {
 
     /// Shortens the deque by removing excess elements from the back.
     ///
-    /// If `len` is greater than the SliceDeque's current length, this has no
+    /// If `len` is greater than the `SliceDeque`'s current length, this has no
     /// effect.
     ///
     /// # Examples
@@ -1147,7 +1172,7 @@ impl<T> SliceDeque<T> {
 
     /// Shortens the deque by removing excess elements from the back.
     ///
-    /// If `len` is greater than the SliceDeque's current length, this has no
+    /// If `len` is greater than the `SliceDeque`'s current length, this has no
     /// effect. See `truncate_back` for examples.
     #[inline]
     pub fn truncate(&mut self, len: usize) {
@@ -1156,7 +1181,7 @@ impl<T> SliceDeque<T> {
 
     /// Shortens the deque by removing excess elements from the front.
     ///
-    /// If `len` is greater than the SliceDeque's current length, this has no
+    /// If `len` is greater than the `SliceDeque`'s current length, this has no
     /// effect.
     ///
     /// # Examples
@@ -1696,9 +1721,11 @@ impl<T> SliceDeque<T> {
     ///
     /// This function should be the moral equivalent of:
     ///
-    /// >  for item in iterator {
-    /// >      self.push_back(item);
-    /// >  }
+    /// ```no_run
+    /// for item in iterator {
+    ///     self.push_back(item);
+    /// }
+    /// ```
     #[inline]
     fn extend_desugared<I: Iterator<Item = T>>(&mut self, mut iterator: I) {
         #[allow(clippy::while_let_on_iterator)]
@@ -1767,6 +1794,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[must_use]
     pub fn splice<R, I>(
         &mut self, range: R, replace_with: I,
     ) -> Splice<I::IntoIter>
@@ -1840,6 +1868,7 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
+    #[must_use]
     pub fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<T, F>
     where
         F: FnMut(&mut T) -> bool,
@@ -2304,6 +2333,7 @@ impl<T> IntoIter<T> {
     #[cfg(feature = "unstable")]
     #[allow(clippy::option_unwrap_used)]
     #[inline]
+    #[must_use]
     fn elems(&mut self) -> &mut [T] {
         unsafe {
             slice::from_raw_parts_mut(
@@ -2329,6 +2359,7 @@ impl<T> IntoIter<T> {
     /// # }
     /// ```
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.ptr, self.size_hint().0) }
     }
@@ -2351,6 +2382,7 @@ impl<T> IntoIter<T> {
     /// # }
     /// ```
     #[inline]
+    #[must_use]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             slice::from_raw_parts_mut(self.ptr as *mut T, self.size_hint().0)
