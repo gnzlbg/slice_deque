@@ -1,6 +1,6 @@
 # Slice Deque
 
-[![crates.io version][crate-shield]][crate] [![Travis build status][travis-shield]][travis] [![Appveyor build status][appveyor-shield]][appveyor] [![Codecov code coverage][codecov-shield]][codecov] [![Docs][docs-shield]][docs] [![License][license-shield]][license]
+[![crates.io version][crate-shield]][crate] ![](https://github.com/gnzlbg/slice_deque/workflows/CI/badge.svg)  [![Codecov code coverage][codecov-shield]][codecov] [![Docs][docs-shield]][docs] [![License][license-shield]][license]
 
 > A double-ended queue that `Deref`s into a slice, also known as a ring buffer or circular buffer.
 
@@ -183,10 +183,6 @@ dual licensed as above, without any additional terms or conditions.
 [`as_slices`]: https://doc.rust-lang.org/std/collections/struct.VecDeque.html#method.as_slices
 [`SliceDeque`]: struct.SliceDeque.html
 
-[travis-shield]: https://img.shields.io/travis/gnzlbg/slice_deque.svg?style=flat-square
-[travis]: https://travis-ci.org/gnzlbg/slice_deque
-[appveyor-shield]: https://img.shields.io/appveyor/ci/gnzlbg/slice-deque.svg?style=flat-square
-[appveyor]: https://ci.appveyor.com/project/gnzlbg/slice-deque/branch/master
 [codecov-shield]: https://img.shields.io/codecov/c/github/gnzlbg/slice_deque.svg?style=flat-square
 [codecov]: https://codecov.io/gh/gnzlbg/slice_deque
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square

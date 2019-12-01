@@ -113,7 +113,7 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
         }
 
         let ptr2 = mmap(
-            (ptr as *mut u8).offset(half_size as isize) as *mut c_void,
+            (ptr as *mut u8).add(half_size) as *mut c_void,
             half_size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED | MAP_FIXED,

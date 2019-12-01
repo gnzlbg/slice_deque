@@ -2,7 +2,7 @@
 # dev-dependencies which causes 
 [package]
 name = "slice-deque"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["gnzlbg <gonzalobg88@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
 documentation = "https://docs.rs/crate/slice-deque/"
@@ -15,12 +15,9 @@ license = "MIT/Apache-2.0"
 edition = "2018"
 
 [badges]
-appveyor = { repository = "gnzlbg/slice_deque" }
-travis-ci = { repository = "gnzlbg/slice_deque" }
-codecov = { repository = "gnzlbg/slice_deque" }
 is-it-maintained-issue-resolution = { repository = "gnzlbg/slice_deque" }
 is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
-maintenance = { status = "experimental" }
+maintenance = { status = "actively-maintained" }
 
 [target.'cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))'.dependencies.mach]
 version = "0.3"
@@ -33,6 +30,9 @@ default-features = false
 
 [features]
 default = [ "use_std" ]
+
+# Enables use of unstable nightly-only features.
+unstable = []
 
 # Enables features that require the standard library
 use_std = [ "libc/use_std" ]

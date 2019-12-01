@@ -1,6 +1,53 @@
 //! Implements a mirrored memory buffer.
 
-use super::*;
+use super::{
+    allocate_mirrored, deallocate_mirrored, mem, slice,
+    sync::atomic::{AtomicPtr, AtomicUsize, Ordering},
+    AllocError, NonNull,
+};
+
+// Querying the allocation granularity is very expensive on some platforms [0]
+// so we cache it here in a branchless way.
+//
+// The `ALLOC_GRANULARITY` contains the cached value, and
+// `GET_ALLOC_GRANULARITY` contains a function pointer that obtains the value.
+// This function pointer is initialized to a function that computes the value,
+// stores it in the cache, and replaces itself with another function that just
+// reads the cache.
+//
+// [0]: https://github.com/gnzlbg/slice_deque/issues/79
+union FnTransmute {
+    fn_ptr: fn() -> usize,
+    raw_ptr: *mut (),
+}
+static ALLOC_GRANULARITY: AtomicUsize = AtomicUsize::new(0);
+static GET_ALLOC_GRANULARITY: AtomicPtr<()> = AtomicPtr::<()>::new(unsafe {
+    FnTransmute {
+        fn_ptr: || {
+            // Query allocation granularity:
+            let val = super::allocation_granularity();
+            // Cache the value:
+            ALLOC_GRANULARITY.store(val, Ordering::Relaxed);
+            // Make sure that subsequent calls just read the cached value:
+            let ptr: fn() -> usize =
+                || ALLOC_GRANULARITY.load(Ordering::Relaxed);
+            GET_ALLOC_GRANULARITY.store(ptr as *mut (), Ordering::Relaxed);
+            // Return the value:
+            val
+        },
+    }
+    .raw_ptr
+});
+
+// Returns the allocation granularity
+fn allocation_granularity() -> usize {
+    unsafe {
+        (FnTransmute {
+            raw_ptr: GET_ALLOC_GRANULARITY.load(Ordering::Relaxed),
+        }
+        .fn_ptr)()
+    }
+}
 
 /// Number of required memory allocation units to hold `bytes`.
 fn no_required_allocation_units(bytes: usize) -> usize {
@@ -29,16 +76,19 @@ pub struct Buffer<T> {
 
 impl<T> Buffer<T> {
     /// Number of elements in the buffer.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Is the buffer empty?
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Pointer to the first element in the buffer.
+    #[must_use]
     pub unsafe fn ptr(&self) -> *mut T {
         self.ptr.as_ptr()
     }
@@ -57,20 +107,6 @@ impl<T> Buffer<T> {
         slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len())
     }
 
-    /// Interprets content as a slice and access the `i`-th element.
-    ///
-    /// Warning: The memory of the `i`-th element might be uninitialized.
-    pub unsafe fn get(&self, i: usize) -> &T {
-        &self.as_slice()[i]
-    }
-
-    /// Interprets content as a mut slice and access the `i`-th element.
-    ///
-    /// Warning: The memory of the `i`-th element might be uninitialized.
-    pub unsafe fn get_mut(&mut self, i: usize) -> &mut T {
-        &mut self.as_mut_slice()[i]
-    }
-
     fn empty_len() -> usize {
         if mem::size_of::<T>() == 0 {
             isize::max_value() as usize * 2
@@ -80,6 +116,7 @@ impl<T> Buffer<T> {
     }
 
     /// Creates a new empty `Buffer`.
+    #[must_use]
     pub fn new() -> Self {
         // Here `ptr` is initialized to a magic value but `len == 0`
         // will ensure that it is never dereferenced in this state.
@@ -107,6 +144,7 @@ impl<T> Buffer<T> {
     }
 
     /// Total number of bytes in the buffer.
+    #[must_use]
     pub fn size_in_bytes(len: usize) -> usize {
         let v = no_required_allocation_units(len * mem::size_of::<T>())
             * allocation_granularity();
@@ -236,7 +274,7 @@ mod tests {
             );
 
             for i in 0..sz / 2 {
-                *a.get_mut(i) = i as u64;
+                a.as_mut_slice()[i] = i as u64;
             }
 
             let (first_half_mut, second_half_mut) =
