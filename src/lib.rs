@@ -1731,7 +1731,7 @@ impl<T> SliceDeque<T> {
     ///
     /// This function should be the moral equivalent of:
     ///
-    /// ```no_run
+    /// ```norun
     /// for item in iterator {
     ///     self.push_back(item);
     /// }
@@ -1804,7 +1804,6 @@ impl<T> SliceDeque<T> {
     /// # }
     /// ```
     #[inline]
-    #[must_use]
     pub fn splice<R, I>(
         &mut self, range: R, replace_with: I,
     ) -> Splice<I::IntoIter>

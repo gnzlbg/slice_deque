@@ -1,106 +1,76 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 set -ex
+
+: "${TARGET?The TARGET environment variable must be set.}"
 
 export RUST_TEST_THREADS=1
 export RUST_BACKTRACE=1
 export RUST_TEST_NOCAPTURE=1
-export OPT="--target=$TARGET"
-export OPT_RELEASE="--release ${OPT}"
-export OPT_ND="--no-default-features ${OPT}"
-export OPT_RELEASE_ND="--no-default-features ${OPT_RELEASE}"
-
-# Select cargo command: use cross by default
-export CARGO_CMD=cross
-
-# On Appveyor (windows) and Travis (x86_64-unknown-linux-gnu and apple) native targets we use cargo (no need to cross-compile):
-if [[ $TARGET = *"windows"* ]] || [[ $TARGET == "x86_64-unknown-linux-gnu" ]] || [[ $TARGET = *"apple"* ]]; then
-    export CARGO_CMD=cargo
-fi
-
-# Install cross if necessary:
-if [[ $CARGO_CMD == "cross" ]]; then
-    cargo install cross
-fi
-
-# Use iOS simulator for those targets that support it:
-if [[ $TARGET = *"ios"* ]]; then
-    export RUSTFLAGS=-Clink-arg=-mios-simulator-version-min=7.0
-    rustc ./ci/deploy_and_run_on_ios_simulator.rs -o $HOME/runtest
-    export CARGO_TARGET_X86_64_APPLE_IOS_RUNNER=$HOME/runtest
-    export CARGO_TARGET_I386_APPLE_IOS_RUNNER=$HOME/runtest
-fi
-
-# Make sure TARGET is installed when using cargo:
-if [[ $CARGO_CMD == "cargo" ]]; then
-    rustup target add $TARGET || true
-fi
 
 # If the build should not run tests, just check that the code builds:
-if [[ $NORUN == "1" ]]; then
-    export CARGO_SUBCMD="build"
+if [ "${NORUN}" = "1" ]; then
+    export CARGO="cargo build"
 else
-    export CARGO_SUBCMD="test"
-    # If the tests should be run, always dump all test output.
-    export OPT="${OPT} "
-    export OPT_RELEASE="${OPT_RELEASE} "
-    export OPT_ND="${OPT_ND} "
-    export OPT_RELEASE_ND="${OPT_RELEASE_ND} "
+    export CARGO="cargo test"
 fi
+export CARGO="${CARGO} --target=${TARGET} --no-default-features"
 
-# Run all the test configurations:
-if [[ $NOSTD != "1" ]]; then # These builds require a std component
-    $CARGO_CMD $CARGO_SUBCMD $OPT
-    $CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE
+# Simulators:
+case "${TARGET}" in
+    *ios*)
+        export RUSTFLAGS=-Clink-arg=-mios-simulator-version-min=7.0
+        rustc ./ci/deploy_and_run_on_ios_simulator.rs -o "${HOME}"/runtest
+        export CARGO_TARGET_X86_64_APPLE_IOS_RUNNER="${HOME}"/runtest
+        export CARGO_TARGET_I386_APPLE_IOS_RUNNER="${HOME}"/runtest
+        ;;
+esac
+
+# Make sure that the builds with --no-default-features don't have
+# any libstd symbols linked:
+cargo clean
+cargo build --no-default-features
+set +e
+if find target/ -name "*.rlib" -exec nm {} \; 2>&1 | grep "std"; then
+    exit 1
 fi
-
-$CARGO_CMD $CARGO_SUBCMD $OPT_ND
-! find target/ -name *.rlib -exec nm {} \; | grep "std"
-$CARGO_CMD clean
-$CARGO_CMD $CARGO_SUBCMD $OPT_RELEASE_ND
-! find target/ -name *.rlib -exec nm {} \; | grep "std"
-
-if [[ $NOSTD != "1" ]]; then # These builds require a std component
-    $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_ND
-    $CARGO_CMD $CARGO_SUBCMD --features "use_std" $OPT_RELEASE_ND
-
-    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_ND
-    #$CARGO_CMD $CARGO_SUBCMD --features "bytes_buf" $OPT_RELEASE_ND
+cargo clean
+cargo test --release --no-default-features
+if find target/ -name "*.rlib" -exec nm {} \; | grep  "std"; then
+    exit 1
 fi
+set -e
 
-if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
-    $CARGO_CMD $CARGO_SUBCMD --features "unstable" $OPT_ND
-    $CARGO_CMD $CARGO_SUBCMD --features "unstable" $OPT_RELEASE_ND
+FEATURES="\
+use_std \
+unstable \
+bytes_buf \
+use_std,unstable,bytes_buf \
+"
 
-    if [[ $NOSTD != "1" ]]; then # These builds require a std component
-
-        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_ND
-        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable" $OPT_RELEASE_ND
-
-        #$CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_ND
-        #$CARGO_CMD $CARGO_SUBCMD --features "unstable,bytes_buf" $OPT_RELEASE_ND
-
-        if [[ $SYSV == "1" ]]; then
-            $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable,unix_sysv" $OPT
-            $CARGO_CMD $CARGO_SUBCMD --features "use_std,unstable,unix_sysv" $OPT_RELEASE_ND
-        fi
+for FEATURE in ${FEATURES}; do
+    if [ "${SYSV}" = 1 ]; then
+        FEATURE="${FEATURE},unix_sysv"
     fi
-fi
+    "${CARGO} --features=${FEATURE}"
+    "${CARGO} --release --features=${FEATURE}"
+done
 
-if [[ $SYSV == "1" ]]; then
-    $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_
-    $CARGO_CMD $CARGO_SUBCMD --features "unix_sysv" $OPT_RELEASE_ND
-    if [[ $NOSTD != "1" ]]; then # These builds require a std component
-        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unix_sysv" $OPT_ND
-        $CARGO_CMD $CARGO_SUBCMD --features "use_std,unix_sysv" $OPT_RELEASE_ND
-    fi
-fi
+test_asan() {
+    RUSTFLAGS_BAK=$RUSTFLAGS
+    RUSTFLAGS="${RUSTFLAGS_BAK} -Z sanitizer=address"
+    export ASAN_OPTIONS="detect_odr_violation=0:detect_leaks=0"
+    "${CARGO}"
+    "${CARGO} --release"
+    RUSTFLAGS="${RUSTFLAGS_BAK}"
+}
 
-# Run documentation and clippy:
-if [[ $CARGO_CMD == "cargo" ]] && [[ $TARGET != *"ios"* ]]; then
-    cargo doc
-    if [[ $TRAVIS_RUST_VERSION == "nightly" ]]; then
-        rustup component add clippy-preview
-        cargo clippy -- -D clippy-pedantic
-    fi
-fi
+# Sanitizers:
+case "${TARGET}" in
+    x86_64-unknown-linux-gnu*)
+        test_asan
+        ;;
+    x86_64-apple-darwin*)
+        test_asan
+        ;;
+esac

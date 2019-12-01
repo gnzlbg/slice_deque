@@ -274,7 +274,7 @@ mod tests {
             );
 
             for i in 0..sz / 2 {
-                *a.get_mut(i) = i as u64;
+                a.as_mut_slice()[i] = i as u64;
             }
 
             let (first_half_mut, second_half_mut) =
