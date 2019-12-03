@@ -262,7 +262,9 @@ fn reserve_virtual_memory(size: usize) -> Result<(*mut u8), AllocError> {
 /// If `file_mapping` or `address` are null, or if `size` is zero or not a
 /// multiple of the allocation granularity of the system.
 unsafe fn map_view_of_file(
-    file_mapping: HANDLE, size: usize, address: *mut u8,
+    file_mapping: HANDLE,
+    size: usize,
+    address: *mut u8,
 ) -> Result<(), ()> {
     assert!(!file_mapping.is_null());
     assert!(!address.is_null());

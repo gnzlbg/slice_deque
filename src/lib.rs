@@ -381,7 +381,9 @@ impl<T> SliceDeque<T> {
     /// `elems` the elements of this `SliceDeque`.
     #[inline]
     pub unsafe fn from_raw_parts(
-        ptr: *mut T, capacity: usize, elems: &mut [T],
+        ptr: *mut T,
+        capacity: usize,
+        elems: &mut [T],
     ) -> Self {
         let begin = elems.as_mut_ptr();
         debug_assert!(in_bounds(slice::from_raw_parts(ptr, capacity), begin));
@@ -549,7 +551,8 @@ impl<T> SliceDeque<T> {
     /// Panics if the new capacity overflows `usize`.
     #[inline]
     pub fn try_reserve(
-        &mut self, additional: usize,
+        &mut self,
+        additional: usize,
     ) -> Result<(), AllocError> {
         let old_len = self.len();
         let new_cap = self.grow_policy(additional);
@@ -575,7 +578,8 @@ impl<T> SliceDeque<T> {
     /// if the capacity is already sufficient.
     #[inline]
     fn reserve_capacity(
-        &mut self, new_capacity: usize,
+        &mut self,
+        new_capacity: usize,
     ) -> Result<(), AllocError> {
         unsafe {
             if new_capacity <= self.capacity() {
@@ -1767,7 +1771,9 @@ impl<T> SliceDeque<T> {
     /// ```
     #[inline]
     pub fn splice<R, I>(
-        &mut self, range: R, replace_with: I,
+        &mut self,
+        range: R,
+        replace_with: I,
     ) -> Splice<I::IntoIter>
     where
         R: ops::RangeBounds<usize>,
@@ -2953,7 +2959,8 @@ impl<'a, T> Drain<'a, T> {
     /// `replace_with` iterator. Return whether we filled the entire
     /// range. (`replace_with.next()` didn’t return `None`.)
     unsafe fn fill<I: Iterator<Item = T>>(
-        &mut self, replace_with: &mut I,
+        &mut self,
+        replace_with: &mut I,
     ) -> bool {
         let deq = self.deq.as_mut();
         let range_start = deq.len();
@@ -3191,7 +3198,8 @@ mod tests {
     }
 
     fn constant_deque<T: Clone + fmt::Debug>(
-        size: usize, val: &T,
+        size: usize,
+        val: &T,
     ) -> SliceDeque<T> {
         let mut v: SliceDeque<T> = SliceDeque::with_capacity(size);
         for i in 0..size {
@@ -4503,7 +4511,10 @@ mod tests {
 
     #[cfg(test)]
     fn vecdeque_parameterized<T: Clone + PartialEq + fmt::Debug>(
-        a: T, b: T, c: T, d: T,
+        a: T,
+        b: T,
+        c: T,
+        d: T,
     ) {
         let mut deq = SliceDeque::new();
         assert_eq!(deq.len(), 0);
