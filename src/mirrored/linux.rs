@@ -71,15 +71,16 @@ pub fn allocate_mirrored(size: usize) -> Result<*mut u8, AllocError> {
         assert!(half_size % allocation_granularity() == 0);
 
         // create temporary file
-        let mut fname = *b"/tmp/slice_deque_fileXXXXXX\0";
-        let mut fd: c_long =
-            memfd_create(fname.as_mut_ptr() as *mut c_char, 0);
+        let fname = b"/tmp/slice_deque_fileXXXXXX\0";
+        let mut fd: c_long = memfd_create(fname.as_ptr() as *const c_char, 0);
         if fd == -1 && errno() == ENOSYS {
+            // copy fname to stack variable to allow modification
+            let mut fname = fname.clone();
             // memfd_create is not implemented, use mkstemp instead:
             fd = c_long::from(mkstemp(fname.as_mut_ptr() as *mut c_char));
             // and unlink the file
             if fd != -1 {
-                unlink(fname.as_mut_ptr() as *mut c_char);
+                unlink(fname.as_ptr() as *const c_char);
             }
         }
         if fd == -1 {
