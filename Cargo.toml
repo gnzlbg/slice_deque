@@ -34,6 +34,8 @@ default-features = false
 [features]
 default = [ "use_std" ]
 
+unstable = []
+
 # Enables features that require the standard library
 use_std = [ "libc/use_std" ]
 # Enables support for the bytes_buf trait. That is,
