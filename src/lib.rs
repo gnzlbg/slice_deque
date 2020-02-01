@@ -276,7 +276,9 @@ impl io::Write for SliceDeque<u8> {
     }
 
     #[inline]
-    fn write_vectored(&mut self, bufs: &[io::IoSlice<'_>]) -> io::Result<usize> {
+    fn write_vectored(
+        &mut self, bufs: &[io::IoSlice<'_>],
+    ) -> io::Result<usize> {
         let len = bufs.iter().map(|b| b.len()).sum();
         self.reserve(len);
         for buf in bufs {
