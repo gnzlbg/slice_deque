@@ -165,7 +165,7 @@ extern crate bytes;
 mod mirrored;
 pub use mirrored::{AllocError, Buffer};
 
-#[cfg(all(feature = "bytes_buf", feature = "use_std"))]
+#[cfg(all(feature = "use_std"))]
 use std::io;
 
 use core::{cmp, convert, fmt, hash, iter, mem, ops, ptr, slice, str};
@@ -265,6 +265,36 @@ pub struct SliceDeque<T> {
     elems_: NonNull<[T]>,
     /// Mirrored memory buffer.
     buf: Buffer<T>,
+}
+
+#[cfg(feature = "use_std")]
+impl io::Write for SliceDeque<u8> {
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    #[inline]
+    fn write_vectored(&mut self, bufs: &[io::IoSlice<'_>]) -> io::Result<usize> {
+        let len = bufs.iter().map(|b| b.len()).sum();
+        self.reserve(len);
+        for buf in bufs {
+            self.extend_from_slice(buf);
+        }
+        Ok(len)
+    }
+
+    #[inline]
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+
+    #[inline]
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 // Safe because it is possible to free this from a different thread
