@@ -3017,12 +3017,15 @@ where
         unsafe {
             while self.idx != self.old_len {
                 let i = self.idx;
-                self.idx += 1;
                 let v = slice::from_raw_parts_mut(
                     self.deq.as_mut_ptr(),
                     self.old_len,
                 );
-                if (self.pred)(&mut v[i]) {
+                let result = (self.pred)(&mut v[i]);
+                // Update self.idx after calling self.pred
+                // to prevent inconsistent state
+                self.idx += 1;
+                if result {
                     self.del += 1;
                     return Some(ptr::read(&v[i]));
                 } else if self.del > 0 {
