@@ -1,6 +1,7 @@
 # Slice Ring Buffer
 
 [![maintenance](https://img.shields.io/badge/maintenance-passively--maintained-orange)](https://img.shields.io/badge/maintenance-passively--maintained-orange)
+[![Rust](https://github.com/LiquidityC/slice_ring_buffer/actions/workflows/rust.yml/badge.svg)](https://github.com/LiquidityC/slice_ring_buffer/actions/workflows/rust.yml)
 
 > A double-ended queue that `Deref`s into a slice, also known as a ring buffer or circular buffer.
 
