@@ -1,13 +1,13 @@
 # This cargo file is used exclusively for development. It includes
 # dev-dependencies which causes 
 [package]
-name = "slice-deque"
-version = "0.3.0"
-authors = ["gnzlbg <gonzalobg88@gmail.com>"]
+name = "slice-ring-buffer"
+version = "0.3.1"
+authors = ["Linus Probert <linus.probert@gmail.com>"]
 description = "A double-ended queue that Deref's into a slice."
-documentation = "https://docs.rs/crate/slice-deque/"
-homepage = "https://github.com/gnzlbg/slice_deque"
-repository = "https://github.com/gnzlbg/slice_deque"
+documentation = "https://docs.rs/crate/slice-ring-buffer/"
+homepage = "https://github.com/liquidityc/slice_ring_buffer"
+repository = "https://github.com/liquidityc/slice_ring_buffer"
 readme = "readme.md"
 keywords = ["collection", "deque", "ring", "circular", "buffer"]
 categories = ["data-structures", "no-std"]
@@ -15,12 +15,7 @@ license = "MIT/Apache-2.0"
 edition = "2018"
 
 [badges]
-appveyor = { repository = "gnzlbg/slice_deque" }
-travis-ci = { repository = "gnzlbg/slice_deque" }
-codecov = { repository = "gnzlbg/slice_deque" }
-is-it-maintained-issue-resolution = { repository = "gnzlbg/slice_deque" }
-is-it-maintained-open-issues = { repository = "gnzlbg/slice_deque" }
-maintenance = { status = "experimental" }
+maintenance = { status = "passive" }
 
 [target.'cfg(all(any(target_os = "macos", target_os = "ios"), not(feature = "unix_sysv")))'.dependencies.mach]
 version = "0.3"

@@ -1,6 +1,0 @@
-coverage:
-  range: 50...75
-  round: nearest
-
-ignore:
-  - test/**/*
